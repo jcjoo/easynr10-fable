@@ -1,0 +1,1216 @@
+[
+ {
+  "code": "10.2.1",
+  "description": "Em todas as intervenções em instalações elétricas devem ser adotadas medidas preventivas de controle do risco elétrico e de outros riscos adicionais, mediante técnicas de análise de risco, de forma a garantir a segurança e a saúde no trabalho",
+  "orientation": "Exige a adoção de medidas preventivas de controle do risco elétrico e riscos adicionais mediante técnicas de análise de risco prévias às intervenções.",
+  "documentGroup": "instrucoes_e_procedimentos",
+  "importanceWeight": 4,
+  "requirements": [
+   {
+    "type": "document",
+    "question": "ANÁLISE PRELIMINAR DE RISCO (APR)\nINSTRUÇÃO ADMINISTRATIVA"
+   }
+  ]
+ },
+ {
+  "code": "10.2.2",
+  "description": "As medidas de controle adotadas devem integrar-se às demais iniciativas da empresa, no âmbito da preservação da segurança, da saúde e do meio ambiente do trabalho",
+  "orientation": "As medidas de controle do risco elétrico devem se integrar monolítica e gerencialmente às demais políticas de preservação de SST e meio ambiente da empresa.",
+  "documentGroup": "instrucoes_e_procedimentos",
+  "importanceWeight": 1,
+  "requirements": [
+   {
+    "type": "opinion",
+    "question": "INSPEÇÃO VISUAL DA ESTRUTURA DE SEGURANÇA"
+   }
+  ]
+ },
+ {
+  "code": "10.2.3",
+  "description": "As empresas estão obrigadas a manter esquemas unifilares atualizados das instalações elétricas dos seus estabelecimentos com as especificações do sistema de aterramento e demais equipamentos e dispositivos de proteção",
+  "orientation": "Obriga a manutenção de esquemas unifilares atualizados com as especificações do sistema de aterramento e dos demais equipamentos de proteção.",
+  "documentGroup": "instalacoes",
+  "importanceWeight": 3,
+  "requirements": [
+   {
+    "type": "document",
+    "question": "DIAGRAMA UNIFILAR ATUALIZADO"
+   }
+  ]
+ },
+ {
+  "code": "10.2.4a",
+  "description": "Conjunto de procedimentos e instruções técnicas e administrativas de segurança e saúde, implantadas e relacionadas a esta NR e descrição das medidas de controle existentes",
+  "orientation": "A alínea a – determina que integrem o prontuário todos os procedimentos operacionais, as instruções técnicas, as instruções administrativas relacionadas aos trabalhos.\nIntegra ao prontuário procedimentos e instruções operacionais, detalhando limitações de cada função e as medidas de controle implantadas.",
+  "documentGroup": "instrucoes_e_procedimentos",
+  "importanceWeight": 2,
+  "requirements": [
+   {
+    "type": "document",
+    "question": "PROCEDIMENTOS OPERACIONAIS"
+   },
+   {
+    "type": "document",
+    "question": "INSTRUÇÕES TÉCNICAS E ADMINISTRATIVAS"
+   }
+  ]
+ },
+ {
+  "code": "10.2.4b",
+  "description": "Documentação das inspeções e medições do sistema de proteção contra descargas atmosféricas e aterramentos elétricos",
+  "orientation": "Exige a documentação das inspeções técnicas e medições periódicas relativas ao SPDA e aos sistemas de aterramento elétrico.",
+  "documentGroup": "instalacoes",
+  "importanceWeight": 2,
+  "requirements": [
+   {
+    "type": "document",
+    "question": "RELATÓRIO TÉCNICO DE INSPEÇÕES DA PDA"
+   },
+   {
+    "type": "document",
+    "question": "RELATÓRIO TÉCNICO DE ATERRAMENTO E EQUIPOTENCIALIZAÇÃO (VOLTADO PARA SPDA)"
+   }
+  ]
+ },
+ {
+  "code": "10.2.4c",
+  "description": "Especificação dos equipamentos de proteção coletiva e individual e o ferramental, aplicáveis conforme determina esta NR",
+  "orientation": "Determina a especificação clara no prontuário de todos os EPIs, EPCs e ferramentas adequadas, precedida de criteriosa análise de risco. Atenção para aparelhos de medição que deverão ser adequados à grandeza a medir e de categoria apropriada.",
+  "documentGroup": "equipamentos",
+  "importanceWeight": 2,
+  "requirements": [
+   {
+    "type": "document",
+    "question": "ESPECIFICAÇÃO TÉCNICA DOS EQUIPAMENTOS DE PROTEÇÃO COLETIVA (EPC)"
+   },
+   {
+    "type": "document",
+    "question": "ESPECIFICAÇÃO TÉCNICA DOS EQUIPAMENTOS DE PROTEÇÃO INDIVIDUAL (EPI)"
+   },
+   {
+    "type": "document",
+    "question": "MANUAL TÉCNICO DOS EQUIPAMENTOS"
+   },
+   {
+    "type": "document",
+    "question": "ESPECIFICAÇÃO TÉCNICA DAS FERRAMENTAS"
+   }
+  ]
+ },
+ {
+  "code": "10.2.4d",
+  "description": "Documentação comprobatória da qualificação, habilitação, capacitação, autorização dos trabalhadores e dos treinamentos realizados",
+  "orientation": "Reúne a documentação de autorização do trabalhador, comprovando desde a formação escolar até os treinamentos básicos e complementares.",
+  "documentGroup": "colaboradores",
+  "importanceWeight": 2,
+  "requirements": [
+   {
+    "type": "document",
+    "question": "AUTORIZAÇÃO DE TRABALHO NR10"
+   },
+   {
+    "type": "document",
+    "question": "CERTIFICADO DE TREINAMENTO NR10 BÁSICO"
+   },
+   {
+    "type": "document",
+    "question": "CERTIFICADO DE TREINAMENTO NR10 SEP"
+   },
+   {
+    "type": "document",
+    "question": "CERTIFICADO DE FORMAÇÃO TÉCNICA"
+   }
+  ]
+ },
+ {
+  "code": "10.2.4e",
+  "description": "Resultados dos testes de isolação elétrica realizados em equipamentos de proteção individual e coletiva",
+  "orientation": "Exige a guarda dos laudos contendo resultados de testes de isolação (ensaios dielétricos) periódicos em materiais e equipamentos de proteção.",
+  "documentGroup": "instalacoes",
+  "importanceWeight": 2,
+  "requirements": [
+   {
+    "type": "document",
+    "question": "LAUDOS E TESTES DE ISOLAÇÃO DE EQUIPAMENTOS"
+   }
+  ]
+ },
+ {
+  "code": "10.2.4f",
+  "description": "Certificações dos equipamentos e materiais elétricos em áreas classificadas",
+  "orientation": "Torna obrigatória a organização de certificados emitidos pelo SINMETRO para atestar a segurança de equipamentos usados em atmosferas explosivas.",
+  "documentGroup": "instalacoes",
+  "importanceWeight": 2,
+  "requirements": [
+   {
+    "type": "document",
+    "question": "CERTIFICADO ATEX DE EQUIPAMENTO"
+   }
+  ]
+ },
+ {
+  "code": "10.2.4g",
+  "description": "Relatório técnico das inspeções atualizadas com recomendações, cronogramas de adequações, contemplando as alíneas de \"a\" a \"f\"",
+  "orientation": "Trata da auditoria técnica periódica das instalações, gerando um relatório com não conformidades e um cronograma de adequações.",
+  "documentGroup": "instalacoes",
+  "importanceWeight": 2,
+  "requirements": [
+   {
+    "type": "document",
+    "question": "RELATÓRIO TÉCNICO DE INSPEÇÕES DAS INSTALAÇÕES ELÉTRICAS"
+   },
+   {
+    "type": "document",
+    "question": "PLANO DE AÇÃO NR10\nDOCUMENTAÇÃO COM AS MODIFICAÇÕES OCORRIDAS NAS INSTALAÇÕES"
+   },
+   {
+    "type": "document",
+    "question": "RELATÓRIO TÉCNICO DE MANUTENÇÃO"
+   }
+  ]
+ },
+ {
+  "code": "10.2.5a",
+  "description": "Procedimentos para emergências para empresas do SEP",
+  "orientation": "Empresas do Setor Elétrico de Potência (SEP) devem adicionar a descrição de procedimentos para contingências e emergências em geral.",
+  "documentGroup": "instrucoes_e_procedimentos",
+  "importanceWeight": 2,
+  "requirements": [
+   {
+    "type": "document",
+    "question": "PROCEDIMENTO DE EMERGÊNCIA"
+   }
+  ]
+ },
+ {
+  "code": "10.2.5b",
+  "description": "Certificações dos EPI's e EPC's para empresa do SEP",
+  "orientation": "Requer a anexação específica das certificações dos equipamentos de proteção individual (CAs) e coletivos apropriados aos riscos do SEP.",
+  "documentGroup": "equipamentos",
+  "importanceWeight": 2,
+  "requirements": [
+   {
+    "type": "document",
+    "question": "CERTIFICADO DE APROVAÇÃO"
+   }
+  ]
+ },
+ {
+  "code": "10.2.6",
+  "description": "O Prontuário de Instalações Elétricas deve ser organizado e mantido atualizado pelo empregador ou pessoa formalmente designada pela empresa, devendo permanecer à disposição dos trabalhadores envolvidos nas instalações e serviços em eletricidade",
+  "orientation": "O prontuário deve ser organizado, atualizado e mantido acessível aos trabalhadores por responsável formalmente designado pelo empregador.",
+  "documentGroup": "instrucoes_e_procedimentos",
+  "importanceWeight": 3,
+  "requirements": [
+   {
+    "type": "document",
+    "question": "CARTA NOMEATIVA"
+   }
+  ]
+ },
+ {
+  "code": "10.2.7",
+  "description": "Os documentos técnicos previstos no Prontuário de Instalações Elétricas devem ser elaborados por profissional legalmente habilitado.",
+  "orientation": "Todos os documentos técnicos do prontuário devem ser elaborados estritamente por profissional legalmente habilitado.",
+  "documentGroup": "instrucoes_e_procedimentos",
+  "importanceWeight": 2,
+  "requirements": [
+   {
+    "type": "opinion",
+    "question": "INSPEÇÃO VISUAL DOS DOCUMENTOS ASSINADOS POR PROFISSIONAL LEGALMENTE HABILITADO (PLH)"
+   }
+  ]
+ },
+ {
+  "code": "10.2.8.1",
+  "description": "Em todos os serviços executados em instalações elétricas devem ser previstas e adotadas, prioritariamente, medidas de proteção coletiva aplicáveis, mediante procedimentos, às atividades a serem desenvolvidas, de forma a garantir a segurança e a saúde dos trabalhadores.",
+  "orientation": "Medidas de proteção coletiva (EPCs) devem ser previstas e adotadas prioritariamente nos serviços, implantadas mediante procedimentos padronizados.",
+  "documentGroup": "instrucoes_e_procedimentos",
+  "importanceWeight": 4,
+  "requirements": [
+   {
+    "type": "document",
+    "question": "PROCEDIMENTO PARA REALIZAÇÃO DE SERVIÇOS QUE ENVOLVAM ELETRICIDADE (COM DESCRIÇÃO DETALHADA DE CADA TAREFA)"
+   }
+  ]
+ },
+ {
+  "code": "10.2.8.2",
+  "description": "As medidas de proteção coletiva compreendem, prioritariamente, a desenergização elétrica conforme estabelece esta NR e, na sua impossibilidade, o emprego de tensão de segurança.",
+  "orientation": "A desenergização é a medida de proteção coletiva prioritária; quando impossível, deve-se adotar o uso de tensão de segurança (extra-baixa tensão).",
+  "documentGroup": "instrucoes_e_procedimentos",
+  "importanceWeight": 4,
+  "requirements": [
+   {
+    "type": "document",
+    "question": "PROCEDIMENTO DE DESENERGIZAÇÃO"
+   }
+  ]
+ },
+ {
+  "code": "10.2.8.2.1",
+  "description": "Na impossibilidade de implementação do estabelecido no subitem 10.2.8.2., devem ser utilizadas outras medidas de proteção coletiva, tais como: isolação das partes vivas, obstáculos, barreiras, sinalização, sistema de seccionamento automático de alimentação, bloqueio do religamento automático.",
+  "orientation": "Na inviabilidade das medidas prioritárias, libera o uso de alternativas como isolação, barreiras, invólucros, sinalização e seccionamento automático.",
+  "documentGroup": "instrucoes_e_procedimentos",
+  "importanceWeight": 4,
+  "requirements": [
+   {
+    "type": "document",
+    "question": "PROCEDIMENTO PARA REALIZAÇÃO DE SERVIÇOS QUE ENVOLVAM ELETRICIDADE (COM DESCRIÇÃO DETALHADA DE CADA TAREFA)"
+   }
+  ]
+ },
+ {
+  "code": "10.2.8.3",
+  "description": "O aterramento das instalações elétricas deve ser executado conforme regulamentação estabelecida pelos órgãos competentes e, na ausência desta, deve atender às Normas Internacionais vigentes.",
+  "orientation": "O aterramento elétrico, fundamental para proteção e funcionalidade, deve seguir normas técnicas oficiais (como NBR 5410 e 5419).",
+  "documentGroup": "equipamentos",
+  "importanceWeight": 4,
+  "requirements": [
+   {
+    "type": "document",
+    "question": "RELATÓRIO TÉCNICO DE ATERRAMENTO E EQUIPOTENCIALIZAÇÃO (VOLTADO PARA ATERRAMENTO FUNCIONAL)"
+   }
+  ]
+ },
+ {
+  "code": "10.2.9.1",
+  "description": "Nos trabalhos em instalações elétricas, quando as medidas de proteção coletiva forem tecnicamente inviáveis ou insuficientes para controlar os riscos, devem ser adotados equipamentos de proteção individual específicos e adequados às atividades desenvolvidas, em atendimento ao disposto na NR 6.",
+  "orientation": "Se os EPCs forem inviáveis ou insuficientes, é obrigatório o uso de EPIs específicos e com Certificado de Aprovação (CA) para controle do risco, conforme NR-6.",
+  "documentGroup": "instrucoes_e_procedimentos",
+  "importanceWeight": 4,
+  "requirements": [
+   {
+    "type": "document",
+    "question": "PROCEDIMENTO PARA REALIZAÇÃO DE SERVIÇOS QUE ENVOLVAM ELETRICIDADE (COM DESCRIÇÃO DETALHADA DE CADA TAREFA)"
+   }
+  ]
+ },
+ {
+  "code": "10.2.9.2",
+  "description": "As vestimentas de trabalho devem ser adequadas às atividades, devendo contemplar a condutibilidade, inflamabilidade e influências eletromagnéticas.",
+  "orientation": "Vestimentas de trabalho são consideradas EPIs e devem prever proteção contra condutibilidade, inflamabilidade (arcos elétricos) e influências eletromagnéticas.",
+  "documentGroup": "instalacoes",
+  "importanceWeight": 4,
+  "requirements": [
+   {
+    "type": "document",
+    "question": "ESTUDO DE ENERGIA INCIDENTE\nESPECIFICAÇÃO TÉCNICA DAS VESTIMENTAS"
+   }
+  ]
+ },
+ {
+  "code": "10.2.9.3",
+  "description": "É vedado o uso de adornos pessoais nos trabalhos com instalações elétricas ou em suas proximidades.",
+  "orientation": "Fica estritamente proibido o uso de qualquer ornamento ou adorno pessoal nos trabalhos com eletricidade, evitando o agravamento de acidentes.",
+  "documentGroup": "instrucoes_e_procedimentos",
+  "importanceWeight": 4,
+  "requirements": [
+   {
+    "type": "document",
+    "question": "INSTRUÇÕES TÉCNICAS E ADMINISTRATIVAS (ADORNO)"
+   }
+  ]
+ },
+ {
+  "code": "10.3.1",
+  "description": "É obrigatório que os projetos de instalações elétricas especifiquem dispositivos de desligamento de circuitos que possuam recursos para impedimento de reenergização, para sinalização de advertência com indicação da condição operativa.",
+  "orientation": "Projetos elétricos devem especificar dispositivos de desligamento que permitam impedimento de reenergização (bloqueio/travamento) e sinalização.",
+  "documentGroup": "instrucoes_e_procedimentos",
+  "importanceWeight": 3,
+  "requirements": [
+   {
+    "type": "document",
+    "question": "PROCEDIMENTO PARA CRITÉRIO DE PROJETO"
+   }
+  ]
+ },
+ {
+  "code": "10.3.2",
+  "description": "O projeto elétrico, na medida do possível, deve prever a instalação de dispositivo de seccionamento de ação simultânea, que permita a aplicação de impedimento de reenergização do circuito.",
+  "orientation": "O projeto deve prever, na medida do possível, seccionadores de ação simultânea para evitar o risco de interrupções parciais de circuitos.",
+  "documentGroup": "instrucoes_e_procedimentos",
+  "importanceWeight": 3,
+  "requirements": [
+   {
+    "type": "document",
+    "question": "PROCEDIMENTO PARA CRITÉRIO DE PROJETO"
+   }
+  ]
+ },
+ {
+  "code": "10.3.3",
+  "description": "O projeto de instalações elétricas deve considerar o espaço seguro, quanto ao dimensionamento e a localização de seus componentes e as influências externas, quando da operação e da realização de serviços de construção e manutenção.",
+  "orientation": "O projeto deve garantir espaço seguro para manutenção e adequar o posicionamento de componentes às influências externas (umidade, poeira, etc.).",
+  "documentGroup": "instrucoes_e_procedimentos",
+  "importanceWeight": 3,
+  "requirements": [
+   {
+    "type": "document",
+    "question": "PROCEDIMENTO PARA CRITÉRIO DE PROJETO"
+   }
+  ]
+ },
+ {
+  "code": "10.3.3.1",
+  "description": "Os circuitos elétricos com finalidades diferentes, tais como: comunicação, sinalização, controle e tração elétrica devem ser identificados e instalados separadamente, salvo quando o desenvolvimento tecnológico permitir compartilhamento, respeitadas as definições de projetos.",
+  "orientation": "Circuitos com finalidades diferentes (comunicação, tração, controle) devem ser instalados separadamente para evitar interferências e atitudes perigosas.",
+  "documentGroup": "instrucoes_e_procedimentos",
+  "importanceWeight": 3,
+  "requirements": [
+   {
+    "type": "document",
+    "question": "PROCEDIMENTO PARA CRITÉRIO DE PROJETO"
+   }
+  ]
+ },
+ {
+  "code": "10.3.4",
+  "description": "O projeto deve definir a configuração do esquema de aterramento, a obrigatoriedade ou não da interligação entre o condutor neutro e o de proteção e a conexão à terra das partes condutoras não destinadas à condução da eletricidade.",
+  "orientation": "O projeto deve definir claramente a configuração do esquema de aterramento adotado (TN, TT, IT) e as interligações de proteção exigidas.",
+  "documentGroup": "instrucoes_e_procedimentos",
+  "importanceWeight": 3,
+  "requirements": [
+   {
+    "type": "document",
+    "question": "PROCEDIMENTO PARA CRITÉRIO DE PROJETO"
+   }
+  ]
+ },
+ {
+  "code": "10.3.5",
+  "description": "Sempre que for tecnicamente viável e necessário, devem ser projetados dispositivos de seccionamento que incorporem recursos fixos de equipotencialização e aterramento do circuito seccionado.",
+  "orientation": "Sempre que viável, devem ser projetadas chaves que conectem os condutores à terra simultaneamente ao desligamento (aterramento automático).",
+  "documentGroup": "instrucoes_e_procedimentos",
+  "importanceWeight": 3,
+  "requirements": [
+   {
+    "type": "document",
+    "question": "PROCEDIMENTO PARA CRITÉRIO DE PROJETO"
+   }
+  ]
+ },
+ {
+  "code": "10.3.6",
+  "description": "Todo projeto deve prever condições para a adoção de aterramento temporário.",
+  "orientation": "O projeto deve prever espaço e condições de acesso físico que permitam a instalação segura de aterramentos temporários.",
+  "documentGroup": "instrucoes_e_procedimentos",
+  "importanceWeight": 3,
+  "requirements": [
+   {
+    "type": "document",
+    "question": "PROCEDIMENTO PARA CRITÉRIO DE PROJETO"
+   }
+  ]
+ },
+ {
+  "code": "10.3.7",
+  "description": "O projeto das instalações elétricas deve ficar à disposição dos trabalhadores autorizados, das autoridades competentes e de outras pessoas autorizadas pela empresa e deve ser mantido atualizado.",
+  "orientation": "O projeto elétrico, dinamicamente atualizado, deve ficar disponível para consultas habituais dos trabalhadores, evitando surpresas indesejáveis.",
+  "documentGroup": "instrucoes_e_procedimentos",
+  "importanceWeight": 3,
+  "requirements": [
+   {
+    "type": "document",
+    "question": "PROCEDIMENTO PARA CRITÉRIO DE PROJETO"
+   }
+  ]
+ },
+ {
+  "code": "10.3.8",
+  "description": "O projeto elétrico deve atender ao que dispõem as Normas Regulamentadoras de Saúde e Segurança no Trabalho, as regulamentações técnicas oficiais estabelecidas, e ser assinado por profissional legalmente habilitado.",
+  "orientation": "Projetistas devem conhecer e aplicar exigências de SST (incluindo ergonomia e sinalização) no projeto, que deve ser assinado por profissional habilitado.",
+  "documentGroup": "instrucoes_e_procedimentos",
+  "importanceWeight": 2,
+  "requirements": [
+   {
+    "type": "document",
+    "question": "PROCEDIMENTO PARA CRITÉRIO DE PROJETO"
+   }
+  ]
+ },
+ {
+  "code": "10.3.9",
+  "description": "O memorial descritivo do projeto deve conter, no mínimo, os seguintes itens de segurança: a) especificação das características relativas à proteção contra choques elétricos, queimaduras e outros riscos adicionais; b) indicação de posição dos dispositivos de manobra dos circuitos elétricos: (Verde - “D”, desligado e Vermelho - “L”, ligado); c) descrição do sistema de identificação de circuitos elétricos e equipamentos, incluindo dispositivos de manobra, de controle, de proteção, de intertravamento, dos condutores e os próprios equipamentos e estruturas, definindo como tais  indicações devem ser aplicadas fisicamente nos componentes das instalações; d) recomendações de restrições e advertências quanto ao acesso de pessoas aos componentes das instalações; e) precauções aplicáveis em face das influências externas; f) o princípio funcional dos dispositivos de proteção, constantes do projeto, destinados à segurança das pessoas; g) descrição da compatibilidade dos dispositivos de proteção com a instalação elétrica.",
+  "orientation": "O memorial descritivo deve detalhar características de proteção, indicações de posição de manobra, identificação de circuitos e precauções contra influências.",
+  "documentGroup": "instrucoes_e_procedimentos",
+  "importanceWeight": 3,
+  "requirements": [
+   {
+    "type": "document",
+    "question": "PROCEDIMENTO PARA CRITÉRIO DE PROJETO"
+   }
+  ]
+ },
+ {
+  "code": "10.3.10",
+  "description": "Os projetos devem assegurar que as instalações proporcionem aos trabalhadores iluminação adequada e uma posição de trabalho segura, de acordo com a NR 17 - Ergonomia.",
+  "orientation": "O projetista deve considerar posições seguras e iluminação adequada (NR-17) não só na operação, mas também para serviços de instalação e manutenção.",
+  "documentGroup": "instrucoes_e_procedimentos",
+  "importanceWeight": 2,
+  "requirements": [
+   {
+    "type": "document",
+    "question": "PROCEDIMENTO PARA CRITÉRIO DE PROJETO"
+   }
+  ]
+ },
+ {
+  "code": "10.4.1",
+  "description": "As instalações elétricas devem ser construídas, montadas, operadas, reformadas, ampliadas, reparadas e inspecionadas de forma a garantir a segurança e a saúde dos trabalhadores e dos usuários, e serem supervisionadas por profissional autorizado, conforme dispõe esta NR.",
+  "orientation": "Toda instalação deve ser operada e mantida garantindo a segurança de todos, sempre sob a supervisão direta de um profissional autorizado.",
+  "documentGroup": "instrucoes_e_procedimentos",
+  "importanceWeight": 4,
+  "requirements": [
+   {
+    "type": "document",
+    "question": "ANÁLISE PRELIMINAR DE RISCO (APR)\nPERMISSÃO DE TRABALHO (PT)"
+   }
+  ]
+ },
+ {
+  "code": "10.4.2",
+  "description": "Nos trabalhos e nas atividades referidas devem ser adotadas medidas preventivas destinadas ao controle dos riscos adicionais, especialmente quanto a altura, confinamento, campos elétricos e magnéticos, explosividade, umidade, poeira, fauna e flora e outros agravantes, adotando-se a sinalização de segurança.",
+  "orientation": "Além do risco elétrico, obriga a adoção de medidas e sinalização para riscos adicionais inerentes à atividade (altura, explosividade, espaços confinados).",
+  "documentGroup": "instrucoes_e_procedimentos",
+  "importanceWeight": 4,
+  "requirements": [
+   {
+    "type": "document",
+    "question": "ANÁLISE PRELIMINAR DE RISCO (APR)\nPERMISSÃO DE TRABALHO (PT)"
+   }
+  ]
+ },
+ {
+  "code": "10.4.3",
+  "description": "Nos locais de trabalho só podem ser utilizados equipamentos, dispositivos e ferramentas elétricas compatíveis com a instalação elétrica existente, preservando-se as características de proteção, respeitadas as recomendações do fabricante e as influências externas.",
+  "orientation": "Ferramentas e equipamentos portáteis utilizados devem ser totalmente compatíveis com as características da instalação elétrica e ambiente.",
+  "documentGroup": "equipamentos",
+  "importanceWeight": 3,
+  "requirements": [
+   {
+    "type": "document",
+    "question": "ESPECIFICAÇÃO TÉCNICA DAS FERRAMENTAS\nLISTA DE FERRAMENTAS COM SUAS RESPECTIVAS APLICAÇÕES"
+   }
+  ]
+ },
+ {
+  "code": "10.4.3.1",
+  "description": "Os equipamentos, dispositivos e ferramentas que possuam isolamento elétrico devem estar adequados às tensões envolvidas, e serem inspecionados e testados de acordo com as regulamentações existentes ou recomendações dos fabricantes.",
+  "orientation": "Ferramentas e dispositivos isolados devem ser adequados às tensões de trabalho e inspecionados periodicamente conforme fabricantes.",
+  "documentGroup": "equipamentos",
+  "importanceWeight": 3,
+  "requirements": [
+   {
+    "type": "document",
+    "question": "LAUDOS E TESTES DE ISOLAÇÃO DE EQUIPAMENTOS/FERRAMENTAS/DISPOSITIVOS"
+   }
+  ]
+ },
+ {
+  "code": "10.4.4",
+  "description": "As instalações elétricas devem ser mantidas em condições seguras de funcionamento e seus sistemas de proteção devem ser inspecionados e controlados periodicamente, de acordo com as regulamentações existentes e definições de projetos.",
+  "orientation": "Instalações e seus sistemas de proteção devem ser mantidos conservados e inspecionados de acordo com regulamentações e definições de projeto.",
+  "documentGroup": "instalacoes",
+  "importanceWeight": 3,
+  "requirements": [
+   {
+    "type": "document",
+    "question": "RELATÓRIO TÉCNICO DE INSPEÇÕES DE SUBESTAÇÕES\nRELATÓRIO TÉCNICO DE MANUTENÇÃO PREVENTIVA\nRELATÓRIOS DE COMISSIONAMENTO DE RELÉS"
+   }
+  ]
+ },
+ {
+  "code": "10.4.4.1",
+  "description": "Os locais de serviços elétricos, compartimentos e invólucros de equipamentos e instalações elétricas são exclusivos para essa finalidade, sendo expressamente proibido utilizá-los para armazenamento ou guarda de quaisquer objetos.",
+  "orientation": "Locais, quadros e painéis elétricos têm uso exclusivo para eletricidade, sendo estritamente proibida sua utilização como depósito de guarda de objetos.",
+  "documentGroup": "instalacoes",
+  "importanceWeight": 2,
+  "requirements": [
+   {
+    "type": "document",
+    "question": "RELATÓRIO TÉCNICO DE INSPEÇÕES DAS INSTALAÇÕES ELÉTRICAS"
+   }
+  ]
+ },
+ {
+  "code": "10.4.5",
+  "description": "Para atividades em instalações elétricas deve ser garantida ao trabalhador iluminação adequada e uma posição de trabalho segura, de acordo com a NR 17 - Ergonomia, de forma a permitir que ele disponha dos membros superiores livres para a realização das tarefas.",
+  "orientation": "O trabalho deve garantir ergonomia e iluminação adequada para que o eletricista execute tarefas com os membros superiores livres de sustentações.",
+  "documentGroup": "instalacoes",
+  "importanceWeight": 3,
+  "requirements": [
+   {
+    "type": "document",
+    "question": "LAUDO LUMINOTÉCNICO"
+   }
+  ]
+ },
+ {
+  "code": "10.4.6",
+  "description": "Os ensaios e testes elétricos laboratoriais e de campo ou comissionamento de instalações elétricas devem atender à regulamentação estabelecida nos itens 10.6 e 10.7, e somente podem ser realizados por trabalhadores que atendam às condições de qualificação, habilitação, capacitação e autorização estabelecidas nesta NR.",
+  "orientation": "Ensaios e testes elétricos, em campo ou laboratório, são considerados trabalhos energizados e requerem profissionais plenamente qualificados e autorizados.",
+  "documentGroup": "instrucoes_e_procedimentos",
+  "importanceWeight": 3,
+  "requirements": [
+   {
+    "type": "document",
+    "question": "PROCEDIMENTOS PARA ENSAIOS ELÉTRICOS E/OU COMISSIONAMENTO"
+   }
+  ]
+ },
+ {
+  "code": "10.5.1",
+  "description": "Somente serão consideradas desenergizadas as instalações elétricas liberadas para trabalho, mediante os procedimentos apropriados, obedecida a seqüência abaixo: a) seccionamento; b) impedimento de reenergização; c) constatação da ausência de tensão; d) instalação de aterramento temporário com equipotencialização dos condutores dos circuitos; e) proteção dos elementos energizados existentes na zona controlada (Anexo II); (Alterada pela Portaria MTPS n.º 508, de 29 de abril de 2016); f) instalação da sinalização de impedimento de reenergização.",
+  "orientation": "A desenergização efetiva exige obediência sequencial rigorosa: seccionamento, bloqueio, constatação de ausência, aterramento temporário, proteção e sinalização.",
+  "documentGroup": "instrucoes_e_procedimentos",
+  "importanceWeight": 4,
+  "requirements": [
+   {
+    "type": "document",
+    "question": "PROCEDIMENTO DE DESENERGIZAÇÃO"
+   }
+  ]
+ },
+ {
+  "code": "10.5.2",
+  "description": "O estado de instalação desenergizada deve ser mantido até a autorização para reenergização, devendo ser reenergizada respeitando a seqüência de procedimentos abaixo: a) retirada das ferramentas, utensílios e equipamentos; b) retirada da zona controlada de todos os trabalhadores não envolvidos no processo de reenergização; c) remoção do aterramento temporário, da equipotencialização e das proteções adicionais; d) remoção da sinalização de impedimento de reenergização; e) destravamento, se houver, e religação dos dispositivos de seccionamento.",
+  "orientation": "A reenergização deve seguir sequência inversa: retirar materiais/ferramentas, afastar pessoal, remover aterramento, remover bloqueios e religar.",
+  "documentGroup": "instrucoes_e_procedimentos",
+  "importanceWeight": 4,
+  "requirements": [
+   {
+    "type": "document",
+    "question": "PROCEDIMENTO DE ENERGIZAÇÃO"
+   }
+  ]
+ },
+ {
+  "code": "10.5.4",
+  "description": "Os serviços a serem executados em instalações elétricas desligadas, mas com possibilidade de energização, por qualquer meio ou razão, devem atender ao que estabelece o disposto no item 10.6.",
+  "orientation": "Instalações meramente \"desligadas\", mas com possibilidade de reenergização acidental, devem ser tratadas sob regras e procedimentos de trabalhos energizados.",
+  "documentGroup": "instrucoes_e_procedimentos",
+  "importanceWeight": 4,
+  "requirements": [
+   {
+    "type": "document",
+    "question": "PROCEDIMENTO PARA TRABALHOS EM INSTALAÇÕES ENERGIZADAS"
+   }
+  ]
+ },
+ {
+  "code": "10.6.1",
+  "description": "As intervenções em instalações elétricas com tensão igual ou superior a 50 Volts em corrente alternada ou superior a 120 Volts em corrente contínua somente podem ser realizadas por trabalhadores que atendam ao que estabelece o item 10.8 desta Norma.",
+  "orientation": "Intervenções acima de 50V em CA ou 120V em CC exigem obrigatoriamente profissionais habilitados, qualificados, capacitados e autorizados pela empresa.",
+  "documentGroup": "colaboradores",
+  "importanceWeight": 4,
+  "requirements": [
+   {
+    "type": "document",
+    "question": "AUTORIZAÇÃO DE TRABALHO NR10"
+   }
+  ]
+ },
+ {
+  "code": "10.6.1.1",
+  "description": "Os trabalhadores de que trata o item anterior devem receber treinamento de segurança para trabalhos com instalações elétricas energizadas, com currículo mínimo, carga horária e demais determinações estabelecidas no Anexo III desta NR.",
+  "orientation": "Todos os autorizados a trabalhar em instalações energizadas acima de extra-baixa tensão devem concluir o Curso Básico NR-10 (40 horas).",
+  "documentGroup": "colaboradores",
+  "importanceWeight": 4,
+  "requirements": [
+   {
+    "type": "document",
+    "question": "CERTIFICADO DE TREINAMENTO NR10 BÁSICO"
+   }
+  ]
+ },
+ {
+  "code": "10.6.2",
+  "description": "Os trabalhos que exigem o ingresso na zona controlada devem ser realizados mediante procedimentos específicos respeitando as distâncias previstas no Anexo II.",
+  "orientation": "O ingresso nas distâncias limites da \"zona controlada\" requer procedimentos de trabalho específicos detalhados previamente estipulados.",
+  "documentGroup": "instrucoes_e_procedimentos",
+  "importanceWeight": 3,
+  "requirements": [
+   {
+    "type": "document",
+    "question": "PROCEDIMENTO INGRESSO EM ZONA CONTROLADA"
+   }
+  ]
+ },
+ {
+  "code": "10.6.3",
+  "description": "Os serviços em instalações energizadas, ou em suas proximidades devem ser suspensos de imediato na iminência de ocorrência que possa colocar os trabalhadores em perigo.",
+  "orientation": "Trabalhos devem ser paralisados imediatamente se ocorrer iminência de fatores adversos imprevistos que ponham a equipe em perigo (ex: chuvas, invasões).",
+  "documentGroup": "instrucoes_e_procedimentos",
+  "importanceWeight": 4,
+  "requirements": [
+   {
+    "type": "document",
+    "question": "DIREITO DE RECUSA"
+   }
+  ]
+ },
+ {
+  "code": "10.6.4",
+  "description": "Sempre que inovações tecnológicas forem implementadas ou para a entrada em operações de novas instalações ou equipamentos elétricos devem ser previamente elaboradas análises de risco, desenvolvidas com circuitos desenergizados, e respectivos procedimentos de trabalho.",
+  "orientation": "Implementação de novas metodologias ou tecnologias exige estudo prévio por Análise de Risco com equipamentos desenergizados antes de testes reais.",
+  "documentGroup": "instrucoes_e_procedimentos",
+  "importanceWeight": 3,
+  "requirements": [
+   {
+    "type": "document",
+    "question": "PROCEDIMENTOS OPERACIONAIS (QUE TRATEM DE ATUALIZAÇÃO/INOVAÇÃO OU NOVOS EQUIPAMENTOS)"
+   }
+  ]
+ },
+ {
+  "code": "10.6.5",
+  "description": "O responsável pela execução do serviço deve suspender as atividades quando verificar situação ou condição de risco não prevista, cuja eliminação ou neutralização imediata não seja possível.",
+  "orientation": "O superior responsável pela equipe deve suspender a atividade ao notar risco não previsto que não possa ser eliminado de imediato.",
+  "documentGroup": "instrucoes_e_procedimentos",
+  "importanceWeight": 4,
+  "requirements": [
+   {
+    "type": "document",
+    "question": "PROCEDIMENTOS OPERACIONAIS (QUE MENCIONEM O QUE FAZER EM CASO DE IMPREVISTO)"
+   }
+  ]
+ },
+ {
+  "code": "10.7.1",
+  "description": "Os trabalhadores que intervenham em instalações elétricas energizadas com alta tensão, que exerçam suas atividades dentro dos limites estabelecidos como zonas controladas e de risco, conforme Anexo II, devem atender ao disposto no item 10.8 desta NR.",
+  "orientation": "Trabalhadores em zonas controladas e de risco com Alta Tensão (>1000V CA) devem atender estritamente aos requisitos de autorização e capacitação exigidos.",
+  "documentGroup": "colaboradores",
+  "importanceWeight": 4,
+  "requirements": [
+   {
+    "type": "document",
+    "question": "AUTORIZAÇÃO DE TRABALHO NR10"
+   }
+  ]
+ },
+ {
+  "code": "10.7.2",
+  "description": "Os trabalhadores de que trata o item 10.7.1 devem receber treinamento de segurança, específico em segurança no Sistema Elétrico de Potência (SEP) e em suas proximidades, com currículo mínimo, carga horária e demais determinações estabelecidas no Anexo III desta NR.",
+  "orientation": "Trabalhadores em AT no SEP ou proximidades devem ter o treinamento complementar específico de segurança no SEP (40h), além do curso básico.",
+  "documentGroup": "colaboradores",
+  "importanceWeight": 4,
+  "requirements": [
+   {
+    "type": "document",
+    "question": "CERTIFICADO DE TREINAMENTO NR10 SEP"
+   }
+  ]
+ },
+ {
+  "code": "10.7.3",
+  "description": "Os serviços em instalações elétricas energizadas em AT, bem como aqueles executados no Sistema Elétrico de Potência - SEP, não podem ser realizados individualmente.",
+  "orientation": "É terminantemente proibido o trabalho solitário/individual em atividades desenvolvidas em instalações de Alta Tensão ou dentro do SEP.",
+  "documentGroup": "instrucoes_e_procedimentos",
+  "importanceWeight": 4,
+  "requirements": [
+   {
+    "type": "document",
+    "question": "PROCEDIMENTO DE TRABALHO EM ALTA TENSÃO (AT) (REALIZADO POR DUAS PESSOAS)"
+   }
+  ]
+ },
+ {
+  "code": "10.7.4",
+  "description": "Todo trabalho em instalações elétricas energizadas em AT, bem como aquelas que interajam com o SEP, somente pode ser realizado mediante ordem de serviço específica para data e local, assinada por superior responsável pela área.",
+  "orientation": "Serviços em AT ou SEP necessitam de Ordem de Serviço específica, contendo data, local, assinatura do superior e referência aos procedimentos.",
+  "documentGroup": "instrucoes_e_procedimentos",
+  "importanceWeight": 4,
+  "requirements": [
+   {
+    "type": "document",
+    "question": "ORDEM DE SERVIÇO (ATIVIDADES EM AT/SEP)"
+   }
+  ]
+ },
+ {
+  "code": "10.7.5",
+  "description": "Antes de iniciar trabalhos em circuitos energizados em AT, o superior imediato e a equipe, responsáveis pela execução do serviço, devem realizar uma avaliação prévia, estudar e planejar as atividades e ações a serem desenvolvidas de forma a atender os princípios técnicos básicos e as melhores técnicas de segurança em eletricidade aplicáveis ao serviço.",
+  "orientation": "Antes do serviço em AT, equipe e líder devem fazer o planejamento prévio e inspeção no local (conhecido como Diálogo Preliminar de Segurança).",
+  "documentGroup": "instrucoes_e_procedimentos",
+  "importanceWeight": 4,
+  "requirements": [
+   {
+    "type": "opinion",
+    "question": "INSPEÇÃO VISUAL DAS APRS PREENCHIDAS\nPROCEDIMENTO DE TRABALHO EM ALTA TENSÃO (AT) (MENCIONAR PLANEJAMENTO DAS ATIVIDADES)"
+   }
+  ]
+ },
+ {
+  "code": "10.7.6",
+  "description": "Os serviços em instalações elétricas energizadas em AT somente podem ser realizados quando houver procedimentos específicos, detalhados e assinados por profissional autorizado.",
+  "orientation": "Serviços em AT devem ter procedimentos específicos extremamente detalhados (passo a passo) e assinados por um profissional devidamente autorizado.",
+  "documentGroup": "instrucoes_e_procedimentos",
+  "importanceWeight": 4,
+  "requirements": [
+   {
+    "type": "document",
+    "question": "PROCEDIMENTO DE TRABALHO EM ALTA TENSÃO (AT)"
+   }
+  ]
+ },
+ {
+  "code": "10.7.7",
+  "description": "A intervenção em instalações elétricas energizadas em AT dentro dos limites estabelecidos como zona de risco, conforme Anexo II desta NR, somente pode ser realizada mediante a desativação, também conhecida como bloqueio, dos conjuntos e dispositivos de religamento automático do circuito, sistema ou equipamento.",
+  "orientation": "O trabalho em linha viva na zona de risco do SEP obriga o bloqueio (desativação) de chaves de religamento automático do sistema.",
+  "documentGroup": "instrucoes_e_procedimentos",
+  "importanceWeight": 4,
+  "requirements": [
+   {
+    "type": "document",
+    "question": "PROCEDIMENTO PARA BLOQUEIO DE RELIGADOR (QUANDO APLICÁVEL)"
+   }
+  ]
+ },
+ {
+  "code": "10.7.7.1",
+  "description": "Os equipamentos e dispositivos desativados devem ser sinalizados com identificação da condição de desativação, conforme procedimento de trabalho específico padronizado.",
+  "orientation": "Dispositivos automáticos desativados pela equipe para segurança em AT devem ser formalmente sinalizados na condição de desativação.",
+  "documentGroup": "instrucoes_e_procedimentos",
+  "importanceWeight": 4,
+  "requirements": [
+   {
+    "type": "document",
+    "question": "PROCEDIMENTO PARA BLOQUEIO DE RELIGADOR (QUANDO APLICÁVEL)"
+   }
+  ]
+ },
+ {
+  "code": "10.7.8",
+  "description": "Os equipamentos, ferramentas e dispositivos isolantes ou equipados com materiais isolantes, destinados ao trabalho em alta tensão, devem ser submetidos a testes elétricos ou ensaios de laboratório periódicos, obedecendo-se as especificações do fabricante, os procedimentos da empresa e na ausência desses, anualmente.",
+  "orientation": "Ferramentas, varas e EPIs isolantes usados em AT devem passar por testes e ensaios laboratoriais periódicos (anualmente, caso fabricante não defina).",
+  "documentGroup": "equipamentos",
+  "importanceWeight": 4,
+  "requirements": [
+   {
+    "type": "document",
+    "question": "LAUDOS E TESTES DE ISOLAÇÃO DE EQUIPAMENTOS/FERRAMENTAS/DISPOSITIVOS"
+   }
+  ]
+ },
+ {
+  "code": "10.7.9",
+  "description": "Todo trabalhador em instalações elétricas energizadas em AT, bem como aqueles envolvidos em atividades no SEP devem dispor de equipamento que permita a comunicação permanente com os demais membros da equipe ou com o centro de operação durante a realização do serviço.",
+  "orientation": "Trabalhadores do SEP e AT precisam de equipamento de comunicação permanente e confiável entre a equipe e o centro de operações elétricas.",
+  "documentGroup": "instrucoes_e_procedimentos",
+  "importanceWeight": 4,
+  "requirements": [
+   {
+    "type": "document",
+    "question": "PROCEDIMENTO DE TRABALHO EM ALTA TENSÃO (AT) (QUANDO APLICÁVEL, DEVERÁ MENCIONAR COMUNICAÇÃO COM CENTRO DE OPERAÇÃO)"
+   }
+  ]
+ },
+ {
+  "code": "10.8.5",
+  "description": "A empresa deve estabelecer sistema de identificação que permita a qualquer tempo conhecer a abrangência da autorização de cada trabalhador, conforme o item 10.8.4.",
+  "orientation": "A empresa deve criar formas visuais/documentais de identificar rapidamente o nível de autorização e as restrições de cada trabalhador.",
+  "documentGroup": "instrucoes_e_procedimentos",
+  "importanceWeight": 2,
+  "requirements": [
+   {
+    "type": "document",
+    "question": "CRACHÁS DE IDENTIFICAÇÃO DO NÍVEL DE AUTORIZAÇÃO\nADESIVOS NO CAPACETE"
+   }
+  ]
+ },
+ {
+  "code": "10.8.6",
+  "description": "Os trabalhadores autorizados a trabalhar em instalações elétricas devem ter essa condição consignada no sistema de registro de empregado da empresa.",
+  "orientation": "A autorização deve estar obrigatoriamente registrada nos apontamentos e no sistema de registro de empregados do setor de Recursos Humanos.",
+  "documentGroup": "instrucoes_e_procedimentos",
+  "importanceWeight": 2,
+  "requirements": [
+   {
+    "type": "opinion",
+    "question": "INSPEÇÃO VISUAL DA FICHA DE REGISTRO DO EMPREGADO ATUALIZADA"
+   }
+  ]
+ },
+ {
+  "code": "10.8.7",
+  "description": "Os trabalhadores autorizados a intervir em instalações elétricas devem ser submetidos a exame de saúde compatível com as atividades a serem desenvolvidas, realizado em conformidade com a NR 7 e registrado em seu prontuário médico.",
+  "orientation": "O trabalhador autorizado deve possuir exames médicos (físico e mental) atestando aptidão para os riscos elétricos, registrados no prontuário médico via NR-7.",
+  "documentGroup": "instrucoes_e_procedimentos",
+  "importanceWeight": 2,
+  "requirements": [
+   {
+    "type": "opinion",
+    "question": "INSPEÇÃO VISUAL PARA CONFERÊNCIA DO ASO"
+   }
+  ]
+ },
+ {
+  "code": "10.8.8",
+  "description": "Os trabalhadores autorizados a intervir em instalações elétricas devem possuir treinamento específico sobre os riscos decorrentes do emprego da energia elétrica e as principais medidas de prevenção de acidentes em instalações elétricas, de acordo com o estabelecido no Anexo III desta NR.",
+  "orientation": "Todos os autorizados a lidar com risco elétrico precisam concluir os treinamentos específicos e mínimos detalhados no Anexo II (Básico e SEP).",
+  "documentGroup": "colaboradores",
+  "importanceWeight": 3,
+  "requirements": [
+   {
+    "type": "document",
+    "question": "CERTIFICADO DE TREINAMENTO NR10 BÁSICO"
+   },
+   {
+    "type": "document",
+    "question": "CERTIFICADO DE TREINAMENTO NR10 SEP"
+   }
+  ]
+ },
+ {
+  "code": "10.8.8.1",
+  "description": "A empresa concederá autorização na forma desta NR aos trabalhadores capacitados ou qualificados e aos profissionais habilitados que tenham participado com avaliação e aproveitamento satisfatórios dos cursos constantes do Anexo III desta NR.",
+  "orientation": "A autorização é da empresa, e o critério adotado para o “aproveitamento satisfatório” também é da empresa a autoridade em decidir, recebe a responsabilidade por autorizar e suas conseqüências.  ",
+  "documentGroup": "colaboradores",
+  "importanceWeight": 3,
+  "requirements": [
+   {
+    "type": "document",
+    "question": "EVIDENCIAR O PROCESSO DE AUTORIZAÇÃO DE TRABALHO NR10"
+   }
+  ]
+ },
+ {
+  "code": "10.8.8.2",
+  "description": "Deve ser realizado um treinamento de reciclagem bienal e sempre que ocorrer alguma das situações a seguir: a) troca de função ou mudança de empresa; b) retorno de afastamento ao trabalho ou inatividade, por período superior a três meses; c) modificações significativas nas instalações elétricas ou troca de métodos, processos e organização do trabalho.",
+  "orientation": "O treinamento de segurança deve possuir uma reciclagem bienal, ou antecipada em casos de retorno de afastamento, mudança de empresa ou inovações no setor.",
+  "documentGroup": "colaboradores",
+  "importanceWeight": 3,
+  "requirements": [
+   {
+    "type": "document",
+    "question": "CERTIFICADO DE TREINAMENTO NR10 SEP RECICLAGEM\nCERTIFICADO DE TREINAMENTO NR10 BÁSICO RECICLAGEM"
+   }
+  ]
+ },
+ {
+  "code": "10.8.8.3",
+  "description": "A carga horária e o conteúdo programático dos treinamentos de reciclagem destinados ao atendimento das alíneas “a”, “b” e “c” do item 10.8.8.2 devem atender as necessidades da situação que o motivou.",
+  "orientation": "Transparece neste item o viés de gerenciamento e responsabilidade que norteia esta norma. Fica a critério da empresa estabelecer esses currículos e cargas horárias das reciclagens e, por conseguinte, assumir a responsabilidade pela decisão.",
+  "documentGroup": "colaboradores",
+  "importanceWeight": 3,
+  "requirements": [
+   {
+    "type": "document",
+    "question": "CERTIFICADO DE TREINAMENTO NR10 SEP RECICLAGEM\nCERTIFICADO DE TREINAMENTO NR10 BÁSICO RECICLAGEM"
+   }
+  ]
+ },
+ {
+  "code": "10.8.8.4",
+  "description": "Os trabalhos em áreas classificadas devem ser precedidos de treinamento especifico de acordo com risco envolvido.",
+  "orientation": "O trabalho em áreas classificadas (explosivas) proíbe ações rotineiras elétricas e requer treinamento severo e distinto frente aos perigos do ambiente.",
+  "documentGroup": "colaboradores",
+  "importanceWeight": 3,
+  "requirements": [
+   {
+    "type": "document",
+    "question": "CERTIFICADO DE TREINAMENTO ESPECÍFICO PARA ÁREAS CLASSIFICADAS"
+   }
+  ]
+ },
+ {
+  "code": "10.8.9",
+  "description": "Os trabalhadores com atividades não relacionadas às instalações elétricas desenvolvidas em zona livre e na vizinhança da zona controlada, conforme define esta NR, devem ser instruídos formalmente com conhecimentos que permitam identificar e avaliar seus possíveis riscos e adotar as precauções cabíveis.",
+  "orientation": "Trabalhadores não elétricos que exercem função em zona livre, mas avizinhados à zona controlada, devem receber instrução formal sobre os riscos de limite.",
+  "documentGroup": "instrucoes_e_procedimentos",
+  "importanceWeight": 2,
+  "requirements": [
+   {
+    "type": "document",
+    "question": "TREINAMENTO PARA ATIVIDADES NÃO RELACIONADAS AS INSTALAÇÕES ELÉTRICAS DESENVOLVIDAS EM ZONA LIVRE E NA VIZINHANÇA DA ZONA CONTROLADA (QUANDO APLICÁVEL)"
+   }
+  ]
+ },
+ {
+  "code": "10.9.1",
+  "description": "As áreas onde houver instalações ou equipamentos elétricos devem ser dotadas de proteção contra incêndio e explosão, conforme dispõe a NR 23 - Proteção Contra Incêndios.",
+  "orientation": "Onde existirem equipamentos elétricos instalados, é impositivo que existam meios e sistemas de combate a incêndio da classe C, em acordo com a NR-23.",
+  "documentGroup": "instalacoes",
+  "importanceWeight": 3,
+  "requirements": [
+   {
+    "type": "document",
+    "question": "AVCB"
+   }
+  ]
+ },
+ {
+  "code": "10.9.2",
+  "description": "Os materiais, peças, dispositivos, equipamentos e sistemas destinados à aplicação em instalações elétricas de ambientes com atmosferas potencialmente explosivas devem ser avaliados quanto à sua conformidade, no âmbito do Sistema Brasileiro de Certificação.",
+  "orientation": "Materiais instalados em áreas explosivas têm obrigação legal de possuir certificação específica para área classificada dentro do sistema SINMETRO.",
+  "documentGroup": "instalacoes",
+  "importanceWeight": 3,
+  "requirements": [
+   {
+    "type": "document",
+    "question": "CERTIFICADO ATEX DE EQUIPAMENTO"
+   }
+  ]
+ },
+ {
+  "code": "10.9.3",
+  "description": "Os processos ou equipamentos susceptíveis de gerar ou acumular eletricidade estática devem dispor de proteção especifica e dispositivo para descarga elétrica.",
+  "orientation": "Processos que geram acúmulo de energia estática devem possuir aterramentos, ionizadores ou outros dispositivos para descarga segura e equipotencialização.",
+  "documentGroup": "instrucoes_e_procedimentos",
+  "importanceWeight": 3,
+  "requirements": [
+   {
+    "type": "document",
+    "question": "PROCEDIMENTO OPERACIONAL PARA DESCARGA DE ELETRICIDADE ESTÁTICA (QUANDO APLICÁVEL)"
+   }
+  ]
+ },
+ {
+  "code": "10.9.4",
+  "description": "Nas instalações elétricas de áreas classificadas ou sujeitas a risco acentuado de incêndio ou explosões, devem ser adotados dispositivos de proteção, como alarme e seccionamento automático para prevenir sobretensões, sobrecorrentes, falhas de isolamento, aquecimentos ou outras condições anormais de operação.",
+  "orientation": "Em locais com risco acentuado de explosão ou incêndio, proteções de alarme e seccionamento automático contra falhas térmicas ou elétricas são obrigatórias.",
+  "documentGroup": "instrucoes_e_procedimentos",
+  "importanceWeight": 3,
+  "requirements": [
+   {
+    "type": "document",
+    "question": "VERIFICAR VISUALMENTE PRESENÇA DE DISPOSITIVOS DE PROTEÇÃO COMO ALARME E SECCIONAMENTO AUTOMÁTICO CONTRA FALHAS TÉRMICAS OU ELÉTRICAS"
+   }
+  ]
+ },
+ {
+  "code": "10.9.5",
+  "description": "Os serviços em instalações elétricas nas áreas classificadas somente poderão ser realizados mediante permissão para o trabalho com liberação formalizada, conforme estabelece o item 10.5 ou supressão do agente de risco que determina a classificação da área.",
+  "orientation": "O ingresso para manutenção elétrica em área explosiva só ocorre mediante rigorosa Permissão de Trabalho (PT), garantindo a prévia eliminação do gás/poeira.",
+  "documentGroup": "instrucoes_e_procedimentos",
+  "importanceWeight": 3,
+  "requirements": [
+   {
+    "type": "document",
+    "question": "PERMISSÃO DE TRABALHO ESPECIAL PARA ÁREAS CLASSIFICADAS"
+   }
+  ]
+ },
+ {
+  "code": "10.10.1",
+  "description": "Nas instalações e serviços em eletricidade deve ser adotada sinalização adequada de segurança, destinada à advertência e à identificação, obedecendo ao disposto na NR-26 - Sinalização de Segurança, de forma a atender, dentre outras, as situações a seguir: a) identificação de circuitos elétricos; b) travamentos e bloqueios de dispositivos e sistemas de manobra e comandos; c) restrições e impedimentos de acesso; d) delimitações de áreas; e) sinalização de áreas de circulação, de vias públicas, de veículos e de movimentação de cargas; f) sinalização de impedimento de energização; g) identificação de equipamento ou circuito impedido.",
+  "orientation": "Os perigos elétricos, comandos, bloqueios e demarcações devem estar rigorosamente sinalizados visualmente para identificação e advertência universal.",
+  "documentGroup": "instrucoes_e_procedimentos",
+  "importanceWeight": 3,
+  "requirements": [
+   {
+    "type": "opinion",
+    "question": "INSTRUÇÃO TÉCNICA SOBRE IDENTIFICAÇÃO E SINALIZAÇÃO\nINSPEÇÃO VISUAL DA SINALIZAÇÃO UTILIZADA"
+   }
+  ]
+ },
+ {
+  "code": "10.11.1",
+  "description": "Os serviços em instalações elétricas devem ser planejados e realizados em conformidade com procedimentos de trabalho específicos, padronizados, com descrição detalhada de cada tarefa, passo a passo, assinados por profissional que atenda ao que estabelece o item 10.8 desta NR.",
+  "orientation": "Todo serviço com risco elétrico precisa ser planejado por meio de procedimentos escritos \"passo a passo\", englobando técnicas de operação e segurança.",
+  "documentGroup": "instrucoes_e_procedimentos",
+  "importanceWeight": 3,
+  "requirements": [
+   {
+    "type": "document",
+    "question": "PROCEDIMENTO PARA REALIZAÇÃO DE SERVIÇOS QUE ENVOLVAM ELETRICIDADE (COM DESCRIÇÃO DETALHADA DE CADA TAREFA)"
+   }
+  ]
+ },
+ {
+  "code": "10.11.2",
+  "description": "Os serviços em instalações elétricas devem ser precedidos de ordens de serviço especificas, aprovadas por trabalhador autorizado, contendo, no mínimo, o tipo, a data, o local e as referências aos procedimentos de trabalho a serem adotados.",
+  "orientation": "Exige-se emissão prévia de Ordem de Serviço autorizando o trabalhador, delineando data, local, o que fazer e quais procedimentos devem ser seguidos.",
+  "documentGroup": "instrucoes_e_procedimentos",
+  "importanceWeight": 3,
+  "requirements": [
+   {
+    "type": "document",
+    "question": "ORDEM DE SERVIÇO (CONTENDO PROCEDIMENTOS A SEREM SEGUIDOS)"
+   }
+  ]
+ },
+ {
+  "code": "10.11.3",
+  "description": "Os procedimentos de trabalho devem conter, no mínimo, objetivo, campo de aplicação, base técnica, competências e responsabilidades, disposições gerais, medidas de controle e orientações finais.",
+  "orientation": "Padroniza a estrutura mínima dos procedimentos escritos: conterão objetivo, abrangência, competências, regras gerais e finalização.",
+  "documentGroup": "instrucoes_e_procedimentos",
+  "importanceWeight": 3,
+  "requirements": [
+   {
+    "type": "document",
+    "question": "PROCEDIMENTOS OPERACIONAIS (CAMPOS OBRIGATÓRIOS)"
+   }
+  ]
+ },
+ {
+  "code": "10.11.4",
+  "description": "Os procedimentos de trabalho, o treinamento de segurança e saúde e a autorização de que trata o item 10.8 devem ter a participação em todo processo de desenvolvimento do Serviço Especializado de Engenharia de Segurança e Medicina do Trabalho - SESMT, quando houver.",
+  "orientation": "O SESMT deve atuar proativamente e em conjunto com os mantenedores na formatação de treinamentos, procedimentos e emissão de autorizações.",
+  "documentGroup": "instrucoes_e_procedimentos",
+  "importanceWeight": 3,
+  "requirements": [
+   {
+    "type": "opinion",
+    "question": "DOCUMENTOS COMPROBATÓRIOS DE ATUAÇÃO DO SESMT\nATAS DE REUNIOES DO SESMT\nINSPEÇÃO VISUAL SESMT"
+   }
+  ]
+ },
+ {
+  "code": "10.11.5",
+  "description": "A autorização referida no item 10.8 deve estar em conformidade com o treinamento ministrado, previsto no Anexo III desta NR.",
+  "orientation": "A liberação de autorização ao trabalhador deve ser congruente com o escopo do treinamento e a grade de instrução ministrada no Anexo II.",
+  "documentGroup": "colaboradores",
+  "importanceWeight": 3,
+  "requirements": [
+   {
+    "type": "document",
+    "question": "MATRIZ DE AUTORIZAÇÕES\nAUTORIZAÇÕES DE TRABALHO NR10"
+   }
+  ]
+ },
+ {
+  "code": "10.11.6",
+  "description": "Toda equipe deverá ter um de seus trabalhadores indicado e em condições de exercer a supervisão e condução dos trabalhos.",
+  "orientation": "Nas atividades grupais, um integrante autorizado deve ser designado expressamente para capitanear, supervisionar e conduzir efetivamente os trabalhos práticos.",
+  "documentGroup": "instrucoes_e_procedimentos",
+  "importanceWeight": 3,
+  "requirements": [
+   {
+    "type": "document",
+    "question": "ORDEM DE SERVIÇO (CONTENDO NOMINAÇÃO DO LÍDER/SUPERVISOR)"
+   }
+  ]
+ },
+ {
+  "code": "10.11.7",
+  "description": "Antes de iniciar trabalhos em equipe os seus membros, em conjunto com o responsável pela execução do serviço, devem realizar uma avaliação prévia, estudar e planejar as atividades e ações a serem desenvolvidas no local, de forma a atender os princípios técnicos básicos e as melhores técnicas de segurança aplicáveis ao serviço.",
+  "orientation": "A equipe unida deve planejar as ações verificando as reais condições físicas e operacionais do local do serviço.",
+  "documentGroup": "instrucoes_e_procedimentos",
+  "importanceWeight": 3,
+  "requirements": [
+   {
+    "type": "opinion",
+    "question": "PROCEDIMENTO QUE EXIGE AVALIAÇÃO PRÉVIA\nINSPEÇÃO VISUAL DAS APR PREENCHIDAS\nATAS DE REUNIÕES DE PLANEJAMENTO\nREGISTRO DE \"BRIEFING\" DE SEGURANÇA"
+   }
+  ]
+ },
+ {
+  "code": "10.11.8",
+  "description": "A alternância de atividades deve considerar a análise de riscos das tarefas e a competência dos trabalhadores envolvidos, de forma a garantir a segurança e a saúde no trabalho.",
+  "orientation": "Em rodízio de tarefas, deve-se auditar antecipadamente o nível de competência e capacitação individual para que a segurança coletiva não se degrade.",
+  "documentGroup": "instrucoes_e_procedimentos",
+  "importanceWeight": 3,
+  "requirements": [
+   {
+    "type": "document",
+    "question": "ANÁLISE PRELIMINAR DE RISCO (APR) (ABRANGENDO ROTINAS DE ALTERNÂNCIA)"
+   }
+  ]
+ },
+ {
+  "code": "10.12.1",
+  "description": "As ações de emergência que envolvam as instalações ou serviços com eletricidade devem constar do plano de emergência da empresa.",
+  "orientation": "Reações a acidentes elétricos, falhas e curtos-circuitos não controlados devem compor um capítulo do Plano de Emergência padronizado da empresa.",
+  "documentGroup": "instrucoes_e_procedimentos",
+  "importanceWeight": 3,
+  "requirements": [
+   {
+    "type": "document",
+    "question": "PROCEDIMENTO DE EMERGÊNCIA (CONTENDO CAPÍTULO DE ELÉTRICA)"
+   }
+  ]
+ },
+ {
+  "code": "10.12.2",
+  "description": "Os trabalhadores autorizados devem estar aptos a executar o resgate e prestar primeiros socorros a acidentados, especialmente por meio de reanimação cardio-respiratória.",
+  "orientation": "Autorizados para lidar com eletricidade têm o dever de receber treinamento real para aplicar socorro e, primordialmente, técnicas de reanimação cardiopulmonar (RCP).",
+  "documentGroup": "colaboradores",
+  "importanceWeight": 3,
+  "requirements": [
+   {
+    "type": "document",
+    "question": "CERTIFICADO TREINAMENTO NR10 BÁSICO"
+   }
+  ]
+ },
+ {
+  "code": "10.12.3",
+  "description": "A empresa deve possuir métodos de resgate padronizados e adequados às suas atividades, disponibilizando os meios para a sua aplicação.",
+  "orientation": "A corporação deve prover todo material padronizado necessário para viabilizar resgates eficientes de sua equipe, de acordo com as alturas, valas e isolamentos envolvidos.",
+  "documentGroup": "instrucoes_e_procedimentos",
+  "importanceWeight": 3,
+  "requirements": [
+   {
+    "type": "document",
+    "question": "PROCEDIMENTO DE EMERGÊNCIA"
+   }
+  ]
+ },
+ {
+  "code": "10.12.4",
+  "description": "Os trabalhadores autorizados devem estar aptos a manusear e operar equipamentos de prevenção e combate a incêndio existentes nas instalações elétricas.",
+  "orientation": "Eletricistas autorizados precisam deter treinamento prático do manuseio dos extintores e hidrantes focados para conter sinistros em painéis/locais energizados.",
+  "documentGroup": "colaboradores",
+  "importanceWeight": 3,
+  "requirements": [
+   {
+    "type": "document",
+    "question": "CERTIFICADO TREINAMENTO NR10 BÁSICO"
+   }
+  ]
+ },
+ {
+  "code": "10.13.2",
+  "description": "É de responsabilidade dos contratantes manter os trabalhadores informados sobre os riscos a que estão expostos, instruindo-os quanto aos procedimentos e medidas de controle contra os riscos elétricos a serem adotados.",
+  "orientation": "Obriga categoricamente as organizações contratantes a notificar formalmente os prestadores sobre todos os perigos que serão expostos em suas plantas.",
+  "documentGroup": "instrucoes_e_procedimentos",
+  "importanceWeight": 4,
+  "requirements": [
+   {
+    "type": "document",
+    "question": "FICHAS DE INTEGRAÇÃO DE SAÚDE E SEGURANÇA DO TRABALHO (SST)"
+   }
+  ]
+ },
+ {
+  "code": "10.13.3",
+  "description": "Cabe à empresa, na ocorrência de acidentes de trabalho envolvendo instalações e serviços em eletricidade, propor e adotar medidas preventivas e corretivas.",
+  "orientation": "Frente à ocorrência indesejada de sinistros no trabalho elétrico, a organização precisa promover investigação imediata para extrair lições corretivas.",
+  "documentGroup": "instrucoes_e_procedimentos",
+  "importanceWeight": 4,
+  "requirements": [
+   {
+    "type": "document",
+    "question": "MODELOS DE RELATÓRIOS DE INVESTIGAÇÃO DE ACIDENTES/INCIDENTES"
+   }
+  ]
+ },
+ {
+  "code": "10.14.2",
+  "description": "As empresas devem promover ações de controle de riscos originados por outrem em suas instalações elétricas e oferecer, de imediato, quando cabível, denúncia aos órgãos competentes.",
+  "orientation": "Instalações sujeitas à aproximação indevida ou atos irresponsáveis de terceiros vizinhos forçam a empresa a mitigá-los ou formular denúncias perante os órgãos públicos.",
+  "documentGroup": "instrucoes_e_procedimentos",
+  "importanceWeight": 4,
+  "requirements": [
+   {
+    "type": "document",
+    "question": "OFÍCIOS/BOLETINS/DOCUMENTOS DE OCORRÊNCIAS REPORTANDO RISCOS CRIADOS POR TERCEIROS\nVISUAL DEPARTAMENTO PATRIMONIAL"
+   }
+  ]
+ },
+ {
+  "code": "10.14.4",
+  "description": "A documentação prevista nesta NR deve estar permanentemente à disposição dos trabalhadores que atuam em serviços e instalações elétricas, respeitadas as abrangências, limitações e interferências nas tarefas.",
+  "orientation": "Toda a extensa carga documental produzida através das normativas do NR-10 tem que se conservar física ou virtualmente em acesso constante e livre aos técnicos.",
+  "documentGroup": "instrucoes_e_procedimentos",
+  "importanceWeight": 4,
+  "requirements": [
+   {
+    "type": "opinion",
+    "question": "INSPEÇÃO VISUAL PARA VERIFICAR O PRONTUÁRIO DISPONÍVEL PARA OS COLABORADORES"
+   }
+  ]
+ }
+]

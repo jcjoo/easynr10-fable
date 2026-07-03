@@ -1,0 +1,109 @@
+@import 'tailwindcss';
+
+/* Habilita utilities dark: (ex.: troca do logo) — o tema é a classe .dark no <html> */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* Tokens do Guia de Design EasyNR10 v2 (guia-design v0.2) */
+@theme {
+  /* Neutros com viés azul */
+  --color-ink: #1a2333;
+  --color-ink-soft: #3d4a63;
+  --color-muted: #5a6b85;
+  --color-paper: #f8fafd;
+  --color-surface: #ffffff;
+  --color-line: #dce3ee;
+  --color-line-strong: #b9c4d6;
+
+  /* Ação (um só acento) */
+  --color-action: #2452c4;
+  --color-action-hover: #1c419c;
+  --color-action-soft: #e8eefb;
+
+  /* Identidade: âmbar de sinalização — só marca, nunca controles */
+  --color-hazard: #f2b200;
+
+  /* Escala de aderência: insuficiente / parcial / suficiente / conforme */
+  --color-bad: #c03434;
+  --color-bad-soft: #fbeaea;
+  --color-warn: #96660a;
+  --color-warn-soft: #fdf3d9;
+  --color-suf: #0b6ec5;
+  --color-suf-soft: #e4f0fc;
+  --color-ok: #1a7f4b;
+  --color-ok-soft: #e3f3ea;
+  --color-idle: #5a6b85;
+  --color-idle-soft: #eceff5;
+
+  /* Tipografia */
+  --font-ui: 'Archivo Variable', 'Segoe UI', system-ui, sans-serif;
+  --font-body: 'IBM Plex Sans', 'Segoe UI', system-ui, sans-serif;
+  --font-mono: 'IBM Plex Mono', ui-monospace, monospace;
+
+  /* Forma */
+  --radius-ctl: 4px;
+  --radius-card: 8px;
+}
+
+/* Modo escuro: mesmos papéis, valores trocados (guia — pendência v0.2).
+   As utilities do Tailwind referenciam var(--color-*), então basta
+   sobrescrever as variáveis sob .dark. */
+.dark {
+  color-scheme: dark;
+
+  --color-ink: #e6ebf4;
+  --color-ink-soft: #b7c2d6;
+  --color-muted: #8494ad;
+  --color-paper: #0f141d;
+  --color-surface: #151c28;
+  --color-line: #232c3d;
+  --color-line-strong: #3a475f;
+
+  --color-action: #5b86ec;
+  --color-action-hover: #7ba2f5;
+  --color-action-soft: #1c2a47;
+
+  --color-bad: #ef8377;
+  --color-bad-soft: #391f20;
+  --color-warn: #dfa63d;
+  --color-warn-soft: #352a10;
+  --color-suf: #64a9ef;
+  --color-suf-soft: #142942;
+  --color-ok: #56b884;
+  --color-ok-soft: #123122;
+  --color-idle: #8494ad;
+  --color-idle-soft: #1f2837;
+}
+
+@layer base {
+  body {
+    background-color: var(--color-paper);
+    color: var(--color-ink);
+    font-family: var(--font-body);
+    font-size: 15px;
+    line-height: 1.6;
+  }
+
+  h1, h2, h3, h4 {
+    font-family: var(--font-ui);
+    text-wrap: balance;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-action);
+    outline-offset: 2px;
+  }
+}
+
+@utility tape {
+  /* Faixa de sinalização — momento de marca. O escuro é fixo (não segue
+     o tema): a faixa é âmbar sobre grafite em qualquer modo. */
+  background: repeating-linear-gradient(
+    -45deg,
+    var(--color-hazard) 0 14px,
+    #1a2333 14px 28px
+  );
+}
+
+@utility tabular {
+  font-variant-numeric: tabular-nums;
+}

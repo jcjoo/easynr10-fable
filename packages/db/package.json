@@ -1,0 +1,28 @@
+{
+  "name": "@easynr10/db",
+  "version": "2.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./schema": "./src/schema/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "generate": "drizzle-kit generate",
+    "migrate": "bun --env-file=../../.env run src/migrate.ts",
+    "seed": "bun --env-file=../../.env run src/seed.ts"
+  },
+  "dependencies": {
+    "@easynr10/shared": "workspace:*",
+    "drizzle-orm": "^0.45.2",
+    "pg": "^8.16.3",
+    "uuid": "^13.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^26.1.0",
+    "@types/pg": "^8.15.6",
+    "drizzle-kit": "^0.31.6",
+    "typescript": "^5.9.3"
+  }
+}

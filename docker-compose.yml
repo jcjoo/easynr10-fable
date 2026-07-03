@@ -1,0 +1,101 @@
+# Stack completa (build das imagens). Para infra de dev com hot-reload local,
+# use docker-compose.dev.yml. Acesso: http://localhost:${WEB_PORT:-8081}
+# Portas e credenciais vêm do .env (defaults abaixo); endpoints internos da
+# rede Docker (minio:9000, database:5432…) são topologia e ficam aqui.
+name: easynr10
+
+services:
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+    ports:
+      - "${WEB_PORT:-8081}:80"
+    depends_on:
+      - api
+
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    environment:
+      PORT: "3000"
+      DATABASE_URL: postgres://${POSTGRES_USER:-easynr10}:${POSTGRES_PASSWORD:-easynr10}@database:5432/${POSTGRES_DB:-easynr10}
+      # Origem pública única (web e api atrás do nginx).
+      FRONTEND_URL: http://localhost:${WEB_PORT:-8081}
+      BETTER_AUTH_URL: http://localhost:${WEB_PORT:-8081}
+      BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET:-dev-only-troque-em-producao}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
+      S3_ENDPOINT: http://minio:9000
+      # Presigned URLs são usadas pelo browser — assinadas com o endpoint público.
+      S3_PUBLIC_ENDPOINT: http://localhost:${MINIO_PORT:-9100}
+      S3_REGION: ${S3_REGION:-us-east-1}
+      S3_ACCESS_KEY: ${S3_ACCESS_KEY:-minioadmin}
+      S3_SECRET_KEY: ${S3_SECRET_KEY:-minioadmin}
+      S3_BUCKET: ${S3_BUCKET:-easynr10}
+      S3_FORCE_PATH_STYLE: "true"
+      GOTENBERG_URL: http://gotenberg:3000
+      MAIL_HOST: mailpit
+      MAIL_PORT: "1025"
+      MAIL_FROM: ${MAIL_FROM:-easynr10@localhost}
+    depends_on:
+      database:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+
+  database:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-easynr10}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-easynr10}
+      POSTGRES_DB: ${POSTGRES_DB:-easynr10}
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  minio:
+    image: minio/minio:latest
+    environment:
+      MINIO_ROOT_USER: ${S3_ACCESS_KEY:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${S3_SECRET_KEY:-minioadmin}
+    command: server /data --console-address ":9001"
+    ports:
+      # Publicado: o browser faz PUT/GET direto via presigned URL.
+      # 9000/9001 do host estão ocupadas por outro projeto (site-minio) → 9100/9101.
+      - "${MINIO_PORT:-9100}:9000"
+      - "${MINIO_CONSOLE_PORT:-9101}:9001"
+    volumes:
+      - minio_data:/data
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  minio-init:
+    image: minio/mc:latest
+    depends_on:
+      minio:
+        condition: service_healthy
+    entrypoint: >
+      /bin/sh -c "
+      mc alias set local http://minio:9000 ${S3_ACCESS_KEY:-minioadmin} ${S3_SECRET_KEY:-minioadmin} &&
+      mc mb --ignore-existing local/${S3_BUCKET:-easynr10} &&
+      mc version enable local/${S3_BUCKET:-easynr10}
+      "
+
+  gotenberg:
+    image: gotenberg/gotenberg:8
+
+  mailpit:
+    image: axllent/mailpit:latest
+
+volumes:
+  pg_data:
+  minio_data:

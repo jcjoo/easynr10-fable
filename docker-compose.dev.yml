@@ -1,0 +1,65 @@
+# Infra de dev (a api/web rodam local com bun). Portas e credenciais vêm do .env.
+name: easynr10-dev
+
+services:
+  database:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-easynr10}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-easynr10}
+      POSTGRES_DB: ${POSTGRES_DB:-easynr10}
+    ports:
+      # 5433 no host: evita conflito com o Postgres do sistema legado em dev.
+      - "${DEV_DB_PORT:-5433}:5432"
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  minio:
+    image: minio/minio:latest
+    environment:
+      MINIO_ROOT_USER: ${S3_ACCESS_KEY:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${S3_SECRET_KEY:-minioadmin}
+    command: server /data --console-address ":9001"
+    ports:
+      # 9000/9001 do host estão ocupadas por outro projeto (site-minio) → 9100/9101.
+      - "${MINIO_PORT:-9100}:9000"
+      - "${MINIO_CONSOLE_PORT:-9101}:9001"
+    volumes:
+      - minio_data:/data
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  minio-init:
+    image: minio/mc:latest
+    depends_on:
+      minio:
+        condition: service_healthy
+    entrypoint: >
+      /bin/sh -c "
+      mc alias set local http://minio:9000 ${S3_ACCESS_KEY:-minioadmin} ${S3_SECRET_KEY:-minioadmin} &&
+      mc mb --ignore-existing local/${S3_BUCKET:-easynr10} &&
+      mc version enable local/${S3_BUCKET:-easynr10}
+      "
+
+  gotenberg:
+    image: gotenberg/gotenberg:8
+    ports:
+      - "${DEV_GOTENBERG_PORT:-3010}:3000"
+
+  mailpit:
+    image: axllent/mailpit:latest
+    ports:
+      - "${DEV_SMTP_PORT:-1025}:1025"
+      - "${DEV_MAILPIT_UI_PORT:-8025}:8025"
+
+volumes:
+  pg_data:
+  minio_data:

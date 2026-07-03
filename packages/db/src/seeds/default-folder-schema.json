@@ -1,0 +1,127 @@
+[
+ {
+  "name": "Instruções e Procedimentos",
+  "children": [
+   {
+    "name": "Procedimentos",
+    "children": []
+   },
+   {
+    "name": "Instruções Técnicas e Administrativas",
+    "children": []
+   },
+   {
+    "name": "Análise Preliminar de Risco (APR)",
+    "children": []
+   },
+   {
+    "name": "Ordem de Serviço (OS)",
+    "children": []
+   },
+   {
+    "name": "Procedimento de Emergência",
+    "children": []
+   },
+   {
+    "name": "Carta Nomeativa",
+    "children": []
+   },
+   {
+    "name": "Permissão de Trabalho (PT)",
+    "children": []
+   }
+  ]
+ },
+ {
+  "name": "Colaboradores",
+  "children": [
+   {
+    "name": "Nome do Colaborador",
+    "children": [
+     {
+      "name": "Certificado de Formação Técnica",
+      "children": []
+     },
+     {
+      "name": "Certificado de Treinamento NR 10 Básico",
+      "children": []
+     },
+     {
+      "name": "Certificado de Treinamento NR 10 Básico Reciclagem",
+      "children": []
+     },
+     {
+      "name": "Certificado de Treinamento NR10 SEP",
+      "children": []
+     },
+     {
+      "name": "Certificado de Treinamento NR10 SEP Reciclagem",
+      "children": []
+     },
+     {
+      "name": "Autorização de Trabalho",
+      "children": []
+     }
+    ]
+   }
+  ]
+ },
+ {
+  "name": "Instalações",
+  "children": [
+   {
+    "name": "Instalações",
+    "children": [
+     {
+      "name": "Diagrama Unifilar",
+      "children": []
+     },
+     {
+      "name": "Estudo de Risco de Descargas Atmosféricas",
+      "children": []
+     },
+     {
+      "name": "Relatório Técnico de Inspeções da PDA",
+      "children": []
+     },
+     {
+      "name": "Projeto do SPDA",
+      "children": []
+     },
+     {
+      "name": "Relatório Técnico de Aterramento e Equipotencialização",
+      "children": []
+     },
+     {
+      "name": "Estudo de Energia Incidente",
+      "children": []
+     },
+     {
+      "name": "Estudo de Classificação de Áreas com ATEX",
+      "children": []
+     },
+     {
+      "name": "Relatório Técnico de Inspeções das Instalações Elétricas",
+      "children": []
+     },
+     {
+      "name": "Relatório Técnico de Manutenção",
+      "children": []
+     },
+     {
+      "name": "Projeto das Instalações Elétricas",
+      "children": []
+     },
+     {
+      "name": "Auto de Vistoria do Corpo de Bombeiros (AVCB)",
+      "children": []
+     },
+     {
+      "name": "Projeto do Sistema de Proteção e Combate a incêndio (SPCI)",
+      "children": []
+     }
+    ]
+   }
+  ]
+ }
+]

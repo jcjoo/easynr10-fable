@@ -1,0 +1,152 @@
+[
+  {
+    "name": "Diagrama Unifilar - *",
+    "documentGroup": "instalacoes",
+    "isOptional": false
+  },
+  {
+    "name": "Relatório Técnico de Inspeções da PDA - *",
+    "documentGroup": "instalacoes",
+    "isOptional": false
+  },
+  {
+    "name": "Estudo de Risco de Descargas Atmosféricas - *",
+    "documentGroup": "instalacoes",
+    "isOptional": true
+  },
+  {
+    "name": "Projeto do SPDA - *",
+    "documentGroup": "instalacoes",
+    "isOptional": true
+  },
+  {
+    "name": "Relatório Técnico de Aterramento e Equipotencialização - *",
+    "documentGroup": "instalacoes",
+    "isOptional": false
+  },
+  {
+    "name": "Estudo de Energia Incidente - *",
+    "documentGroup": "instalacoes",
+    "isOptional": false
+  },
+  {
+    "name": "Estudo de Classificação de Áreas com ATEX - *",
+    "documentGroup": "instalacoes",
+    "isOptional": true
+  },
+  {
+    "name": "Relatório Técnico de Inspeções das Instalações Elétricas - *",
+    "documentGroup": "instalacoes",
+    "isOptional": false
+  },
+  {
+    "name": "Relatório Técnico de Manutenção - *",
+    "documentGroup": "instalacoes",
+    "isOptional": false
+  },
+  {
+    "name": "Projetos das Instalações Elétricas - *",
+    "documentGroup": "instalacoes",
+    "isOptional": false
+  },
+  {
+    "name": "Auto de Vistoria do Corpo de Bombeiros (AVCB) - *",
+    "documentGroup": "instalacoes",
+    "isOptional": true
+  },
+  {
+    "name": "Projeto do Sistema de Proteção e Combate a Incêndio (SPCI) - *",
+    "documentGroup": "instalacoes",
+    "isOptional": true
+  },
+  {
+    "name": "Procedimento - *",
+    "documentGroup": "instrucoes_e_procedimentos",
+    "isOptional": false
+  },
+  {
+    "name": "Instruções Técnicas e Administrativas - *",
+    "documentGroup": "instrucoes_e_procedimentos",
+    "isOptional": false
+  },
+  {
+    "name": "Análise Preliminar de Risco (APR) - *",
+    "documentGroup": "instrucoes_e_procedimentos",
+    "isOptional": false
+  },
+  {
+    "name": "Ordem de Serviço (OS) - *",
+    "documentGroup": "instrucoes_e_procedimentos",
+    "isOptional": false
+  },
+  {
+    "name": "Procedimento de Emergência - *",
+    "documentGroup": "instrucoes_e_procedimentos",
+    "isOptional": false
+  },
+  {
+    "name": "Carta Nomeativa - *",
+    "documentGroup": "instrucoes_e_procedimentos",
+    "isOptional": false
+  },
+  {
+    "name": "Permissão de Trabalho (PT) - *",
+    "documentGroup": "instrucoes_e_procedimentos",
+    "isOptional": false
+  },
+  {
+    "name": "Certificado de Formação Técnica",
+    "documentGroup": "colaboradores",
+    "isOptional": false
+  },
+  {
+    "name": "Certificado Treinamento NR10 Básico",
+    "documentGroup": "colaboradores",
+    "isOptional": false
+  },
+  {
+    "name": "Certificado Treinamento NR10 Básico Reciclagem",
+    "documentGroup": "colaboradores",
+    "isOptional": false
+  },
+  {
+    "name": "Certificado Treinamento NR10 SEP",
+    "documentGroup": "colaboradores",
+    "isOptional": false
+  },
+  {
+    "name": "Certificado Treinamento NR10 SEP Reciclagem",
+    "documentGroup": "colaboradores",
+    "isOptional": false
+  },
+  {
+    "name": "Autorização de Trabalho NR10",
+    "documentGroup": "colaboradores",
+    "isOptional": false
+  },
+  {
+    "name": "Laudo e Teste de Isolação - *",
+    "documentGroup": "equipamentos",
+    "isOptional": false
+  },
+  {
+    "name": "Especificação Técnica - *",
+    "documentGroup": "equipamentos",
+    "isOptional": false
+  },
+  {
+    "name": "Certificado de Aprovação (CA) - *",
+    "documentGroup": "equipamentos",
+    "isOptional": false
+  },
+  {
+    "name": "Manual Técnico - *",
+    "documentGroup": "equipamentos",
+    "isOptional": false
+  },
+  {
+    "name": "Certificados de Calibração - *",
+    "documentGroup": "equipamentos",
+    "isOptional": true
+  }
+]
