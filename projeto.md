@@ -376,21 +376,21 @@ erDiagram
     unit ||--o{ adequacy_item : avalia
     norm ||--o{ adequacy_item : referencia
     adequacy_item ||--o{ adequacy_item_requirement : configura
-    register_group ||--o{ adequacy_item_requirement : "requisito tipo grupo"
     adequacy_item ||--o{ diagnostic : historico
     diagnostic ||--o{ evidence : "uma por requisito"
     evidence ||--o{ evidence_item : compoe
     document ||--o{ evidence_item : prova
-    register_item ||--o{ evidence_item : "membro do grupo"
+    employee ||--o{ evidence_item : "membro do grupo"
+    equipment ||--o{ evidence_item : "membro do grupo"
     diagnostic ||--o| action_item : origina
     "user" ||--o{ diagnostic : autoria
     "user" ||--o{ user_notification : recebe
     notification ||--o{ user_notification : entrega
-    unit ||--o{ register_group : cadastra
-    register_group ||--o{ register_item : agrupa
-    folder ||--o{ register_item : "pasta do item no PIE"
-    register_item ||--o| employee : "detalhe colaborador"
-    register_item ||--o| equipment : "detalhe equipamento"
+    unit ||--o{ employee : cadastra
+    unit ||--o{ equipment : cadastra
+    unit ||--o{ custom_field : configura
+    folder ||--o{ employee : "pasta no PIE"
+    folder ||--o{ equipment : "pasta no PIE"
 
     company {
         uuid id PK
@@ -445,7 +445,7 @@ erDiagram
     adequacy_item_requirement {
         uuid id PK
         uuid adequacy_item_id FK
-        uuid register_group_id FK
+        varchar target_group
         varchar type
         text question
     }
@@ -467,18 +467,25 @@ erDiagram
         uuid id PK
         uuid evidence_id FK
         uuid document_id FK
-        uuid register_item_id FK
+        uuid employee_id FK
+        uuid equipment_id FK
         varchar label
         text answer
     }
     employee {
         uuid id PK
-        uuid register_item_id FK
+        uuid unit_id FK
+        varchar name
+        uuid folder_id FK
+        jsonb metadata
     }
     equipment {
         uuid id PK
-        uuid register_item_id FK
+        uuid unit_id FK
+        varchar name
         varchar type
+        uuid folder_id FK
+        jsonb metadata
     }
     action_item {
         uuid id PK
@@ -505,7 +512,7 @@ Convenções gerais:
 | `diagnostic_status` | `insuficiente`, `parcial`, `suficiente`, `conforme` | Aderência do item à norma no diagnóstico (seção 7.4). Item **sem diagnóstico** = "sem avaliação" (ausência de registro, não um valor do enum); item fora de escopo usa `adequacy_item.is_active = false` |
 | `action_status` | `pendente`, `em_andamento`, `concluida`, `cancelada` | Situação da ação do plano |
 | `requirement_type` | `document`, `opinion`, `group` | Tipo do requisito de evidência (documento único, parecer textual, ou expansão de grupo de cadastro) |
-| `group_kind` | `custom`, `colaboradores`, `equipamentos` | Natureza do grupo de cadastro: genérico (RF18) ou especializado (RF18.1) |
+| `register_target` | `colaboradores`, `eletrico`, `ferramenta`, `epi`, `epc` | Alvo fixo dos requisitos tipo `group` (revisão 03/07/2026) |
 | `equipment_type` | `eletrico`, `ferramenta`, `epi`, `epc` | Tipo do equipamento (RF18.2) |
 | `document_group` | `instalacoes`, `instrucoes_e_procedimentos`, `colaboradores`, `equipamentos` | Grupos documentais do prontuário (herdados do sistema atual); classificam normas, documentos e o catálogo de documentos padrão |
 
@@ -641,7 +648,7 @@ Convenções gerais:
 | `adequacy_item_id` | uuid | FK → adequacy_item, NN | Item de adequação configurado |
 | `type` | requirement_type | NN | Tipo de evidência exigida |
 | `question` | text | NN | Pergunta/exigência (herdada do catálogo, editável por unidade) |
-| `register_group_id` | uuid | FK → register_group | Grupo de cadastro expandido na evidência (obrigatório quando `type = group`) |
+| `target_group` | register_target | | Alvo fixo expandido na evidência (obrigatório quando `type = group`) |
 | `default_document_id` | uuid | FK → default_document | Nome de documento padrão usado como termo de busca na sugestão automática (requisitos `group`) |
 
 #### `diagnostic` — diagnóstico de um item de adequação
@@ -674,7 +681,8 @@ Convenções gerais:
 |---|---|---|---|
 | `id` | uuid | PK | Identificador |
 | `evidence_id` | uuid | FK → evidence, NN | Evidência composta |
-| `register_item_id` | uuid | FK → register_item | Membro do grupo comprovado (ex.: o colaborador) — preenchido quando o requisito é tipo `group` |
+| `employee_id` | uuid | FK → employee | Colaborador comprovado — preenchido quando o requisito é tipo `group` de colaboradores |
+| `equipment_id` | uuid | FK → equipment | Equipamento comprovado — requisitos tipo `group` de equipamentos |
 | `document_id` | uuid | FK → document | Documento do PIE usado como prova (sugerido automaticamente ou vinculado manualmente — RF15.1) |
 | `label` | varchar(512) | NN | Rótulo exibido (ex.: "ASO de João Silva") |
 | `answer` | text | | Resposta textual (requisitos tipo `opinion`) ou nome do arquivo vinculado |
@@ -701,47 +709,62 @@ Convenções gerais:
 | `user_notification.user_id` | uuid | PK, FK → user | Destinatário |
 | `user_notification.read_at` | timestamptz | | Momento da leitura (`NULL` = não lida) |
 
-#### `register_group` — grupo de cadastro (RF18, base do motor de evidências)
+> **Revisão de 03/07/2026 (decisão do usuário)**: o módulo genérico de grupos
+> de cadastro (`register_group`/`register_item`) foi **removido**. Colaboradores
+> e Equipamentos são módulos próprios com tabelas standalone; o requisito tipo
+> `group` aponta para um **alvo fixo** (`register_target`): `colaboradores`,
+> `eletrico`, `ferramenta`, `epi` ou `epc`.
+
+#### `employee` — colaborador (RF18.1)
 
 | Coluna | Tipo | Restrições | Descrição |
 |---|---|---|---|
 | `id` | uuid | PK | Identificador |
 | `unit_id` | uuid | FK → unit, NN | Unidade dona do cadastro |
-| `name` | varchar(255) | NN, UK (unit_id, name) | Nome do grupo (ex.: Colaboradores, Extintores) |
-| `kind` | group_kind | NN, default `custom` | `custom` = grupo genérico; `colaboradores`/`equipamentos` = grupos dos módulos especializados (RF18.1), que ganham telas e campos próprios mas participam do motor de evidências como qualquer grupo |
-| `metadata_config` | jsonb | | Definição dos campos extras dos itens deste grupo |
-| `folder_id` | uuid | FK → folder | Pasta-raiz do grupo no PIE (cada item ganha subpasta) |
+| `name` | varchar(255) | NN, UK (unit_id, name) entre ativos | Nome do colaborador |
+| `folder_id` | uuid | FK → folder | Pasta correspondente no PIE — base da busca automática de evidência (RF15.1/RF18.3) |
+| `metadata` | jsonb | NN, default `{}` | Valores dos campos default do sistema (Função, Matrícula) + campos personalizados da unidade |
 
-#### `register_item` — item de cadastro (membro do grupo)
-
-| Coluna | Tipo | Restrições | Descrição |
-|---|---|---|---|
-| `id` | uuid | PK | Identificador |
-| `group_id` | uuid | FK → register_group, NN | Grupo pai |
-| `name` | varchar(255) | NN, UK (group_id, name) entre ativos | Nome do item (ex.: o colaborador) |
-| `folder_id` | uuid | FK → folder | Pasta do item no PIE — onde a busca automática de evidência procura os documentos (RF15.1). Configurada na tela do módulo dono do item (RF18.3): sugerida como subpasta da pasta-raiz do grupo, aceitável ou substituível por outra pasta |
-| `metadata` | jsonb | | Valores dos campos definidos em `metadata_config` |
-
-#### `employee` — colaborador (RF18.1, detalhe especializado)
+#### `equipment` — equipamento (RF18.1/RF18.2)
 
 | Coluna | Tipo | Restrições | Descrição |
 |---|---|---|---|
 | `id` | uuid | PK | Identificador |
-| `register_item_id` | uuid | FK → register_item, NN, UK | Item de cadastro correspondente (1:1) — dá ao colaborador nome de exibição, pasta no PIE e participação no motor de evidências |
-
-#### `equipment` — equipamento (RF18.1/RF18.2, detalhe especializado)
-
-| Coluna | Tipo | Restrições | Descrição |
-|---|---|---|---|
-| `id` | uuid | PK | Identificador |
-| `register_item_id` | uuid | FK → register_item, NN, UK | Item de cadastro correspondente (1:1) — mesma ponte do colaborador |
+| `unit_id` | uuid | FK → unit, NN | Unidade dona do cadastro |
+| `name` | varchar(255) | NN, UK (unit_id, name) entre ativos | Nome do equipamento |
 | `type` | equipment_type | NN | Tipo: `eletrico`, `ferramenta`, `epi`, `epc` |
+| `folder_id` | uuid | FK → folder | Pasta correspondente no PIE (RF18.3) |
+| `metadata` | jsonb | NN, default `{}` | Valores dos campos default (Fabricante, Identificação/TAG) + personalizados |
+
+#### `custom_field` — campo personalizado da unidade
+
+| Coluna | Tipo | Restrições | Descrição |
+|---|---|---|---|
+| `id` | uuid | PK | Identificador |
+| `unit_id` | uuid | FK → unit, NN | Unidade dona do campo |
+| `target` | register_target | NN | Grupo-alvo (cada tipo de equipamento tem estrutura própria de colunas) |
+| `name` | varchar(120) | NN, UK (unit_id, target, name) entre ativos | Nome do campo (valor fica no `metadata` do item) |
+
+> **Estrutura de pastas dos cadastros é FIXA** (criada sob demanda ao cadastrar):
+> `Colaboradores/Lista de Colaboradores/[nome]/[estrutura opcional]` e
+> `Equipamentos/<Tipo>/Lista de <Tipo>/[nome]/[estrutura opcional]`
+> (constante `registerBasePath` no pacote shared).
+
+#### `register_document_link` — vínculo campo→documento (automações de vencimento)
+
+| Coluna | Tipo | Restrições | Descrição |
+|---|---|---|---|
+| `id` | uuid | PK | Identificador |
+| `document_id` | uuid | FK → document, NN | Documento do PIE (ex.: Certificado de Aprovação) — um documento pode cobrir N itens |
+| `employee_id` | uuid | FK → employee, UK (employee_id, field_key) entre ativos | Colaborador vinculado |
+| `equipment_id` | uuid | FK → equipment, UK (equipment_id, field_key) entre ativos | Equipamento vinculado |
+| `field_key` | varchar(120) | NN | Campo kind=document do cadastro (ex.: `ca` do EPI) |
 
 > **Colunas de domínio serão adicionadas quando a necessidade aparecer** (via migration Drizzle). Para campos específicos por tipo de equipamento (RF18.2), a estratégia é: campos ainda instáveis podem nascer em jsonb validado por Zod; ao se estabilizarem ou precisarem de índice/constraint/relatório, viram coluna ou tabela de extensão 1:1 por tipo (`equipment_epi`, …).
 
 ### 7.4 Estados do diagnóstico
 
-A escala de **aderência** tem quatro níveis: `insuficiente` → `parcial` → `suficiente` → `conforme`. Cada diagnóstico registra o nível avaliado; o nível atual do item é o do diagnóstico mais recente. Diagnósticos abaixo de `conforme` podem gerar ação no plano; a reavaliação (novo diagnóstico) move o item na escala em qualquer direção.
+A escala de **aderência** tem cinco níveis (revisão do usuário em 03/07/2026): `inexistente` → `inadequada` → `parcial` → `suficiente` → `plena`, com scores 0/25/50/75/100% para a aderência agregada (média ponderada pelo peso da norma; faixas 0-20/21-40/41-70/71-90/91-100 dão rótulo e frase de alerta). Cada diagnóstico registra o nível avaliado; o nível atual do item é o do diagnóstico mais recente. Diagnósticos abaixo de `plena` podem gerar ação no plano; a reavaliação (novo diagnóstico) move o item na escala em qualquer direção.
 
 ```mermaid
 stateDiagram-v2

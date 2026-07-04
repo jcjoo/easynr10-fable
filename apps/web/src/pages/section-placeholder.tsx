@@ -1,4 +1,5 @@
-// Placeholders das seções da unidade/empresa até as fases F2–F4.
+// Placeholder genérico de seção (sem uso no momento — última seção real
+// entregue na F4; mantido para fases futuras).
 
 import { Page } from '@/components/ui/page';
 
@@ -22,35 +23,5 @@ export function SectionPlaceholder({
         </span>
       </div>
     </Page>
-  );
-}
-
-export function RelatoriosPage() {
-  return (
-    <SectionPlaceholder
-      title="Relatórios"
-      description="Relatório de Não Conformidades, situação documental do PIE e pendências do plano de ação — exportáveis em PDF e CSV."
-      phase="Fase F4"
-    />
-  );
-}
-
-export function EquipamentosPage() {
-  return (
-    <SectionPlaceholder
-      title="Equipamentos"
-      description="Cadastro de equipamentos (elétrico, ferramenta, EPI, EPC) com pasta correspondente no PIE."
-      phase="Fase F3"
-    />
-  );
-}
-
-export function ColaboradoresPage() {
-  return (
-    <SectionPlaceholder
-      title="Colaboradores"
-      description="Cadastro de colaboradores da unidade com pasta correspondente no PIE."
-      phase="Fase F3"
-    />
   );
 }

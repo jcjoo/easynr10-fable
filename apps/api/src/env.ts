@@ -6,8 +6,13 @@ const envSchema = z.object({
   FRONTEND_URL: z.string().default('http://localhost:5173'),
   BETTER_AUTH_SECRET: z.string().min(16),
   BETTER_AUTH_URL: z.string().default('http://localhost:3000'),
+  // Origens extra confiáveis pelo better-auth (ex.: túnel ngrok), separadas por vírgula.
+  EXTRA_TRUSTED_ORIGINS: z.string().optional(),
   GOOGLE_CLIENT_ID: z.string().optional(),
   GOOGLE_CLIENT_SECRET: z.string().optional(),
+
+  // Conversor HTML→PDF (exportação de relatórios, RF22).
+  GOTENBERG_URL: z.string().default('http://localhost:3010'),
 
   S3_ENDPOINT: z.string().min(1),
   // Endpoint visível pelo browser (presigned URLs). Em dev/compose difere do interno.

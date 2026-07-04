@@ -8,6 +8,7 @@ import { defaultDocumentsRouter } from './default-documents';
 import { adequacyRouter } from './adequacy';
 import { usersRouter } from './users';
 import { registersRouter } from './registers';
+import { reportsRouter } from './reports';
 
 export const appRouter = router({
   companies: companiesRouter,
@@ -19,6 +20,7 @@ export const appRouter = router({
   adequacy: adequacyRouter,
   users: usersRouter,
   registers: registersRouter,
+  reports: reportsRouter,
 });
 
 export type AppRouter = typeof appRouter;

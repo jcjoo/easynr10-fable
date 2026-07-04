@@ -1,66 +1,87 @@
 import { jsonb, pgTable, uniqueIndex, uuid, varchar } from 'drizzle-orm/pg-core';
 import { audit, id, whereActive } from './helpers';
-import { equipmentType, groupKind } from './enums';
+import { equipmentType, registerTarget } from './enums';
 import { unit } from './org';
-import { folder } from './pie';
+import { document, folder } from './pie';
 
-// Base do motor de evidências tipo grupo (projeto.md §7.6).
-export const registerGroup = pgTable(
-  'register_group',
+// Cadastros da unidade (decisão do usuário em 03/07/2026: sem módulo genérico
+// de grupos — Colaboradores e Equipamentos são módulos próprios; o requisito
+// tipo group aponta para um alvo fixo: colaboradores ou um tipo de equipamento).
+// metadata = valores dos campos default do sistema + personalizados da unidade.
+
+export const employee = pgTable(
+  'employee',
   {
     id: id(),
     unitId: uuid('unit_id')
       .notNull()
       .references(() => unit.id),
     name: varchar('name', { length: 255 }).notNull(),
-    kind: groupKind('kind').notNull().default('custom'),
-    metadataConfig: jsonb('metadata_config').$type<Record<string, unknown>>(),
+    // Pasta do colaborador no PIE (RF18.3) — base da sugestão de evidências.
     folderId: uuid('folder_id').references(() => folder.id),
+    metadata: jsonb('metadata').$type<Record<string, string>>().notNull().default({}),
     ...audit,
   },
-  (t) => [uniqueIndex('uq_register_group_unit_name').on(t.unitId, t.name).where(whereActive(t))],
-);
-
-export const registerItem = pgTable(
-  'register_item',
-  {
-    id: id(),
-    groupId: uuid('group_id')
-      .notNull()
-      .references(() => registerGroup.id),
-    name: varchar('name', { length: 255 }).notNull(),
-    // Pasta do item no PIE, configurada na tela do módulo dono (RF18.3).
-    folderId: uuid('folder_id').references(() => folder.id),
-    metadata: jsonb('metadata').$type<Record<string, string>>(),
-    ...audit,
-  },
-  (t) => [uniqueIndex('uq_register_item_group_name').on(t.groupId, t.name).where(whereActive(t))],
-);
-
-// Detalhes especializados (RF18.1): ponte 1:1 com register_item.
-// Colunas de domínio entram quando a necessidade aparecer (projeto.md §7.3).
-
-export const employee = pgTable(
-  'employee',
-  {
-    id: id(),
-    registerItemId: uuid('register_item_id')
-      .notNull()
-      .references(() => registerItem.id),
-    ...audit,
-  },
-  (t) => [uniqueIndex('uq_employee_register_item').on(t.registerItemId)],
+  (t) => [uniqueIndex('uq_employee_unit_name').on(t.unitId, t.name).where(whereActive(t))],
 );
 
 export const equipment = pgTable(
   'equipment',
   {
     id: id(),
-    registerItemId: uuid('register_item_id')
+    unitId: uuid('unit_id')
       .notNull()
-      .references(() => registerItem.id),
+      .references(() => unit.id),
+    name: varchar('name', { length: 255 }).notNull(),
     type: equipmentType('type').notNull(),
+    folderId: uuid('folder_id').references(() => folder.id),
+    metadata: jsonb('metadata').$type<Record<string, string>>().notNull().default({}),
     ...audit,
   },
-  (t) => [uniqueIndex('uq_equipment_register_item').on(t.registerItemId)],
+  (t) => [uniqueIndex('uq_equipment_unit_name').on(t.unitId, t.name).where(whereActive(t))],
+);
+
+// Campos personalizados da unidade, por grupo-alvo (cada tipo de equipamento
+// tem estrutura própria); valores no metadata do item.
+export const customField = pgTable(
+  'custom_field',
+  {
+    id: id(),
+    unitId: uuid('unit_id')
+      .notNull()
+      .references(() => unit.id),
+    target: registerTarget('target').notNull(),
+    name: varchar('name', { length: 120 }).notNull(),
+    ...audit,
+  },
+  (t) => [
+    uniqueIndex('uq_custom_field_unit_target_name')
+      .on(t.unitId, t.target, t.name)
+      .where(whereActive(t)),
+  ],
+);
+
+// Vínculo campo→documento do PIE (campos kind=document, ex.: CA do EPI).
+// Um documento pode cobrir N itens; cada item tem no máximo um documento
+// ativo por campo. Base das automações de vencimento (diagnóstico/alertas).
+export const registerDocumentLink = pgTable(
+  'register_document_link',
+  {
+    id: id(),
+    documentId: uuid('document_id')
+      .notNull()
+      .references(() => document.id),
+    employeeId: uuid('employee_id').references(() => employee.id),
+    equipmentId: uuid('equipment_id').references(() => equipment.id),
+    fieldKey: varchar('field_key', { length: 120 }).notNull(),
+    ...audit,
+  },
+  (t) => [
+    uniqueIndex('uq_register_doc_link_employee_field')
+      .on(t.employeeId, t.fieldKey)
+      .where(whereActive(t)),
+    uniqueIndex('uq_register_doc_link_equipment_field')
+      .on(t.equipmentId, t.fieldKey)
+      .where(whereActive(t)),
+  ],
 );

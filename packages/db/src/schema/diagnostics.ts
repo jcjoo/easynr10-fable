@@ -3,7 +3,7 @@ import { audit, id } from './helpers';
 import { actionStatus, diagnosticStatus, requirementType } from './enums';
 import { adequacyItem } from './norms';
 import { document } from './pie';
-import { registerItem } from './registers';
+import { employee, equipment } from './registers';
 import { user } from './auth';
 
 export const diagnostic = pgTable('diagnostic', {
@@ -40,7 +40,8 @@ export const evidenceItem = pgTable('evidence_item', {
     .notNull()
     .references(() => evidence.id),
   // Membro do grupo comprovado (requisitos tipo group).
-  registerItemId: uuid('register_item_id').references(() => registerItem.id),
+  employeeId: uuid('employee_id').references(() => employee.id),
+  equipmentId: uuid('equipment_id').references(() => equipment.id),
   // Documento do PIE usado como prova (sugerido ou vinculado manualmente).
   documentId: uuid('document_id').references(() => document.id),
   label: varchar('label', { length: 512 }).notNull(),

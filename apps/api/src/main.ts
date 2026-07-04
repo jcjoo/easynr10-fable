@@ -5,6 +5,7 @@ import { env } from './env';
 import { auth } from './auth';
 import { appRouter } from './routers';
 import { createContext } from './trpc';
+import { registerReportExport } from './report-export';
 
 const app = Fastify({ logger: true });
 
@@ -72,6 +73,9 @@ app.route({
     await sendWebResponse(reply, response);
   },
 });
+
+// Download de relatórios (CSV/PDF) com o cookie de sessão (RF22).
+registerReportExport(app);
 
 app.get('/health', () => ({ status: 'ok' }));
 

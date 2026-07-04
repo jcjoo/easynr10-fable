@@ -4,6 +4,7 @@ import { schema } from '@easynr10/db';
 import {
   actionItemStatusSchema,
   adequacyItemUpdateSchema,
+  compareNormCodes,
   diagnosticCreateSchema,
   requirementCreateSchema,
 } from '@easynr10/shared';
@@ -23,29 +24,10 @@ const {
   folder,
   norm,
   normRequirement,
-  registerGroup,
-  registerItem,
+  employee,
+  equipment,
   user,
 } = schema;
-
-// Ordenação natural de códigos de norma: 10.2.4a < 10.2.4b < 10.11.7
-// (ordenar como texto colocaria 10.11 antes de 10.2).
-function compareNormCodes(a: string, b: string) {
-  const segmentsA = a.split('.');
-  const segmentsB = b.split('.');
-  const length = Math.max(segmentsA.length, segmentsB.length);
-  for (let index = 0; index < length; index += 1) {
-    const rawA = segmentsA[index] ?? '';
-    const rawB = segmentsB[index] ?? '';
-    const numberA = parseInt(rawA, 10) || 0;
-    const numberB = parseInt(rawB, 10) || 0;
-    if (numberA !== numberB) return numberA - numberB;
-    const suffixA = rawA.replace(/^\d+/, '');
-    const suffixB = rawB.replace(/^\d+/, '');
-    if (suffixA !== suffixB) return suffixA.localeCompare(suffixB);
-  }
-  return 0;
-}
 
 async function findUnitAdequacyItem(unitId: string, adequacyItemId: string) {
   const found = await db.query.adequacyItem.findFirst({
@@ -205,13 +187,11 @@ export const adequacyRouter = router({
           id: adequacyItemRequirement.id,
           type: adequacyItemRequirement.type,
           question: adequacyItemRequirement.question,
-          registerGroupId: adequacyItemRequirement.registerGroupId,
-          registerGroupName: registerGroup.name,
+          targetGroup: adequacyItemRequirement.targetGroup,
           defaultDocumentId: adequacyItemRequirement.defaultDocumentId,
           defaultDocumentName: defaultDocument.name,
         })
         .from(adequacyItemRequirement)
-        .leftJoin(registerGroup, eq(adequacyItemRequirement.registerGroupId, registerGroup.id))
         .leftJoin(
           defaultDocument,
           eq(adequacyItemRequirement.defaultDocumentId, defaultDocument.id),
@@ -227,25 +207,13 @@ export const adequacyRouter = router({
 
   addRequirement: unitProcedure.input(requirementCreateSchema).mutation(async ({ input }) => {
     const item = await findUnitAdequacyItem(input.unitId, input.adequacyItemId);
-    if (input.registerGroupId) {
-      const group = await db.query.registerGroup.findFirst({
-        where: and(
-          eq(registerGroup.id, input.registerGroupId),
-          eq(registerGroup.unitId, input.unitId),
-          isNull(registerGroup.deletedAt),
-        ),
-      });
-      if (!group) {
-        throw new TRPCError({ code: 'NOT_FOUND', message: 'Grupo de cadastro não encontrado' });
-      }
-    }
     const [created] = await db
       .insert(adequacyItemRequirement)
       .values({
         adequacyItemId: item.id,
         type: input.type,
         question: input.question,
-        registerGroupId: input.type === 'group' ? input.registerGroupId : null,
+        targetGroup: input.type === 'group' ? input.targetGroup : null,
         defaultDocumentId: input.type === 'group' ? input.defaultDocumentId : null,
       })
       .returning();
@@ -301,7 +269,7 @@ export const adequacyRouter = router({
         .select({
           id: adequacyItemRequirement.id,
           question: adequacyItemRequirement.question,
-          registerGroupId: adequacyItemRequirement.registerGroupId,
+          targetGroup: adequacyItemRequirement.targetGroup,
           searchTerm: defaultDocument.name,
         })
         .from(adequacyItemRequirement)
@@ -317,20 +285,33 @@ export const adequacyRouter = router({
             isNull(adequacyItemRequirement.deletedAt),
           ),
         );
-      if (!requirement?.registerGroupId) {
+      if (!requirement?.targetGroup) {
         throw new TRPCError({ code: 'NOT_FOUND', message: 'Requisito de grupo não encontrado' });
       }
 
-      const members = await db
-        .select({ id: registerItem.id, name: registerItem.name, folderId: registerItem.folderId })
-        .from(registerItem)
-        .where(
-          and(
-            eq(registerItem.groupId, requirement.registerGroupId),
-            isNull(registerItem.deletedAt),
-          ),
-        )
-        .orderBy(asc(registerItem.name));
+      // Membros do alvo fixo: colaboradores ou equipamentos de um tipo.
+      const members =
+        requirement.targetGroup === 'colaboradores'
+          ? (
+              await db
+                .select({ id: employee.id, name: employee.name, folderId: employee.folderId })
+                .from(employee)
+                .where(and(eq(employee.unitId, input.unitId), isNull(employee.deletedAt)))
+                .orderBy(asc(employee.name))
+            ).map((row) => ({ ...row, kind: 'employee' as const }))
+          : (
+              await db
+                .select({ id: equipment.id, name: equipment.name, folderId: equipment.folderId })
+                .from(equipment)
+                .where(
+                  and(
+                    eq(equipment.unitId, input.unitId),
+                    eq(equipment.type, requirement.targetGroup),
+                    isNull(equipment.deletedAt),
+                  ),
+                )
+                .orderBy(asc(equipment.name))
+            ).map((row) => ({ ...row, kind: 'equipment' as const }));
 
       // Subárvores de pastas para a busca do documento sugerido.
       const allFolders = await db
@@ -368,7 +349,8 @@ export const adequacyRouter = router({
             suggestion = match ?? null;
           }
           return {
-            registerItemId: member.id,
+            employeeId: member.kind === 'employee' ? member.id : null,
+            equipmentId: member.kind === 'equipment' ? member.id : null,
             label: `${requirement.question} de ${member.name}`,
             suggestedDocumentId: suggestion?.id ?? null,
             suggestedDocumentName: suggestion?.name ?? null,
@@ -459,7 +441,7 @@ export const adequacyRouter = router({
         .orderBy(desc(diagnostic.createdAt));
     }),
 
-  // Novo diagnóstico; aderência abaixo de conforme com prazo gera ação (RF16).
+  // Novo diagnóstico; aderência abaixo de Plena com prazo gera ação (RF16).
   diagnose: unitProcedure.input(diagnosticCreateSchema).mutation(async ({ ctx, input }) => {
     const item = await findUnitAdequacyItem(input.unitId, input.adequacyItemId);
     return db.transaction(async (tx) => {
@@ -475,7 +457,7 @@ export const adequacyRouter = router({
           technicalOpinion: input.technicalOpinion ?? null,
         })
         .returning();
-      if (input.status !== 'conforme' && input.deadline) {
+      if (input.status !== 'plena' && input.deadline) {
         await tx.insert(actionItem).values({
           diagnosticId: created!.id,
           deadline: input.deadline,
@@ -494,7 +476,8 @@ export const adequacyRouter = router({
             label: item.label,
             answer: item.answer ?? null,
             documentId: item.documentId ?? null,
-            registerItemId: item.registerItemId ?? null,
+            employeeId: item.employeeId ?? null,
+            equipmentId: item.equipmentId ?? null,
           })),
         );
       }

@@ -29,6 +29,34 @@
       "when": 1783100460557,
       "tag": "0003_mature_bulldozer",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1783102061529,
+      "tag": "0004_green_scourge",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1783103484939,
+      "tag": "0005_tiny_leopardon",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1783105214805,
+      "tag": "0006_sour_kitty_pryde",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1783106223834,
+      "tag": "0007_long_mysterio",
+      "breakpoints": true
     }
   ]
 }

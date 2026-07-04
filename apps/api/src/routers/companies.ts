@@ -4,6 +4,7 @@ import { companyCreateSchema, companyUpdateSchema } from '@easynr10/shared';
 import { z } from 'zod';
 import { db } from '../db';
 import { adminProcedure, protectedProcedure, router } from '../trpc';
+import { cascadeDeleteUnit } from '../cascade';
 
 const { company, unit, membership } = schema;
 
@@ -72,7 +73,16 @@ export const companiesRouter = router({
     return updated;
   }),
 
+  // Cascata: cada unidade ativa é excluída com toda a árvore (+ MinIO),
+  // depois a empresa.
   remove: adminProcedure.input(z.object({ id: z.uuid() })).mutation(async ({ input }) => {
+    const units = await db
+      .select({ id: unit.id })
+      .from(unit)
+      .where(and(eq(unit.companyId, input.id), isNull(unit.deletedAt)));
+    for (const row of units) {
+      await cascadeDeleteUnit(row.id);
+    }
     await db
       .update(company)
       .set({ deletedAt: new Date() })

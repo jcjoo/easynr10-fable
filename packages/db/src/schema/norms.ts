@@ -1,9 +1,8 @@
 import { boolean, integer, pgTable, text, uniqueIndex, uuid, varchar } from 'drizzle-orm/pg-core';
 import { audit, id, whereActive } from './helpers';
-import { documentGroup, requirementType } from './enums';
+import { documentGroup, registerTarget, requirementType } from './enums';
 import { unit } from './org';
 import { defaultDocument } from './pie';
-import { registerGroup } from './registers';
 
 export const norm = pgTable(
   'norm',
@@ -48,7 +47,8 @@ export const adequacyItem = pgTable(
   (t) => [uniqueIndex('uq_adequacy_item_unit_norm').on(t.unitId, t.normId).where(whereActive(t))],
 );
 
-// Requisito configurado no item (RF13.1); tipo group aponta para um grupo de cadastro.
+// Requisito configurado no item (RF13.1); tipo group aponta para um alvo
+// fixo de cadastro (colaboradores ou tipo de equipamento).
 export const adequacyItemRequirement = pgTable('adequacy_item_requirement', {
   id: id(),
   adequacyItemId: uuid('adequacy_item_id')
@@ -56,7 +56,7 @@ export const adequacyItemRequirement = pgTable('adequacy_item_requirement', {
     .references(() => adequacyItem.id),
   type: requirementType('type').notNull(),
   question: text('question').notNull(),
-  registerGroupId: uuid('register_group_id').references(() => registerGroup.id),
+  targetGroup: registerTarget('target_group'),
   // Nome de documento padrão do catálogo — termo de busca da sugestão
   // automática nos requisitos tipo group (como no legado).
   defaultDocumentId: uuid('default_document_id').references(() => defaultDocument.id),

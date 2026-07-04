@@ -1,10 +1,19 @@
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useNavigate, useSearch } from '@tanstack/react-router';
+import { normalizeText } from '@easynr10/shared';
 import { trpc } from '@/lib/trpc';
 import { useSession } from '@/lib/auth-client';
 import { Button } from '@/components/ui/button';
 import { Dialog } from '@/components/ui/dialog';
 import { Page } from '@/components/ui/page';
+import {
+  PlainTh,
+  SortableTh,
+  sortRows,
+  toggleSort,
+  type SortValue,
+} from '@/components/ui/sortable';
 
 // Painel de usuários (admin): liberar/revogar acesso a empresas e unidades.
 // O vínculo do modelo é por unidade (membership); marcar a empresa marca
@@ -131,6 +140,22 @@ export function UsuariosPage() {
   const isAdmin = session?.user.role === 'admin';
   const users = useQuery({ ...trpc.users.list.queryOptions(), enabled: isAdmin });
   const [accessTarget, setAccessTarget] = useState<UserRow | null>(null);
+  const { ord, dir } = useSearch({ from: '/_authed/usuarios' });
+  const navigate = useNavigate();
+
+  // Ordenação (?ord=&dir=).
+  type Row = NonNullable<typeof users.data>[number];
+  const currentOrd = ord ?? 'nome';
+  const currentDir = dir ?? 'asc';
+  const accessors: Record<string, (row: Row) => SortValue> = {
+    nome: (row) => normalizeText(row.name),
+    email: (row) => normalizeText(row.email),
+    papel: (row) => (row.role === 'admin' ? 0 : 1),
+    cadastro: (row) => new Date(row.createdAt).getTime(),
+  };
+  const sorted = sortRows(users.data ?? [], accessors[currentOrd] ?? accessors.nome!, currentDir);
+  const handleSort = (key: string) =>
+    navigate({ to: '/usuarios', search: toggleSort({ ord, dir }, key, 'nome') });
 
   if (session && !isAdmin) {
     return (
@@ -154,18 +179,28 @@ export function UsuariosPage() {
         <table className="w-full border-collapse text-sm">
           <thead>
             <tr>
-              {['Nome', 'E-mail', 'Papel', 'Cadastro', ''].map((heading) => (
-                <th
-                  key={heading}
-                  className="whitespace-nowrap border-b border-line-strong px-3.5 py-2.5 text-left font-ui text-xs font-semibold uppercase tracking-[.06em] text-muted"
-                >
-                  {heading}
-                </th>
+              {(
+                [
+                  ['nome', 'Nome'],
+                  ['email', 'E-mail'],
+                  ['papel', 'Papel'],
+                  ['cadastro', 'Cadastro'],
+                ] as const
+              ).map(([key, label]) => (
+                <SortableTh
+                  key={key}
+                  colKey={key}
+                  label={label}
+                  ord={currentOrd}
+                  dir={currentDir}
+                  onSort={handleSort}
+                />
               ))}
+              <PlainTh />
             </tr>
           </thead>
           <tbody>
-            {users.data?.map((user) => (
+            {sorted.map((user) => (
               <tr key={user.id} className="hover:bg-paper">
                 <td className="w-full border-b border-line px-3.5 py-2.5 font-medium">
                   {user.name}

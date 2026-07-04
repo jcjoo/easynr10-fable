@@ -4,8 +4,8 @@ import {
   diagnosticStatuses,
   documentGroups,
   equipmentTypes,
-  groupKinds,
   memberRoles,
+  registerTargets,
   requirementTypes,
 } from './enums';
 
@@ -142,7 +142,8 @@ export const evidenceInputSchema = z.object({
         label: z.string().trim().min(1).max(512),
         answer: z.string().trim().nullish(),
         documentId: z.uuid().nullish(),
-        registerItemId: z.uuid().nullish(),
+        employeeId: z.uuid().nullish(),
+        equipmentId: z.uuid().nullish(),
       }),
     )
     .min(1),
@@ -169,18 +170,19 @@ export const adequacyItemUpdateSchema = z.object({
 });
 export type AdequacyItemUpdateInput = z.infer<typeof adequacyItemUpdateSchema>;
 
-// Requisito tipo group exige grupo de cadastro e documento padrão (legado).
+// Requisito tipo group exige um alvo fixo (colaboradores/tipo de equipamento)
+// e documento padrão (termo da sugestão automática).
 export const requirementCreateSchema = z
   .object({
     unitId: z.uuid(),
     adequacyItemId: z.uuid(),
     type: z.enum(requirementTypes),
     question: z.string().trim().min(1),
-    registerGroupId: z.uuid().nullish(),
+    targetGroup: z.enum(registerTargets).nullish(),
     defaultDocumentId: z.uuid().nullish(),
   })
-  .refine((value) => value.type !== 'group' || (value.registerGroupId && value.defaultDocumentId), {
-    message: 'Requisito de grupo exige grupo de cadastro e documento padrão',
+  .refine((value) => value.type !== 'group' || (value.targetGroup && value.defaultDocumentId), {
+    message: 'Requisito de grupo exige o grupo alvo e o documento padrão',
   });
 export type RequirementCreateInput = z.infer<typeof requirementCreateSchema>;
 
@@ -191,22 +193,77 @@ export const actionItemStatusSchema = z.object({
 });
 export type ActionItemStatusInput = z.infer<typeof actionItemStatusSchema>;
 
-export const registerGroupCreateSchema = z.object({
-  unitId: z.uuid(),
-  name: z.string().trim().min(1).max(255),
-  kind: z.enum(groupKinds).default('custom'),
-});
-export type RegisterGroupCreateInput = z.infer<typeof registerGroupCreateSchema>;
+// — Cadastros (Colaboradores/Equipamentos) —
+// metadata carrega os valores dos campos default do sistema + campos
+// personalizados da unidade (chave → valor texto). A pasta do item no PIE é
+// criada AUTOMATICAMENTE sob a pasta do grupo; folderSchemaId (opcional, só
+// na criação) gera uma estrutura de pastas dentro da pasta do item.
 
-export const equipmentCreateSchema = z.object({
+const registerMetadataSchema = z.record(z.string(), z.string().trim().max(512));
+
+export const employeeUpsertSchema = z.object({
   unitId: z.uuid(),
+  employeeId: z.uuid().optional(),
+  name: z.string().trim().min(1).max(255),
+  metadata: registerMetadataSchema.default({}),
+  folderSchemaId: z.uuid().nullish(),
+});
+export type EmployeeUpsertInput = z.infer<typeof employeeUpsertSchema>;
+
+export const equipmentUpsertSchema = z.object({
+  unitId: z.uuid(),
+  equipmentId: z.uuid().optional(),
   name: z.string().trim().min(1).max(255),
   type: z.enum(equipmentTypes),
+  metadata: registerMetadataSchema.default({}),
+  folderSchemaId: z.uuid().nullish(),
 });
-export type EquipmentCreateInput = z.infer<typeof equipmentCreateSchema>;
+export type EquipmentUpsertInput = z.infer<typeof equipmentUpsertSchema>;
 
-export const employeeCreateSchema = z.object({
+export const customFieldCreateSchema = z.object({
   unitId: z.uuid(),
-  name: z.string().trim().min(1).max(255),
+  target: z.enum(registerTargets),
+  name: z.string().trim().min(1).max(120),
 });
-export type EmployeeCreateInput = z.infer<typeof employeeCreateSchema>;
+export type CustomFieldCreateInput = z.infer<typeof customFieldCreateSchema>;
+
+// Vincula um documento do PIE a um campo kind=document de N itens de uma vez
+// (ex.: um Certificado de Aprovação para várias EPIs).
+export const documentLinkSchema = z
+  .object({
+    unitId: z.uuid(),
+    fieldKey: z.string().trim().min(1).max(120),
+    documentId: z.uuid(),
+    employeeIds: z.array(z.uuid()).default([]),
+    equipmentIds: z.array(z.uuid()).default([]),
+  })
+  .refine((value) => value.employeeIds.length + value.equipmentIds.length > 0, {
+    message: 'Selecione ao menos um item para vincular',
+  });
+export type DocumentLinkInput = z.infer<typeof documentLinkSchema>;
+
+export const documentUnlinkSchema = z.object({
+  unitId: z.uuid(),
+  fieldKey: z.string().trim().min(1).max(120),
+  employeeId: z.uuid().nullish(),
+  equipmentId: z.uuid().nullish(),
+});
+export type DocumentUnlinkInput = z.infer<typeof documentUnlinkSchema>;
+
+// Importação por planilha (linhas já mapeadas no cliente via de-para).
+const importItemSchema = z.object({
+  name: z.string().trim().min(1).max(255),
+  metadata: registerMetadataSchema.default({}),
+});
+export const employeeImportSchema = z.object({
+  unitId: z.uuid(),
+  items: z.array(importItemSchema).min(1).max(2000),
+});
+export type EmployeeImportInput = z.infer<typeof employeeImportSchema>;
+
+export const equipmentImportSchema = z.object({
+  unitId: z.uuid(),
+  type: z.enum(equipmentTypes),
+  items: z.array(importItemSchema).min(1).max(2000),
+});
+export type EquipmentImportInput = z.infer<typeof equipmentImportSchema>;

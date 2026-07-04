@@ -12,6 +12,14 @@ import { Menu, RowMenu, type MenuItem, type MenuPosition } from '@/components/ui
 import { UploadDocumentDialog } from '@/components/pie/upload-document-dialog';
 import { FolderSchemasDialog } from '@/components/pie/folder-schemas-dialog';
 import { ExpiryFilter, filterByExpiry } from '@/components/pie/expiry-filter';
+import {
+  PlainTh,
+  SortableTh,
+  sortRows,
+  toggleSort,
+  type SortValue,
+} from '@/components/ui/sortable';
+import { normalizeText } from '@easynr10/shared';
 
 interface FolderNode {
   id: string;
@@ -92,7 +100,9 @@ function ExpiryPill({
 
 export function PiePage() {
   const { companyId, unitId } = useParams({ from: '/_authed/$companyId/$unitId/pie' });
-  const { pasta, ver, venc, de, ate } = useSearch({ from: '/_authed/$companyId/$unitId/pie' });
+  const { pasta, ver, venc, de, ate, ord, dir } = useSearch({
+    from: '/_authed/$companyId/$unitId/pie',
+  });
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   // Visão "apenas documentos" (?ver=documentos): lista tudo abaixo da pasta atual.
@@ -319,13 +329,49 @@ export function PiePage() {
         ...(venc ? { venc } : {}),
         ...(de ? { de } : {}),
         ...(ate ? { ate } : {}),
+        ord,
+        dir,
       },
     });
   };
 
   const rawDocuments: DocumentRow[] =
     (docsOnly ? subtreeDocuments.data : pasta ? documents.data : undefined) ?? [];
-  const docRows = filterByExpiry(rawDocuments, { venc, de, ate }, DEFAULT_WARN_DAYS);
+
+  // Ordenação (?ord=&dir=): documentos pela coluna ativa; pastas ficam no
+  // topo e só reordenam pelo Nome (nas demais colunas seguem em ordem alfabética).
+  const currentOrd = ord ?? 'nome';
+  const currentDir = dir ?? 'asc';
+  const docAccessors: Record<string, (doc: DocumentRow) => SortValue> = {
+    nome: (doc) => normalizeText(doc.name),
+    local: (doc) =>
+      doc.folderId ? normalizeText(folderById.get(doc.folderId)?.name ?? '') : null,
+    venc: (doc) => doc.expiresAt,
+    criacao: (doc) => new Date(doc.createdAt).getTime(),
+  };
+  const docRows = sortRows(
+    filterByExpiry(rawDocuments, { venc, de, ate }, DEFAULT_WARN_DAYS),
+    docAccessors[currentOrd] ?? docAccessors.nome!,
+    currentDir,
+  );
+  const sortedChildren = sortRows(
+    children,
+    (node) => normalizeText(node.name),
+    currentOrd === 'nome' ? currentDir : 'asc',
+  );
+  const handleSort = (key: string) =>
+    navigate({
+      to: '/$companyId/$unitId/pie',
+      params: { companyId, unitId },
+      search: {
+        ...(pasta ? { pasta } : {}),
+        ...(ver ? { ver } : {}),
+        ...(venc ? { venc } : {}),
+        ...(de ? { de } : {}),
+        ...(ate ? { ate } : {}),
+        ...toggleSort({ ord, dir }, key, 'nome'),
+      },
+    });
 
   return (
     <Page>
@@ -402,6 +448,8 @@ export function PiePage() {
               ...(pasta ? { pasta } : {}),
               ...(ver ? { ver } : {}),
               ...next,
+              ord,
+              dir,
             },
           })
         }
@@ -477,17 +525,30 @@ export function PiePage() {
         <table className="w-full border-collapse text-sm">
           <thead>
             <tr>
-              {(docsOnly
-                ? ['Nome', 'Local', 'Vencimento', 'Data criação', '']
-                : ['Nome', 'Vencimento', 'Data criação', '']
-              ).map((heading) => (
-                <th
-                  key={heading}
-                  className="whitespace-nowrap border-b border-line-strong px-3.5 py-2.5 text-left font-ui text-xs font-semibold uppercase tracking-[.06em] text-muted"
-                >
-                  {heading}
-                </th>
+              {(
+                (docsOnly
+                  ? [
+                      ['nome', 'Nome'],
+                      ['local', 'Local'],
+                      ['venc', 'Vencimento'],
+                      ['criacao', 'Data criação'],
+                    ]
+                  : [
+                      ['nome', 'Nome'],
+                      ['venc', 'Vencimento'],
+                      ['criacao', 'Data criação'],
+                    ]) as [string, string][]
+              ).map(([key, label]) => (
+                <SortableTh
+                  key={key}
+                  colKey={key}
+                  label={label}
+                  ord={currentOrd}
+                  dir={currentDir}
+                  onSort={handleSort}
+                />
               ))}
+              <PlainTh />
             </tr>
           </thead>
           <tbody>
@@ -535,7 +596,7 @@ export function PiePage() {
             )}
 
             {!docsOnly &&
-              children.map((node) => (
+              sortedChildren.map((node) => (
               <tr
                 key={node.id}
                 onClick={() => goTo(node.id)}

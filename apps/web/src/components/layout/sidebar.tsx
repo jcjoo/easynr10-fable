@@ -161,7 +161,7 @@ function UnitGroup({ companyId, unitId }: { companyId: string; unitId: string })
         label="Relatórios"
         icon={FileChartColumn}
       />
-      <SubLabel>Grupos de Registro</SubLabel>
+      <SubLabel>Cadastros</SubLabel>
       <NavItem
         to="/$companyId/$unitId/equipamentos"
         params={params}

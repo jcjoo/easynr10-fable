@@ -121,39 +121,51 @@ export const folderSchemasRouter = router({
       }
     }
 
-    let createdCount = 0;
-
-    async function ensureLevel(nodes: FolderSchemaNode[], parentId: string | null) {
-      for (const node of nodes) {
-        const existing = await db.query.folder.findFirst({
-          where: and(
-            eq(folder.unitId, input.unitId),
-            parentId === null ? isNull(folder.parentId) : eq(folder.parentId, parentId),
-            eq(folder.name, node.name),
-            isNull(folder.deletedAt),
-          ),
-        });
-        let folderId = existing?.id;
-        if (!folderId) {
-          const [created] = await db
-            .insert(folder)
-            .values({
-              unitId: input.unitId,
-              parentId,
-              name: node.name,
-              schemaId: selected.id,
-            })
-            .returning();
-          folderId = created!.id;
-          createdCount += 1;
-        }
-        if (node.children?.length) {
-          await ensureLevel(node.children, folderId);
-        }
-      }
-    }
-
-    await ensureLevel(selected.structure, input.parentId);
-    return { created: createdCount, schemaName: selected.name };
+    const created = await ensureFolderStructure(
+      input.unitId,
+      selected.structure,
+      input.parentId,
+      selected.id,
+    );
+    return { created, schemaName: selected.name };
   }),
 });
+
+// Cria as pastas da estrutura sob parentId, pulando as que já existem no
+// mesmo nível (idempotente). Reusado pelos cadastros (pasta do colaborador/
+// equipamento pode nascer com uma estrutura dentro).
+export async function ensureFolderStructure(
+  unitId: string,
+  nodes: FolderSchemaNode[],
+  parentId: string | null,
+  schemaId?: string,
+): Promise<number> {
+  let createdCount = 0;
+  for (const node of nodes) {
+    const existing = await db.query.folder.findFirst({
+      where: and(
+        eq(folder.unitId, unitId),
+        parentId === null ? isNull(folder.parentId) : eq(folder.parentId, parentId),
+        eq(folder.name, node.name),
+        isNull(folder.deletedAt),
+      ),
+    });
+    let folderId = existing?.id;
+    if (!folderId) {
+      const [created] = await db
+        .insert(folder)
+        .values({ unitId, parentId, name: node.name, schemaId })
+        .returning();
+      folderId = created!.id;
+      createdCount += 1;
+    }
+    if (node.children?.length) {
+      createdCount += await ensureFolderStructure(unitId, node.children, folderId, schemaId);
+    }
+  }
+  return createdCount;
+}
+
+export async function findUnitSchemaOrThrow(unitId: string, schemaId: string) {
+  return findUnitSchema(unitId, schemaId);
+}

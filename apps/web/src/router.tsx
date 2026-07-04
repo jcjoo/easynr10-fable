@@ -16,18 +16,18 @@ import { DashboardPage } from '@/pages/dashboard';
 import { CompaniesPage } from '@/pages/companies';
 import { CompanyPanelPage } from '@/pages/company-panel';
 import { UnitsPage } from '@/pages/units';
-import { UnitHomePage } from '@/pages/unit-home';
+import { UnitHomePage, dashboardPeriods, type DashboardPeriod } from '@/pages/unit-home';
 import { PiePage } from '@/pages/pie';
 import { UsuariosPage } from '@/pages/usuarios';
+import { DiagnosticoItemPage } from '@/pages/diagnostico-item';
 import { DiagnosticosPage } from '@/pages/diagnosticos';
 import { PlanoDeAcaoPage } from '@/pages/plano-de-acao';
-import {
-  ColaboradoresPage,
-  EquipamentosPage,
-  RelatoriosPage,
-} from '@/pages/section-placeholder';
-import { diagnosticStatuses, type DiagnosticStatus } from '@easynr10/shared';
+import { RelatoriosPage, reportTabs, type ReportSearch, type ReportTab } from '@/pages/relatorios';
+import { documentGroups, type DocumentGroup } from '@easynr10/shared';
+import { sortSearch, type SortState } from '@/components/ui/sortable';
+import { ColaboradoresPage, EquipamentosPage } from '@/pages/registros';
 import { expiryPresets, type ExpiryPreset } from '@/components/pie/expiry-filter';
+import { diagnosticFilters, type DiagnosticFilter } from '@/components/ui/status-filter';
 
 const rootRoute = createRootRoute({
   component: Outlet,
@@ -111,16 +111,24 @@ const unitsRoute = createRoute({
   component: UnitsPage,
 });
 
+// Período do gráfico de evolução do painel na URL (?periodo=30d|12m; 90d default).
 const unitHomeRoute = createRoute({
   getParentRoute: () => authedRoute,
   path: '/$companyId/$unitId',
+  validateSearch: (search: Record<string, unknown>): { periodo?: DashboardPeriod } => ({
+    periodo: dashboardPeriods.includes(search.periodo as DashboardPeriod)
+      ? (search.periodo as DashboardPeriod)
+      : undefined,
+  }),
   component: UnitHomePage,
 });
 
+// Toda seção de unidade tem tabela ordenável (?ord=&dir= na URL).
 const unitSection = (path: string, component: () => JSX.Element) =>
   createRoute({
     getParentRoute: () => authedRoute,
     path: `/$companyId/$unitId/${path}`,
+    validateSearch: sortSearch,
     component,
   });
 
@@ -128,6 +136,7 @@ const unitSection = (path: string, component: () => JSX.Element) =>
 const usuariosRoute = createRoute({
   getParentRoute: () => authedRoute,
   path: '/usuarios',
+  validateSearch: sortSearch,
   component: UsuariosPage,
 });
 
@@ -138,7 +147,13 @@ const pieRoute = createRoute({
   path: '/$companyId/$unitId/pie',
   validateSearch: (
     search: Record<string, unknown>,
-  ): { pasta?: string; ver?: 'documentos'; venc?: ExpiryPreset; de?: string; ate?: string } => ({
+  ): {
+    pasta?: string;
+    ver?: 'documentos';
+    venc?: ExpiryPreset;
+    de?: string;
+    ate?: string;
+  } & SortState => ({
     pasta: typeof search.pasta === 'string' ? search.pasta : undefined,
     ver: search.ver === 'documentos' ? 'documentos' : undefined,
     venc: expiryPresets.includes(search.venc as ExpiryPreset)
@@ -146,22 +161,46 @@ const pieRoute = createRoute({
       : undefined,
     de: typeof search.de === 'string' ? search.de : undefined,
     ate: typeof search.ate === 'string' ? search.ate : undefined,
+    ...sortSearch(search),
   }),
   component: PiePage,
 });
-// Filtro de aderência persistido na URL (?status=<aderência>).
+// Filtro de aderência persistido na URL (?status=<aderência|sem_avaliacao|com_avaliacao>).
 const diagnosticosRoute = createRoute({
   getParentRoute: () => authedRoute,
   path: '/$companyId/$unitId/diagnosticos',
-  validateSearch: (search: Record<string, unknown>): { status?: DiagnosticStatus } => ({
-    status: diagnosticStatuses.includes(search.status as DiagnosticStatus)
-      ? (search.status as DiagnosticStatus)
+  validateSearch: (
+    search: Record<string, unknown>,
+  ): { status?: DiagnosticFilter } & SortState => ({
+    status: diagnosticFilters.includes(search.status as DiagnosticFilter)
+      ? (search.status as DiagnosticFilter)
       : undefined,
+    ...sortSearch(search),
   }),
   component: DiagnosticosPage,
 });
+// Configuração de um item de adequação (status, orientação, requisitos).
+const diagnosticoItemRoute = createRoute({
+  getParentRoute: () => authedRoute,
+  path: '/$companyId/$unitId/diagnosticos/$adequacyItemId',
+  component: DiagnosticoItemPage,
+});
 const planoDeAcaoRoute = unitSection('plano-de-acao', PlanoDeAcaoPage);
-const relatoriosRoute = unitSection('relatorios', RelatoriosPage);
+// Relatório ativo, filtros e ordenação na URL (?tipo=&status=&grupo=&q=&ord=&dir=).
+const relatoriosRoute = createRoute({
+  getParentRoute: () => authedRoute,
+  path: '/$companyId/$unitId/relatorios',
+  validateSearch: (search: Record<string, unknown>): ReportSearch => ({
+    tipo: reportTabs.includes(search.tipo as ReportTab) ? (search.tipo as ReportTab) : undefined,
+    status: typeof search.status === 'string' ? search.status : undefined,
+    grupo: documentGroups.includes(search.grupo as DocumentGroup)
+      ? (search.grupo as DocumentGroup)
+      : undefined,
+    q: typeof search.q === 'string' && search.q !== '' ? search.q : undefined,
+    ...sortSearch(search),
+  }),
+  component: RelatoriosPage,
+});
 const equipamentosRoute = unitSection('equipamentos', EquipamentosPage);
 const colaboradoresRoute = unitSection('colaboradores', ColaboradoresPage);
 
@@ -176,6 +215,7 @@ const routeTree = rootRoute.addChildren([
     unitHomeRoute,
     pieRoute,
     diagnosticosRoute,
+    diagnosticoItemRoute,
     planoDeAcaoRoute,
     relatoriosRoute,
     equipamentosRoute,

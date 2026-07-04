@@ -4,6 +4,8 @@ import { unitCreateSchema, unitUpdateSchema } from '@easynr10/shared';
 import { z } from 'zod';
 import { db } from '../db';
 import { adminProcedure, protectedProcedure, router, unitProcedure } from '../trpc';
+import { cascadeDeleteUnit } from '../cascade';
+import { ensureRegisterSkeleton } from './registers';
 
 const { unit, membership } = schema;
 
@@ -46,6 +48,8 @@ export const unitsRouter = router({
       .insert(unit)
       .values({ companyId: input.companyId, name: input.name })
       .returning();
+    // Esqueleto de pastas dos cadastros nasce junto com a unidade.
+    await ensureRegisterSkeleton(created!.id);
     return created;
   }),
 
@@ -58,11 +62,13 @@ export const unitsRouter = router({
     return updated;
   }),
 
+  // Cascata: soft delete de toda a árvore da unidade + purge no MinIO.
   remove: adminProcedure.input(z.object({ id: z.uuid() })).mutation(async ({ input }) => {
-    await db
-      .update(unit)
-      .set({ deletedAt: new Date() })
-      .where(and(eq(unit.id, input.id), isNull(unit.deletedAt)));
+    const found = await db.query.unit.findFirst({
+      where: and(eq(unit.id, input.id), isNull(unit.deletedAt)),
+    });
+    if (!found) return { success: true };
+    await cascadeDeleteUnit(found.id);
     return { success: true };
   }),
 });

@@ -1,10 +1,22 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useParams } from '@tanstack/react-router';
-import type { ActionStatus } from '@easynr10/shared';
+import { useNavigate, useParams, useSearch } from '@tanstack/react-router';
+import {
+  compareNormCodes,
+  diagnosticStatusScore,
+  normalizeText,
+  type ActionStatus,
+} from '@easynr10/shared';
 import { trpc } from '@/lib/trpc';
 import { Page } from '@/components/ui/page';
 import { RowMenu } from '@/components/ui/row-menu';
 import { StatusPill } from '@/components/ui/status-pill';
+import {
+  PlainTh,
+  SortableTh,
+  sortRows,
+  toggleSort,
+  type SortValue,
+} from '@/components/ui/sortable';
 
 const actionStyles: Record<ActionStatus, { label: string; className: string }> = {
   pendente: { label: 'Pendente', className: 'text-idle bg-idle-soft' },
@@ -33,8 +45,14 @@ function formatDate(value: string | null) {
   return new Date(`${value}T00:00:00`).toLocaleDateString('pt-BR');
 }
 
+function isOverdue(deadline: string | null) {
+  return Boolean(deadline) && new Date(`${deadline}T23:59:59`).getTime() < Date.now();
+}
+
 export function PlanoDeAcaoPage() {
-  const { unitId } = useParams({ from: '/_authed/$companyId/$unitId/plano-de-acao' });
+  const { companyId, unitId } = useParams({ from: '/_authed/$companyId/$unitId/plano-de-acao' });
+  const { ord, dir } = useSearch({ from: '/_authed/$companyId/$unitId/plano-de-acao' });
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const actions = useQuery(trpc.adequacy.actionItems.queryOptions({ unitId }));
 
@@ -47,6 +65,35 @@ export function PlanoDeAcaoPage() {
     }),
   );
 
+  // Ordenação (?ord=&dir=): servidor entrega por prazo; o clique reordena.
+  type ActionRow = NonNullable<typeof actions.data>[number];
+  const currentOrd = ord ?? 'prazo';
+  const currentDir = dir ?? 'asc';
+  const situationRank = (row: ActionRow) =>
+    isOverdue(row.deadline) && (row.status === 'pendente' || row.status === 'em_andamento')
+      ? 0
+      : { pendente: 1, em_andamento: 2, concluida: 3, cancelada: 4 }[row.status];
+  const accessors: Record<string, (row: ActionRow) => SortValue> = {
+    norma: (row) => row.normCode,
+    acao: (row) => normalizeText(row.recommendedAction ?? row.normDescription),
+    aderencia: (row) => diagnosticStatusScore[row.adherence],
+    responsavel: (row) => (row.responsible ? normalizeText(row.responsible) : null),
+    prazo: (row) => row.deadline,
+    situacao: (row) => situationRank(row),
+  };
+  const sorted = sortRows(
+    actions.data ?? [],
+    accessors[currentOrd] ?? accessors.prazo!,
+    currentDir,
+    currentOrd === 'norma' ? compareNormCodes : undefined,
+  );
+  const handleSort = (key: string) =>
+    navigate({
+      to: '/$companyId/$unitId/plano-de-acao',
+      params: { companyId, unitId },
+      search: toggleSort({ ord, dir }, key, 'prazo'),
+    });
+
   return (
     <Page>
       <div>
@@ -58,16 +105,26 @@ export function PlanoDeAcaoPage() {
         <table className="w-full border-collapse text-sm">
           <thead>
             <tr>
-              {['Norma', 'Ação recomendada', 'Aderência', 'Responsável', 'Prazo', 'Situação', ''].map(
-                (heading) => (
-                  <th
-                    key={heading}
-                    className="whitespace-nowrap border-b border-line-strong px-3.5 py-2.5 text-left font-ui text-xs font-semibold uppercase tracking-[.06em] text-muted"
-                  >
-                    {heading}
-                  </th>
-                ),
-              )}
+              {(
+                [
+                  ['norma', 'Norma'],
+                  ['acao', 'Ação recomendada'],
+                  ['aderencia', 'Aderência'],
+                  ['responsavel', 'Responsável'],
+                  ['prazo', 'Prazo'],
+                  ['situacao', 'Situação'],
+                ] as const
+              ).map(([key, label]) => (
+                <SortableTh
+                  key={key}
+                  colKey={key}
+                  label={label}
+                  ord={currentOrd}
+                  dir={currentDir}
+                  onSort={handleSort}
+                />
+              ))}
+              <PlainTh />
             </tr>
           </thead>
           <tbody>
@@ -79,10 +136,8 @@ export function PlanoDeAcaoPage() {
                 </td>
               </tr>
             )}
-            {actions.data?.map((action) => {
-              const overdue =
-                Boolean(action.deadline) &&
-                new Date(`${action.deadline}T23:59:59`).getTime() < Date.now();
+            {sorted.map((action) => {
+              const overdue = isOverdue(action.deadline);
               return (
                 <tr key={action.id} className="hover:bg-paper">
                   <td className="border-b border-line px-3.5 py-2.5">
