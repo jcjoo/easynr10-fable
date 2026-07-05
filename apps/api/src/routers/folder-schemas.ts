@@ -9,7 +9,7 @@ import {
 } from '@easynr10/shared';
 import { z } from 'zod';
 import { db } from '../db';
-import { router, unitProcedure } from '../trpc';
+import { router, unitAction } from '../trpc';
 
 const { folder, folderSchema } = schema;
 
@@ -56,7 +56,7 @@ async function ensureUnitSchemas(unitId: string) {
 }
 
 export const folderSchemasRouter = router({
-  listByUnit: unitProcedure.query(async ({ input }) => {
+  listByUnit: unitAction('pie.ler').query(async ({ input }) => {
     await ensureUnitSchemas(input.unitId);
     return db
       .select({
@@ -70,7 +70,7 @@ export const folderSchemasRouter = router({
       .orderBy(asc(folderSchema.name));
   }),
 
-  create: unitProcedure.input(folderSchemaCreateSchema).mutation(async ({ input }) => {
+  create: unitAction('pie.estruturas.gerenciar').input(folderSchemaCreateSchema).mutation(async ({ input }) => {
     const [created] = await db
       .insert(folderSchema)
       .values({
@@ -82,7 +82,7 @@ export const folderSchemasRouter = router({
     return created;
   }),
 
-  update: unitProcedure.input(folderSchemaUpdateSchema).mutation(async ({ input }) => {
+  update: unitAction('pie.estruturas.gerenciar').input(folderSchemaUpdateSchema).mutation(async ({ input }) => {
     const found = await findUnitSchema(input.unitId, input.schemaId);
     const [updated] = await db
       .update(folderSchema)
@@ -92,7 +92,7 @@ export const folderSchemasRouter = router({
     return updated;
   }),
 
-  remove: unitProcedure
+  remove: unitAction('pie.estruturas.gerenciar')
     .input(z.object({ schemaId: z.uuid() }))
     .mutation(async ({ input }) => {
       const found = await findUnitSchema(input.unitId, input.schemaId);
@@ -105,7 +105,7 @@ export const folderSchemasRouter = router({
 
   // Gera a estrutura a partir da pasta atual (parentId nulo = raiz),
   // pulando pastas que já existem no mesmo nível — idempotente.
-  applyToUnit: unitProcedure.input(folderSchemaApplySchema).mutation(async ({ input }) => {
+  applyToUnit: unitAction('pie.estruturas.gerenciar').input(folderSchemaApplySchema).mutation(async ({ input }) => {
     const selected = await findUnitSchema(input.unitId, input.schemaId);
 
     if (input.parentId) {

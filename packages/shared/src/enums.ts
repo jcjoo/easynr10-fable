@@ -3,8 +3,171 @@
 export const userRoles = ['admin', 'client'] as const;
 export type UserRole = (typeof userRoles)[number];
 
-export const memberRoles = ['manager', 'viewer'] as const;
-export type MemberRole = (typeof memberRoles)[number];
+// Catálogo GRANULAR de permissões por unidade, mapeado pelos PAPÉIS
+// (app_role.permissions) — cada item é controlável individualmente e guarda
+// os endpoints correspondentes no servidor (unitAction). Cada módulo tem a
+// permissão de LEITURA ("*.ler") — sem ela o módulo some da navegação e
+// devolve 403 por link — e as de escrita. Admins globais ignoram papéis.
+// Papéis-sistema: Gestor (tudo) e Leitor (só as leituras).
+export const unitActionCatalog = [
+  {
+    action: 'pie.ler',
+    group: 'PIE',
+    label: 'Ver o prontuário',
+    description:
+      'Acessar o módulo PIE: pastas, documentos, versões, download e preview. Desligado, o módulo some da navegação.',
+  },
+  {
+    action: 'pie.pasta.criar',
+    group: 'PIE',
+    label: 'Criar pastas',
+    description: 'Criar novas pastas no prontuário (inclui as pastas automáticas de cadastros).',
+  },
+  {
+    action: 'pie.pasta.renomear',
+    group: 'PIE',
+    label: 'Renomear pastas',
+    description: 'Alterar o nome de pastas existentes.',
+  },
+  {
+    action: 'pie.pasta.excluir',
+    group: 'PIE',
+    label: 'Excluir pastas',
+    description: 'Excluir pastas vazias (cascata com conteúdo continua restrita a admins).',
+  },
+  {
+    action: 'pie.documento.enviar',
+    group: 'PIE',
+    label: 'Enviar documentos',
+    description: 'Fazer upload de documentos novos e de novas versões sobre documentos existentes.',
+  },
+  {
+    action: 'pie.documento.editar',
+    group: 'PIE',
+    label: 'Editar documentos',
+    description: 'Alterar nome, vencimento e antecedência de aviso de documentos.',
+  },
+  {
+    action: 'pie.documento.excluir',
+    group: 'PIE',
+    label: 'Excluir documentos',
+    description: 'Excluir documentos do prontuário (soft delete — recuperável pelo suporte).',
+  },
+  {
+    action: 'pie.documento.restaurar',
+    group: 'PIE',
+    label: 'Restaurar versões',
+    description: 'Voltar um documento para uma versão anterior (cria nova versão no histórico).',
+  },
+  {
+    action: 'pie.estruturas.gerenciar',
+    group: 'PIE',
+    label: 'Gerenciar estruturas de pastas',
+    description: 'Criar/editar esquemas de estrutura e gerá-los em pastas do prontuário.',
+  },
+  {
+    action: 'diagnostico.ler',
+    group: 'Diagnóstico',
+    label: 'Ver diagnósticos',
+    description:
+      'Acessar o módulo Diagnóstico: itens, aderência, histórico e evidências. Desligado, o módulo some da navegação.',
+  },
+  {
+    action: 'diagnostico.avaliar',
+    group: 'Diagnóstico',
+    label: 'Registrar diagnósticos',
+    description:
+      'Avaliar itens de adequação (aderência, prazo, parecer, evidências) — gera ações no plano.',
+  },
+  {
+    action: 'diagnostico.configurar',
+    group: 'Diagnóstico',
+    label: 'Configurar itens',
+    description: 'Ativar/desativar itens do escopo e editar a orientação da unidade.',
+  },
+  {
+    action: 'diagnostico.requisitos',
+    group: 'Diagnóstico',
+    label: 'Gerenciar requisitos de evidência',
+    description: 'Adicionar e remover os requisitos (documento/parecer/grupo) de cada item.',
+  },
+  {
+    action: 'diagnostico.gerar',
+    group: 'Diagnóstico',
+    label: 'Gerar itens de adequação',
+    description: 'Gerar os itens da unidade a partir do catálogo NR-10 (primeira configuração).',
+  },
+  {
+    action: 'plano.ler',
+    group: 'Plano de ação',
+    label: 'Ver o plano de ação',
+    description: 'Acessar o módulo Plano de Ação. Desligado, o módulo some da navegação.',
+  },
+  {
+    action: 'plano.status',
+    group: 'Plano de ação',
+    label: 'Atualizar status das ações',
+    description: 'Marcar ações como em andamento, concluídas ou canceladas.',
+  },
+  {
+    action: 'cadastros.ler',
+    group: 'Cadastros',
+    label: 'Ver cadastros',
+    description:
+      'Acessar Colaboradores e Equipamentos (listas, campos e vínculos). Desligado, os módulos somem da navegação.',
+  },
+  {
+    action: 'cadastros.itens',
+    group: 'Cadastros',
+    label: 'Criar/editar itens',
+    description: 'Criar, editar e excluir colaboradores e equipamentos.',
+  },
+  {
+    action: 'cadastros.importar',
+    group: 'Cadastros',
+    label: 'Importar por planilha',
+    description: 'Importação em massa de colaboradores/equipamentos (.xlsx/.csv).',
+  },
+  {
+    action: 'cadastros.vinculos',
+    group: 'Cadastros',
+    label: 'Vincular documentos',
+    description: 'Vincular/desvincular documentos do PIE aos campos dos itens (ex.: CA do EPI).',
+  },
+  {
+    action: 'cadastros.campos',
+    group: 'Cadastros',
+    label: 'Campos personalizados',
+    description: 'Criar e remover campos personalizados dos grupos de cadastro.',
+  },
+  {
+    action: 'cadastros.config',
+    group: 'Cadastros',
+    label: 'Configurar grupos',
+    description: 'Definir a estrutura de pastas padrão de cada grupo de cadastro.',
+  },
+  {
+    action: 'painel.ler',
+    group: 'Painel',
+    label: 'Ver o painel da unidade',
+    description:
+      'Acessar o dashboard da unidade (aderência geral, distribuição, evolução). Desligado, o módulo some da navegação.',
+  },
+  {
+    action: 'relatorios.ler',
+    group: 'Relatórios',
+    label: 'Ver e exportar relatórios',
+    description:
+      'Acessar os relatórios analíticos e exportar CSV/PDF. Desligado, o módulo some da navegação.',
+  },
+] as const;
+
+export type UnitAction = (typeof unitActionCatalog)[number]['action'];
+export const unitActions = unitActionCatalog.map((entry) => entry.action) as unknown as [
+  UnitAction,
+  ...UnitAction[],
+];
+export const unitActionGroups = [...new Set(unitActionCatalog.map((entry) => entry.group))];
 
 // Aderência do item à norma (escala definida pelo usuário em 03/07/2026).
 // Item sem diagnóstico = "sem avaliação" (ausência de registro, não um valor
@@ -77,6 +240,31 @@ export const adherenceBands = [
 
 export function adherenceBand(percent: number) {
   return adherenceBands.find((band) => percent <= band.max) ?? adherenceBands.at(-1)!;
+}
+
+// Prioridade da ação no plano (definida pelo usuário em 04/07/2026), derivada
+// do peso da norma — o peso em si NUNCA aparece no front, só a prioridade.
+// Fórmula do legado (normalizacao.ts): riscoBruto = (nota máx − nota) × peso,
+// amplitude = peso máx 4 × nota máx 4 = 16. O percentual é o lado "score"
+// (100 − risco%), e as faixas são: ❌ Alta 0–50% · ⚠️ Média 51–90% · ✅ Baixa 91–100%.
+export const actionPriorities = ['alta', 'media', 'baixa'] as const;
+export type ActionPriority = (typeof actionPriorities)[number];
+
+export const actionPriorityLabels: Record<ActionPriority, string> = {
+  alta: 'Alta',
+  media: 'Média',
+  baixa: 'Baixa',
+};
+
+export function actionPriority(
+  importanceWeight: number,
+  status: DiagnosticStatus,
+): { percent: number; priority: ActionPriority } {
+  const nota = diagnosticStatusScore[status] * 4;
+  const risco = (4 - nota) * importanceWeight;
+  const percent = Math.round((100 * (16 - risco)) / 16);
+  const priority = percent <= 50 ? 'alta' : percent <= 90 ? 'media' : 'baixa';
+  return { percent, priority };
 }
 
 export const actionStatuses = [

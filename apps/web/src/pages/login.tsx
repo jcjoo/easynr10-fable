@@ -36,9 +36,9 @@ export function LoginPage() {
             <div className="font-mono text-xs uppercase tracking-[.14em] text-muted">
               PSO Engenharia
             </div>
-            <h1 className="mt-2">
-              <img src={fullLogo} alt="EasyNR10" className="h-7 dark:hidden" />
-              <img src={fullLogoDark} alt="EasyNR10" className="hidden h-7 dark:block" />
+            <h1 className="mt-2.5">
+              <img src={fullLogo} alt="EasyNR10" className="h-10 dark:hidden" />
+              <img src={fullLogoDark} alt="EasyNR10" className="hidden h-10 dark:block" />
             </h1>
             <p className="mt-1.5 text-sm text-muted">Gestão de conformidade NR-10</p>
           </div>

@@ -5,37 +5,49 @@ import {
   Building2,
   ChevronRight,
   ClipboardList,
-  FileChartColumn,
+  FileClock,
   FolderKanban,
+  HardHat,
   LayoutGrid,
+  ListChecks,
   ListTodo,
   MapPinned,
+  ShieldCheck,
+  TrafficCone,
+  TriangleAlert,
   UserCog,
   Users,
   Wrench,
+  Zap,
   type LucideIcon,
 } from 'lucide-react';
 import { trpc } from '@/lib/trpc';
 import { signOut, useSession } from '@/lib/auth-client';
 import { useActiveContext } from '@/stores/active-context';
+import { useUnitPermissions } from '@/lib/use-unit-permissions';
+import { NewMenu } from './new-menu';
 import fullLogo from '@/assets/fullLogo.png';
 import fullLogoDark from '@/assets/fullLogoDark.png';
 import { SidebarFolderTree } from './folder-tree';
 
+
 interface NavItemProps {
   to: string;
   params?: Record<string, string>;
+  /** Sub-navegações (?tipo=): o item só acende quando o search casa. */
+  search?: Record<string, string>;
   label: string;
   icon: LucideIcon;
   exact?: boolean;
   indent?: boolean;
 }
 
-function NavItem({ to, params, label, icon: Icon, exact, indent }: NavItemProps) {
+function NavItem({ to, params, search, label, icon: Icon, exact, indent }: NavItemProps) {
   return (
     <Link
       to={to}
       params={params}
+      search={search}
       activeOptions={{ exact: exact ?? false }}
       activeProps={{ className: 'active bg-action-soft text-ink' }}
       className={`group relative flex items-center gap-2.5 rounded-ctl py-1.5 pr-3 font-ui text-sm
@@ -71,16 +83,43 @@ function SubLabel({ children }: { children: string }) {
 
 function CompanyGroup({ companyId }: { companyId: string }) {
   const company = useQuery(trpc.companies.byId.queryOptions({ id: companyId }));
+  const { data: session } = useSession();
+  const isAdmin = session?.user.role === 'admin';
+  // Cliente com uma única unidade entra direto nela — "Unidades" some
+  // (a rota redirecionaria de volta). Enquanto carrega, não esconder.
+  const units = useQuery({
+    ...trpc.units.listByCompany.queryOptions({ companyId }),
+    enabled: session != null && !isAdmin,
+  });
+  const showUnits = isAdmin || !units.isSuccess || units.data.length > 1;
   return (
     <div className="flex flex-col gap-0.5">
       <GroupLabel>{company.data?.name ?? '…'}</GroupLabel>
       <NavItem to="/$companyId" params={{ companyId }} label="Painel" icon={LayoutGrid} exact />
-      <NavItem
-        to="/$companyId/unidades"
-        params={{ companyId }}
-        label="Unidades"
-        icon={MapPinned}
-      />
+      {showUnits && (
+        <NavItem
+          to="/$companyId/unidades"
+          params={{ companyId }}
+          label="Unidades"
+          icon={MapPinned}
+        />
+      )}
+      {isAdmin && (
+        <>
+          <NavItem
+            to="/$companyId/usuarios"
+            params={{ companyId }}
+            label="Usuários"
+            icon={UserCog}
+          />
+          <NavItem
+            to="/$companyId/papeis"
+            params={{ companyId }}
+            label="Papéis"
+            icon={ShieldCheck}
+          />
+        </>
+      )}
     </div>
   );
 }
@@ -90,6 +129,9 @@ const PIE_TREE_KEY = 'easynr10.pie-tree';
 function UnitGroup({ companyId, unitId }: { companyId: string; unitId: string }) {
   const unit = useQuery(trpc.units.byId.queryOptions({ unitId }));
   const params = { companyId, unitId };
+  // Módulo sem permissão de leitura ("*.ler") some da navegação.
+  const { can, loaded } = useUnitPermissions(unitId);
+  const show = (action: Parameters<typeof can>[0]) => !loaded || can(action);
   // Árvore de pastas recolhível (persistido; aberta por padrão).
   const [treeOpen, setTreeOpen] = useState(
     () => localStorage.getItem(PIE_TREE_KEY) !== 'fechada',
@@ -103,7 +145,11 @@ function UnitGroup({ companyId, unitId }: { companyId: string; unitId: string })
   return (
     <div className="flex flex-col gap-0.5">
       <GroupLabel>{unit.data?.name ?? '…'}</GroupLabel>
-      <NavItem to="/$companyId/$unitId" params={params} label="Painel" icon={LayoutGrid} exact />
+      {show('painel.ler') && (
+        <NavItem to="/$companyId/$unitId" params={params} label="Painel" icon={LayoutGrid} exact />
+      )}
+      {show('pie.ler') && (
+        <>
       {/* Item PIE com seta colada no ícone (estilo Drive): seta+ícone alternam
           a árvore, o texto navega. pl-0.5 + seta(12px) deixa o ícone alinhado
           com os demais itens (pl-3.5 = 14px). */}
@@ -140,42 +186,105 @@ function UnitGroup({ companyId, unitId }: { companyId: string; unitId: string })
         <span className="truncate">PIE</span>
       </Link>
       {treeOpen && <SidebarFolderTree companyId={companyId} unitId={unitId} />}
-      <SubLabel>Avaliação da Conformidade</SubLabel>
-      <NavItem
-        to="/$companyId/$unitId/diagnosticos"
-        params={params}
-        label="Diagnóstico"
-        icon={ClipboardList}
-        indent
-      />
-      <NavItem
-        to="/$companyId/$unitId/plano-de-acao"
-        params={params}
-        label="Plano de Ação"
-        icon={ListTodo}
-        indent
-      />
-      <NavItem
-        to="/$companyId/$unitId/relatorios"
-        params={params}
-        label="Relatórios"
-        icon={FileChartColumn}
-      />
-      <SubLabel>Cadastros</SubLabel>
-      <NavItem
-        to="/$companyId/$unitId/equipamentos"
-        params={params}
-        label="Equipamentos"
-        icon={Wrench}
-        indent
-      />
-      <NavItem
-        to="/$companyId/$unitId/colaboradores"
-        params={params}
-        label="Colaboradores"
-        icon={Users}
-        indent
-      />
+        </>
+      )}
+      {(show('diagnostico.ler') || show('plano.ler')) && (
+        <SubLabel>Avaliação da Conformidade</SubLabel>
+      )}
+      {show('diagnostico.ler') && (
+        <NavItem
+          to="/$companyId/$unitId/diagnosticos"
+          params={params}
+          label="Diagnóstico"
+          icon={ClipboardList}
+          indent
+        />
+      )}
+      {show('plano.ler') && (
+        <NavItem
+          to="/$companyId/$unitId/plano-de-acao"
+          params={params}
+          label="Plano de Ação"
+          icon={ListTodo}
+          indent
+        />
+      )}
+      {/* Relatórios e tipos de equipamento são FILHOS aqui — as páginas não
+          têm mais navegação interna (?tipo= na URL acende o item). */}
+      {show('relatorios.ler') && (
+        <>
+          <SubLabel>Relatórios</SubLabel>
+          <NavItem
+            to="/$companyId/$unitId/relatorios"
+            params={params}
+            search={{ tipo: 'nao-conformidades' }}
+            label="Não Conformidades"
+            icon={TriangleAlert}
+            indent
+          />
+          <NavItem
+            to="/$companyId/$unitId/relatorios"
+            params={params}
+            search={{ tipo: 'situacao-documental' }}
+            label="Situação Documental"
+            icon={FileClock}
+            indent
+          />
+          <NavItem
+            to="/$companyId/$unitId/relatorios"
+            params={params}
+            search={{ tipo: 'plano-de-acao' }}
+            label="Plano de Ação"
+            icon={ListChecks}
+            indent
+          />
+        </>
+      )}
+      {show('cadastros.ler') && (
+        <>
+          <SubLabel>Cadastros</SubLabel>
+          <NavItem
+            to="/$companyId/$unitId/colaboradores"
+            params={params}
+            label="Colaboradores"
+            icon={Users}
+            indent
+          />
+          <SubLabel>Equipamentos</SubLabel>
+          <NavItem
+            to="/$companyId/$unitId/equipamentos"
+            params={params}
+            search={{ tipo: 'eletrico' }}
+            label="Elétricos"
+            icon={Zap}
+            indent
+          />
+          <NavItem
+            to="/$companyId/$unitId/equipamentos"
+            params={params}
+            search={{ tipo: 'ferramenta' }}
+            label="Ferramentas"
+            icon={Wrench}
+            indent
+          />
+          <NavItem
+            to="/$companyId/$unitId/equipamentos"
+            params={params}
+            search={{ tipo: 'epi' }}
+            label="EPI"
+            icon={HardHat}
+            indent
+          />
+          <NavItem
+            to="/$companyId/$unitId/equipamentos"
+            params={params}
+            search={{ tipo: 'epc' }}
+            label="EPC"
+            icon={TrafficCone}
+            indent
+          />
+        </>
+      )}
     </div>
   );
 }
@@ -183,22 +292,30 @@ function UnitGroup({ companyId, unitId }: { companyId: string; unitId: string })
 export function Sidebar() {
   const { data: session } = useSession();
   const { companyId, unitId } = useActiveContext();
+  const isAdmin = session?.user.role === 'admin';
+  // Cliente com uma única empresa entra direto nela — "Empresas" some
+  // (a rota redirecionaria de volta). Enquanto carrega, não esconder.
+  const companies = useQuery({
+    ...trpc.companies.list.queryOptions(),
+    enabled: session != null && !isAdmin,
+  });
+  const showCompanies = isAdmin || !companies.isSuccess || companies.data.length > 1;
 
   return (
     <aside className="flex h-full w-64 shrink-0 flex-col bg-paper">
-      <div className="flex h-12 items-center px-5">
+      <div className="flex h-16 items-center px-5">
         <Link to="/" aria-label="EasyNR10 — início">
-          <img src={fullLogo} alt="EasyNR10" className="h-5 dark:hidden" />
-          <img src={fullLogoDark} alt="EasyNR10" className="hidden h-5 dark:block" />
+          <img src={fullLogo} alt="EasyNR10" className="h-9 dark:hidden" />
+          <img src={fullLogoDark} alt="EasyNR10" className="hidden h-9 dark:block" />
         </Link>
       </div>
 
+      {companyId && unitId && <NewMenu companyId={companyId} unitId={unitId} />}
+
       <nav className="mt-3 flex flex-1 flex-col gap-5 overflow-y-auto px-3 pb-4">
         <div className="flex flex-col gap-0.5">
-          <NavItem to="/empresas" label="Empresas" icon={Building2} />
-          {session?.user.role === 'admin' && (
-            <NavItem to="/usuarios" label="Usuários" icon={UserCog} />
-          )}
+          {showCompanies && <NavItem to="/empresas" label="Empresas" icon={Building2} />}
+          {isAdmin && <NavItem to="/usuarios" label="Usuários" icon={UserCog} />}
         </div>
         {companyId && <CompanyGroup companyId={companyId} />}
         {companyId && unitId && <UnitGroup companyId={companyId} unitId={unitId} />}

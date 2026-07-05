@@ -1,41 +1,24 @@
-import { and, asc, eq, isNull } from 'drizzle-orm';
+import { and, eq, isNull } from 'drizzle-orm';
 import { schema } from '@easynr10/db';
 import { unitCreateSchema, unitUpdateSchema } from '@easynr10/shared';
 import { z } from 'zod';
 import { db } from '../db';
+import { visibleUnits } from '../services/visibility';
 import { adminProcedure, protectedProcedure, router, unitProcedure } from '../trpc';
 import { cascadeDeleteUnit } from '../cascade';
 import { ensureRegisterSkeleton } from './registers';
 
-const { unit, membership } = schema;
+const { unit } = schema;
 
 export const unitsRouter = router({
-  // Unidades de uma empresa visíveis ao usuário (admin: todas; cliente: onde é membro).
+  // Permissões efetivas do usuário logado na unidade (papel do membership;
+  // admin = todas) — a sidebar esconde módulos sem "*.ler".
+  myPermissions: unitProcedure.query(({ ctx }) => [...ctx.unitPermissions]),
+
+  // Unidades de uma empresa visíveis ao usuário — regra no serviço (RF04).
   listByCompany: protectedProcedure
     .input(z.object({ companyId: z.uuid() }))
-    .query(async ({ ctx, input }) => {
-      if (ctx.session.user.role === 'admin') {
-        return db.query.unit.findMany({
-          where: and(eq(unit.companyId, input.companyId), isNull(unit.deletedAt)),
-          orderBy: [asc(unit.name)],
-        });
-      }
-
-      const rows = await db
-        .select({ unit })
-        .from(membership)
-        .innerJoin(unit, eq(membership.unitId, unit.id))
-        .where(
-          and(
-            eq(membership.userId, ctx.session.user.id),
-            eq(unit.companyId, input.companyId),
-            isNull(membership.deletedAt),
-            isNull(unit.deletedAt),
-          ),
-        )
-        .orderBy(asc(unit.name));
-      return rows.map((row) => row.unit);
-    }),
+    .query(({ ctx, input }) => visibleUnits(ctx.session.user, input.companyId)),
 
   byId: unitProcedure.query(async ({ input }) => {
     return db.query.unit.findFirst({

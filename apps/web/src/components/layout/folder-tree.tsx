@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Link, useSearch } from '@tanstack/react-router';
 import { ChevronRight } from 'lucide-react';
 import { trpc } from '@/lib/trpc';
+import { useUnitPermissions } from '@/lib/use-unit-permissions';
 import { FolderIcon } from '@/components/ui/icons';
 
 // Árvore de pastas do PIE na sidebar (navegação lateral estilo Drive).
@@ -22,7 +23,13 @@ export function SidebarFolderTree({
   companyId: string;
   unitId: string;
 }) {
-  const folders = useQuery(trpc.folders.list.queryOptions({ unitId }));
+  // Só consulta o PIE quando o papel comprovadamente tem leitura (senão o
+  // FORBIDDEN derrubaria a página inteira para 403).
+  const { can, loaded } = useUnitPermissions(unitId);
+  const folders = useQuery({
+    ...trpc.folders.list.queryOptions({ unitId }),
+    enabled: loaded && can('pie.ler'),
+  });
   const { pasta } = useSearch({ strict: false }) as { pasta?: string };
   const [toggled, setToggled] = useState<Record<string, boolean>>({});
 

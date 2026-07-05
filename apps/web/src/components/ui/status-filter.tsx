@@ -1,11 +1,11 @@
-import {
-  diagnosticStatuses,
-  diagnosticStatusLabels,
-  type DiagnosticStatus,
-} from '@easynr10/shared';
+import { diagnosticStatuses, diagnosticStatusLabels, type DiagnosticStatus } from '@easynr10/shared';
+import { FilterChips } from './filter-chips';
+import { adherenceDots } from './status-pill';
 
 // Filtro de aderência: chips com contador (estado, não navegação; seleção
 // persiste na URL). Além da escala, filtra itens sem/com avaliação.
+// Chips COMPÕEM (multi-seleção, união dos recortes): clicar alterna o chip;
+// "Todos" limpa. Na URL a seleção vira CSV (?status=inexistente,inadequada).
 
 export type DiagnosticFilter = DiagnosticStatus | 'sem_avaliacao' | 'com_avaliacao';
 export const diagnosticFilters: DiagnosticFilter[] = [
@@ -15,12 +15,7 @@ export const diagnosticFilters: DiagnosticFilter[] = [
 ];
 
 const dots: Record<DiagnosticFilter, string> = {
-  inexistente: 'bg-bad',
-  inadequada: 'bg-alert',
-  parcial: 'bg-warn',
-  suficiente: 'bg-suf',
-  plena: 'bg-ok',
-  sem_avaliacao: 'bg-idle',
+  ...adherenceDots,
   com_avaliacao: 'bg-action',
 };
 
@@ -31,50 +26,33 @@ const labels: Record<DiagnosticFilter, string> = {
 };
 
 interface StatusFilterProps {
-  value: DiagnosticFilter | null;
-  onChange: (value: DiagnosticFilter | null) => void;
-  // Contadores por filtro; `null` (Todos) usa a chave 'todos'.
+  value: DiagnosticFilter[];
+  onChange: (value: DiagnosticFilter[]) => void;
+  // Contadores por filtro; vazio (Todos) usa a chave 'todos'.
   counts: Partial<Record<DiagnosticFilter | 'todos', number>>;
 }
 
 export function StatusFilter({ value, onChange, counts }: StatusFilterProps) {
-  const chip = (active: boolean) =>
-    `inline-flex items-center gap-1.5 rounded-full border px-3 py-1 font-ui text-[13px]
-     font-semibold cursor-pointer ${
-       active
-         ? 'border-ink bg-ink text-paper'
-         : 'border-line-strong bg-surface text-ink-soft hover:border-ink-soft'
-     }`;
-
-  const countBadge = (active: boolean, total: number | undefined) => (
-    <span
-      className={`tabular rounded-full px-1.5 font-mono text-[11px] ${
-        active ? 'bg-paper/20' : 'bg-paper text-muted'
-      }`}
-    >
-      {total ?? 0}
-    </span>
-  );
-
   return (
-    <div role="group" aria-label="Filtrar por aderência" className="flex flex-wrap gap-1.5">
-      <button type="button" className={chip(value === null)} onClick={() => onChange(null)}>
-        <span aria-hidden className="size-2 rounded-full bg-line-strong" />
-        Todos
-        {countBadge(value === null, counts.todos)}
-      </button>
-      {diagnosticFilters.map((filter) => (
-        <button
-          type="button"
-          key={filter}
-          className={chip(value === filter)}
-          onClick={() => onChange(filter)}
-        >
-          <span aria-hidden className={`size-2 rounded-full ${dots[filter]}`} />
-          {labels[filter]}
-          {countBadge(value === filter, counts[filter])}
-        </button>
-      ))}
-    </div>
+    <FilterChips
+      label="Filtrar por aderência"
+      options={[
+        { value: null, label: 'Todos', count: counts.todos ?? 0, dot: 'bg-line-strong' },
+        ...diagnosticFilters.map((filter) => ({
+          value: filter as string,
+          label: labels[filter],
+          count: counts[filter] ?? 0,
+          dot: dots[filter],
+        })),
+      ]}
+      isActive={(chip) => (chip === null ? value.length === 0 : value.includes(chip as DiagnosticFilter))}
+      onSelect={(chip) => {
+        if (chip === null) return onChange([]);
+        const filter = chip as DiagnosticFilter;
+        onChange(
+          value.includes(filter) ? value.filter((item) => item !== filter) : [...value, filter],
+        );
+      }}
+    />
   );
 }

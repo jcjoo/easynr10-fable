@@ -3,6 +3,7 @@ import { useNavigate } from '@tanstack/react-router';
 import { useQuery } from '@tanstack/react-query';
 import { Search } from 'lucide-react';
 import { trpc } from '@/lib/trpc';
+import { useUnitPermissions } from '@/lib/use-unit-permissions';
 import { useActiveContext } from '@/stores/active-context';
 
 interface Result {
@@ -25,13 +26,14 @@ export function GlobalSearch() {
     enabled: Boolean(companyId),
   });
   // Pastas e documentos do PIE da unidade ativa.
+  const { can } = useUnitPermissions(unitId);
   const folders = useQuery({
     ...trpc.folders.list.queryOptions({ unitId: unitId ?? '' }),
-    enabled: Boolean(unitId),
+    enabled: Boolean(unitId) && can('pie.ler'),
   });
   const documents = useQuery({
     ...trpc.documents.listBySubtree.queryOptions({ unitId: unitId ?? '', folderId: null }),
-    enabled: Boolean(unitId),
+    enabled: Boolean(unitId) && can('pie.ler'),
   });
 
   // Ctrl/Cmd+K foca a busca de qualquer lugar.

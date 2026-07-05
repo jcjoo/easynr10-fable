@@ -7,7 +7,7 @@
     "noEmit": true,
     "allowImportingTsExtensions": true,
     "erasableSyntaxOnly": true,
-    "types": ["node"]
+    "types": ["bun"]
   },
   "include": ["src"]
 }

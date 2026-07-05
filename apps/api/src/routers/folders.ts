@@ -4,7 +4,7 @@ import { schema } from '@easynr10/db';
 import { folderCreateSchema, folderRenameSchema } from '@easynr10/shared';
 import { z } from 'zod';
 import { db } from '../db';
-import { router, unitProcedure } from '../trpc';
+import { router, unitAction } from '../trpc';
 
 const { folder, document } = schema;
 
@@ -20,7 +20,7 @@ async function findUnitFolder(unitId: string, folderId: string) {
 
 export const foldersRouter = router({
   // Todas as pastas da unidade (flat); a árvore é montada no cliente.
-  list: unitProcedure.query(async ({ input }) => {
+  list: unitAction('pie.ler').query(async ({ input }) => {
     return db
       .select({
         id: folder.id,
@@ -33,7 +33,7 @@ export const foldersRouter = router({
       .orderBy(asc(folder.name));
   }),
 
-  create: unitProcedure.input(folderCreateSchema).mutation(async ({ input }) => {
+  create: unitAction('pie.pasta.criar').input(folderCreateSchema).mutation(async ({ input }) => {
     if (input.parentId) {
       const parent = await db.query.folder.findFirst({
         where: and(
@@ -53,7 +53,7 @@ export const foldersRouter = router({
     return created;
   }),
 
-  rename: unitProcedure.input(folderRenameSchema).mutation(async ({ input }) => {
+  rename: unitAction('pie.pasta.renomear').input(folderRenameSchema).mutation(async ({ input }) => {
     const found = await findUnitFolder(input.unitId, input.folderId);
     const [updated] = await db
       .update(folder)
@@ -65,7 +65,7 @@ export const foldersRouter = router({
 
   // Cliente só remove pasta vazia; admin remove com todo o conteúdo
   // (subpastas e documentos, soft delete em cascata).
-  remove: unitProcedure
+  remove: unitAction('pie.pasta.excluir')
     .input(z.object({ folderId: z.uuid() }))
     .mutation(async ({ ctx, input }) => {
       const found = await findUnitFolder(input.unitId, input.folderId);

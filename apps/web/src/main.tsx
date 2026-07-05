@@ -5,7 +5,7 @@ import { RouterProvider } from '@tanstack/react-router';
 import { queryClient } from '@/lib/trpc';
 import { router } from '@/router';
 import { initTheme } from '@/stores/theme';
-import '@fontsource-variable/archivo';
+import '@fontsource-variable/archivo/index.css';
 import '@fontsource/ibm-plex-sans/400.css';
 import '@fontsource/ibm-plex-sans/500.css';
 import '@fontsource/ibm-plex-sans/600.css';

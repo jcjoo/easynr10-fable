@@ -1,7 +1,8 @@
-import type { FastifyInstance, FastifyRequest } from 'fastify';
+import type { Hono } from 'hono';
 import { and, eq, isNull } from 'drizzle-orm';
 import { schema } from '@easynr10/db';
 import {
+  actionPriorityLabels,
   actionStatusLabels,
   diagnosticStatusLabels,
   documentGroupLabels,
@@ -12,13 +13,13 @@ import {
 import { auth } from './auth';
 import { db } from './db';
 import { env } from './env';
-import { actionPlanRows, documentSituationRows, nonConformityRows } from './routers/reports';
+import { actionPlanRows, documentSituationRows, nonConformityRows } from './services/reports';
 
 // Exportação de relatórios (RF22) por rota HTTP própria: download com o
 // cookie de sessão (link direto no browser), fora do envelope JSON do tRPC.
 // CSV gerado aqui; PDF via Gotenberg (HTML → /forms/chromium/convert/html).
 
-const { company, membership, unit } = schema;
+const { appRole, company, membership, unit } = schema;
 
 interface Column {
   label: string;
@@ -43,7 +44,6 @@ const reportDefs = {
     columns: [
       { label: 'Norma', value: text('normCode') },
       { label: 'Exigência', value: text('normDescription') },
-      { label: 'Peso', value: text('importanceWeight') },
       {
         label: 'Aderência',
         value: (row) =>
@@ -88,6 +88,10 @@ const reportDefs = {
       { label: 'Norma', value: text('normCode') },
       { label: 'Exigência', value: text('normDescription') },
       {
+        label: 'Prioridade',
+        value: (row) => actionPriorityLabels[row.priority as keyof typeof actionPriorityLabels],
+      },
+      {
         label: 'Aderência',
         value: (row) =>
           diagnosticStatusLabels[row.adherence as keyof typeof diagnosticStatusLabels],
@@ -108,7 +112,8 @@ const reportDefs = {
 export type ReportExportType = keyof typeof reportDefs;
 
 // Mesmos filtros da tela de Relatórios (?status=&grupo=&q=) — o arquivo
-// exportado espelha o que o usuário está vendo.
+// exportado espelha o que o usuário está vendo. Status é componível
+// (CSV, união dos recortes: ?status=inexistente,inadequada).
 function applyFilters(
   type: ReportExportType,
   rows: Record<string, unknown>[],
@@ -116,29 +121,25 @@ function applyFilters(
 ) {
   const q = normalizeText(query.q ?? '').trim();
   const grupo = query.grupo;
-  const status = query.status;
+  const statusTokens = (query.status ?? '').split(',').filter(Boolean);
 
   return rows.filter((row) => {
     if (grupo && type !== 'plano-de-acao' && row.documentGroup !== grupo) return false;
 
-    if (status) {
+    if (statusTokens.length > 0) {
       if (type === 'nao-conformidades') {
-        const rowStatus = row.status ?? 'sem_avaliacao';
-        if (rowStatus !== status) return false;
+        if (!statusTokens.includes(String(row.status ?? 'sem_avaliacao'))) return false;
       } else if (type === 'situacao-documental') {
-        if (row.situation !== status) return false;
+        if (!statusTokens.includes(String(row.situation))) return false;
       } else {
         const pending = row.status === 'pendente' || row.status === 'em_andamento';
-        if (status === 'pendencias' && !pending) return false;
-        if (status === 'vencidas' && !row.overdue) return false;
-        if (
-          status !== 'pendencias' &&
-          status !== 'vencidas' &&
-          status !== 'todas' &&
-          row.status !== status
-        ) {
-          return false;
-        }
+        const matches = statusTokens.some((token) => {
+          if (token === 'todas') return true;
+          if (token === 'pendencias') return pending;
+          if (token === 'vencidas') return Boolean(row.overdue);
+          return row.status === token;
+        });
+        if (!matches) return false;
       }
     } else if (type === 'plano-de-acao') {
       // Sem filtro explícito, o relatório é o de pendências (default da tela).
@@ -224,38 +225,37 @@ async function toPdf(html: string) {
   return Buffer.from(await response.arrayBuffer());
 }
 
-function requestHeaders(request: FastifyRequest) {
-  const headers = new Headers();
-  for (const [key, value] of Object.entries(request.headers)) {
-    if (typeof value === 'string') headers.set(key, value);
-    else if (Array.isArray(value)) for (const item of value) headers.append(key, item);
-  }
-  return headers;
-}
-
-export function registerReportExport(app: FastifyInstance) {
-  app.get('/api/reports/export', async (request, reply) => {
-    const query = request.query as Record<string, string | undefined>;
+export function registerReportExport(app: Hono) {
+  app.get('/api/reports/export', async (c) => {
+    const query = c.req.query();
     const type = query.type as ReportExportType | undefined;
     const format = query.format;
     const unitId = query.unitId;
 
     if (!type || !(type in reportDefs) || !unitId || (format !== 'csv' && format !== 'pdf')) {
-      return reply.status(400).send({ error: 'Parâmetros inválidos' });
+      return c.json({ error: 'Parâmetros inválidos' }, 400);
     }
 
-    // Mesma regra do unitProcedure: admin ou membro da unidade (RNF02).
-    const session = await auth.api.getSession({ headers: requestHeaders(request) });
-    if (!session) return reply.status(401).send({ error: 'Não autenticado' });
+    // Mesma regra do unitAction('relatorios.ler'): admin, ou membro cujo
+    // papel tem a leitura de relatórios (RNF02).
+    const session = await auth.api.getSession({ headers: c.req.raw.headers });
+    if (!session) return c.json({ error: 'Não autenticado' }, 401);
     if (session.user.role !== 'admin') {
-      const member = await db.query.membership.findFirst({
-        where: and(
-          eq(membership.unitId, unitId),
-          eq(membership.userId, session.user.id),
-          isNull(membership.deletedAt),
-        ),
-      });
-      if (!member) return reply.status(403).send({ error: 'Sem acesso a esta unidade' });
+      const [member] = await db
+        .select({ permissions: appRole.permissions })
+        .from(membership)
+        .leftJoin(appRole, eq(membership.roleId, appRole.id))
+        .where(
+          and(
+            eq(membership.unitId, unitId),
+            eq(membership.userId, session.user.id),
+            isNull(membership.deletedAt),
+          ),
+        );
+      if (!member) return c.json({ error: 'Sem acesso a esta unidade' }, 403);
+      if (!(member.permissions ?? []).includes('relatorios.ler')) {
+        return c.json({ error: 'Seu papel nesta unidade não permite relatórios' }, 403);
+      }
     }
 
     const [unitRow] = await db
@@ -263,7 +263,7 @@ export function registerReportExport(app: FastifyInstance) {
       .from(unit)
       .innerJoin(company, eq(unit.companyId, company.id))
       .where(and(eq(unit.id, unitId), isNull(unit.deletedAt)));
-    if (!unitRow) return reply.status(404).send({ error: 'Unidade não encontrada' });
+    if (!unitRow) return c.json({ error: 'Unidade não encontrada' }, 404);
 
     const def = reportDefs[type];
     const fetched = (await def.fetch(unitId)) as unknown as Record<string, unknown>[];
@@ -271,15 +271,17 @@ export function registerReportExport(app: FastifyInstance) {
     const fileBase = `${type}-${new Date().toISOString().slice(0, 10)}`;
 
     if (format === 'csv') {
-      reply.header('content-type', 'text/csv; charset=utf-8');
-      reply.header('content-disposition', `attachment; filename="${fileBase}.csv"`);
-      return reply.send(toCsv(def.columns, rows));
+      return c.body(toCsv(def.columns, rows), 200, {
+        'content-type': 'text/csv; charset=utf-8',
+        'content-disposition': `attachment; filename="${fileBase}.csv"`,
+      });
     }
 
     const subtitle = `${unitRow.companyName} — ${unitRow.unitName} · gerado em ${new Date().toLocaleDateString('pt-BR')}`;
     const pdf = await toPdf(toHtml(def.title, subtitle, def.columns, rows));
-    reply.header('content-type', 'application/pdf');
-    reply.header('content-disposition', `attachment; filename="${fileBase}.pdf"`);
-    return reply.send(pdf);
+    return c.body(pdf, 200, {
+      'content-type': 'application/pdf',
+      'content-disposition': `attachment; filename="${fileBase}.pdf"`,
+    });
   });
 }

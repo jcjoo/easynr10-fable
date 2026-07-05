@@ -97,3 +97,18 @@ export function presignDownload(storageKey: string, downloadName: string) {
     { expiresIn: DOWNLOAD_URL_TTL_S },
   );
 }
+
+// Preview no navegador: disposition inline + content-type forçado (o objeto
+// pode ter sido enviado sem type correto) — PDF/imagem renderizam direto.
+export function presignPreview(storageKey: string, name: string, mimeType: string) {
+  return getSignedUrl(
+    signer,
+    new GetObjectCommand({
+      Bucket: env.S3_BUCKET,
+      Key: storageKey,
+      ResponseContentDisposition: `inline; filename="${encodeURIComponent(name)}"`,
+      ResponseContentType: mimeType,
+    }),
+    { expiresIn: DOWNLOAD_URL_TTL_S },
+  );
+}

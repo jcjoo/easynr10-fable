@@ -5,6 +5,7 @@ import { ArrowLeft, FileText, Plus, Text, Trash2, Users } from 'lucide-react';
 import type { RegisterTarget, RequirementType } from '@easynr10/shared';
 import { registerTargetLabels, registerTargets, requirementTypes } from '@easynr10/shared';
 import { trpc } from '@/lib/trpc';
+import { useUnitPermissions } from '@/lib/use-unit-permissions';
 import { Button } from '@/components/ui/button';
 import { Dialog } from '@/components/ui/dialog';
 import { Field } from '@/components/ui/field';
@@ -31,6 +32,13 @@ export function DiagnosticoItemPage() {
     from: '/_authed/$companyId/$unitId/diagnosticos/$adequacyItemId',
   });
   const queryClient = useQueryClient();
+
+  // Sem as permissões de escrita, a página vira leitura: salvar/checkbox/
+  // orientação seguem "diagnostico.configurar" e os requisitos,
+  // "diagnostico.requisitos".
+  const { can } = useUnitPermissions(unitId);
+  const canConfigure = can('diagnostico.configurar');
+  const canEditRequirements = can('diagnostico.requisitos');
 
   const item = useQuery(trpc.adequacy.itemDetail.queryOptions({ unitId, adequacyItemId }));
   const requirements = useQuery(
@@ -105,12 +113,14 @@ export function DiagnosticoItemPage() {
         >
           <ArrowLeft aria-hidden className="size-4" /> Diagnóstico
         </Link>
-        <Button
-          disabled={updateItem.isPending}
-          onClick={() => updateItem.mutate({ unitId, adequacyItemId, isActive, orientation: orientation || null })}
-        >
-          {updateItem.isPending ? 'Salvando…' : 'Salvar alterações'}
-        </Button>
+        {canConfigure && (
+          <Button
+            disabled={updateItem.isPending}
+            onClick={() => updateItem.mutate({ unitId, adequacyItemId, isActive, orientation: orientation || null })}
+          >
+            {updateItem.isPending ? 'Salvando…' : 'Salvar alterações'}
+          </Button>
+        )}
       </div>
 
       <div>
@@ -138,6 +148,7 @@ export function DiagnosticoItemPage() {
           <input
             type="checkbox"
             checked={isActive}
+            disabled={!canConfigure}
             onChange={(e) => setIsActive(e.target.checked)}
             className="size-4 accent-[var(--color-action)]"
           />
@@ -152,6 +163,7 @@ export function DiagnosticoItemPage() {
         <textarea
           id="orientacao"
           rows={3}
+          disabled={!canConfigure}
           value={orientation}
           onChange={(e) => setOrientation(e.target.value)}
           placeholder="Instruções específicas de como esta norma se aplica nesta unidade…"
@@ -168,7 +180,7 @@ export function DiagnosticoItemPage() {
               {requirements.data?.length ?? 0}
             </span>
           </h2>
-          {(requirements.data?.length ?? 0) > 0 && (
+          {canEditRequirements && (requirements.data?.length ?? 0) > 0 && (
             <Button variant="ghost" onClick={() => setConfirmRemoveAll(true)}>
               <Trash2 aria-hidden className="size-4" /> Remover todos
             </Button>
@@ -209,22 +221,25 @@ export function DiagnosticoItemPage() {
                     </div>
                   )}
                 </div>
-                <button
-                  type="button"
-                  title="Remover requisito"
-                  aria-label={`Remover requisito ${req.question}`}
-                  disabled={removeRequirement.isPending}
-                  onClick={() => removeRequirement.mutate({ unitId, requirementId: req.id })}
-                  className="cursor-pointer rounded-ctl p-1.5 text-muted opacity-0 transition-opacity hover:bg-bad-soft hover:text-bad focus-visible:opacity-100 group-hover:opacity-100"
-                >
-                  <Trash2 aria-hidden className="size-4" />
-                </button>
+                {canEditRequirements && (
+                  <button
+                    type="button"
+                    title="Remover requisito"
+                    aria-label={`Remover requisito ${req.question}`}
+                    disabled={removeRequirement.isPending}
+                    onClick={() => removeRequirement.mutate({ unitId, requirementId: req.id })}
+                    className="cursor-pointer rounded-ctl p-1.5 text-muted opacity-0 transition-opacity hover:bg-bad-soft hover:text-bad focus-visible:opacity-100 group-hover:opacity-100"
+                  >
+                    <Trash2 aria-hidden className="size-4" />
+                  </button>
+                )}
               </li>
             );
           })}
         </ul>
 
         {/* Novo requisito */}
+        {canEditRequirements && (
         <form
           onSubmit={(e) => {
             e.preventDefault();
@@ -306,6 +321,7 @@ export function DiagnosticoItemPage() {
             </p>
           )}
         </form>
+        )}
       </div>
 
       <Dialog

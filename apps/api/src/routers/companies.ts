@@ -1,59 +1,42 @@
-import { and, asc, count, eq, inArray, isNull } from 'drizzle-orm';
+import { TRPCError } from '@trpc/server';
+import { and, asc, eq, inArray, isNull } from 'drizzle-orm';
 import { schema } from '@easynr10/db';
 import { companyCreateSchema, companyUpdateSchema } from '@easynr10/shared';
 import { z } from 'zod';
 import { db } from '../db';
 import { adminProcedure, protectedProcedure, router } from '../trpc';
 import { cascadeDeleteUnit } from '../cascade';
+import { canAccessCompany, visibleUnits } from '../services/visibility';
 
-const { company, unit, membership } = schema;
+const { company, unit } = schema;
 
 export const companiesRouter = router({
-  // Admin vê todas; cliente vê apenas empresas com unidades das quais é membro (RF04).
-  // unitCount segue a mesma visibilidade: admin conta todas as unidades,
-  // cliente conta só as liberadas para ele.
+  // Visibilidade (RF04) vem do serviço: unidades visíveis dão as empresas e
+  // o unitCount (admin: todas; cliente: só as liberadas).
   list: protectedProcedure.query(async ({ ctx }) => {
-    if (ctx.session.user.role === 'admin') {
-      const companies = await db.query.company.findMany({
-        where: isNull(company.deletedAt),
-        orderBy: [asc(company.name)],
-      });
-      const counts = await db
-        .select({ companyId: unit.companyId, total: count() })
-        .from(unit)
-        .where(isNull(unit.deletedAt))
-        .groupBy(unit.companyId);
-      const byCompany = new Map(counts.map((row) => [row.companyId, row.total]));
-      return companies.map((item) => ({ ...item, unitCount: byCompany.get(item.id) ?? 0 }));
-    }
-
-    const memberUnits = await db
-      .select({ companyId: unit.companyId })
-      .from(membership)
-      .innerJoin(unit, eq(membership.unitId, unit.id))
-      .where(
-        and(
-          eq(membership.userId, ctx.session.user.id),
-          isNull(membership.deletedAt),
-          isNull(unit.deletedAt),
-        ),
-      );
-
+    const units = await visibleUnits(ctx.session.user);
     const countByCompany = new Map<string, number>();
-    for (const row of memberUnits) {
+    for (const row of units) {
       countByCompany.set(row.companyId, (countByCompany.get(row.companyId) ?? 0) + 1);
     }
-    const companyIds = [...countByCompany.keys()];
-    if (companyIds.length === 0) return [];
-
+    const isAdmin = ctx.session.user.role === 'admin';
+    if (!isAdmin && countByCompany.size === 0) return [];
     const companies = await db.query.company.findMany({
-      where: and(isNull(company.deletedAt), inArray(company.id, companyIds)),
+      where: and(
+        isNull(company.deletedAt),
+        // Admin também vê empresas ainda sem unidade.
+        isAdmin ? undefined : inArray(company.id, [...countByCompany.keys()]),
+      ),
       orderBy: [asc(company.name)],
     });
     return companies.map((item) => ({ ...item, unitCount: countByCompany.get(item.id) ?? 0 }));
   }),
 
-  byId: protectedProcedure.input(z.object({ id: z.uuid() })).query(async ({ input }) => {
+  // Cliente só enxerga empresas onde é membro de alguma unidade (RF04).
+  byId: protectedProcedure.input(z.object({ id: z.uuid() })).query(async ({ ctx, input }) => {
+    if (!(await canAccessCompany(ctx.session.user, input.id))) {
+      throw new TRPCError({ code: 'FORBIDDEN', message: 'Sem acesso a esta empresa' });
+    }
     return db.query.company.findFirst({
       where: and(eq(company.id, input.id), isNull(company.deletedAt)),
     });

@@ -1,7 +1,11 @@
 import { QueryClient } from '@tanstack/react-query';
-import { createTRPCClient, httpBatchLink } from '@trpc/client';
+import { createTRPCClient, httpBatchLink, TRPCClientError } from '@trpc/client';
 import { createTRPCOptionsProxy } from '@trpc/tanstack-react-query';
 import type { AppRouter } from '../../../api/src/routers/index';
+
+export function isForbiddenError(error: unknown) {
+  return error instanceof TRPCClientError && error.data?.code === 'FORBIDDEN';
+}
 
 export const queryClient = new QueryClient({
   defaultOptions: {
@@ -11,6 +15,9 @@ export const queryClient = new QueryClient({
       // mutações. Depois de 60s, remontagem/foco revalidam em background
       // (cobre edições de outros usuários).
       staleTime: 60_000,
+      // FORBIDDEN estoura no error boundary da rota → página 403.
+      throwOnError: isForbiddenError,
+      retry: (failureCount, error) => !isForbiddenError(error) && failureCount < 3,
     },
   },
 });

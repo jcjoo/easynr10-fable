@@ -1,5 +1,6 @@
-import Fastify from 'fastify';
-import cors from '@fastify/cors';
+import { Hono } from 'hono';
+import { cors } from 'hono/cors';
+import { logger } from 'hono/logger';
 import { fetchRequestHandler } from '@trpc/server/adapters/fetch';
 import { env } from './env';
 import { auth } from './auth';
@@ -7,76 +8,30 @@ import { appRouter } from './routers';
 import { createContext } from './trpc';
 import { registerReportExport } from './report-export';
 
-const app = Fastify({ logger: true });
+// Hono fetch-native no Bun.serve: better-auth e tRPC já falam Request/Response
+// web-standard, então as rotas repassam o request cru — sem adaptadores.
+const app = new Hono();
 
-await app.register(cors, {
-  origin: env.FRONTEND_URL,
-  credentials: true,
-});
-
-// Converte request Fastify → Request (fetch API) para better-auth e tRPC.
-function toWebRequest(req: {
-  method: string;
-  url: string;
-  protocol: string;
-  hostname: string;
-  headers: Record<string, string | string[] | undefined>;
-  body?: unknown;
-}): Request {
-  const url = new URL(req.url, `${req.protocol}://${req.hostname}`);
-  const headers = new Headers();
-  for (const [key, value] of Object.entries(req.headers)) {
-    if (typeof value === 'string') headers.set(key, value);
-    else if (Array.isArray(value)) for (const item of value) headers.append(key, item);
-  }
-  return new Request(url, {
-    method: req.method,
-    headers,
-    body: req.body ? JSON.stringify(req.body) : undefined,
-  });
-}
-
-async function sendWebResponse(reply: {
-  status: (code: number) => unknown;
-  header: (k: string, v: string) => unknown;
-  send: (body: unknown) => unknown;
-}, response: Response) {
-  reply.status(response.status);
-  response.headers.forEach((value, key) => {
-    reply.header(key, value);
-  });
-  reply.send(response.body ? Buffer.from(await response.arrayBuffer()) : null);
-}
+app.use(logger());
+app.use('/api/*', cors({ origin: env.FRONTEND_URL, credentials: true }));
 
 // Rotas do better-auth (login, logout, sessão, OAuth…).
-app.route({
-  method: ['GET', 'POST'],
-  url: '/api/auth/*',
-  handler: async (request, reply) => {
-    const response = await auth.handler(toWebRequest(request));
-    await sendWebResponse(reply, response);
-  },
-});
+app.on(['GET', 'POST'], '/api/auth/*', (c) => auth.handler(c.req.raw));
 
 // Rotas tRPC.
-app.route({
-  method: ['GET', 'POST'],
-  url: '/api/trpc/*',
-  handler: async (request, reply) => {
-    const webRequest = toWebRequest(request);
-    const response = await fetchRequestHandler({
-      endpoint: '/api/trpc',
-      req: webRequest,
-      router: appRouter,
-      createContext: () => createContext(webRequest.headers),
-    });
-    await sendWebResponse(reply, response);
-  },
-});
+app.on(['GET', 'POST'], '/api/trpc/*', (c) =>
+  fetchRequestHandler({
+    endpoint: '/api/trpc',
+    req: c.req.raw,
+    router: appRouter,
+    createContext: () => createContext(c.req.raw.headers),
+  }),
+);
 
 // Download de relatórios (CSV/PDF) com o cookie de sessão (RF22).
 registerReportExport(app);
 
-app.get('/health', () => ({ status: 'ok' }));
+app.get('/health', (c) => c.json({ status: 'ok' }));
 
-await app.listen({ port: env.PORT, host: '0.0.0.0' });
+Bun.serve({ port: env.PORT, hostname: '0.0.0.0', fetch: app.fetch });
+console.log(`API ouvindo em :${env.PORT}`);

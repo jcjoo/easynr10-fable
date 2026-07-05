@@ -6,10 +6,19 @@ interface DialogProps {
   onClose: () => void;
   title: string;
   children: ReactNode;
+  /** md = formulários simples (default); lg = fluxos densos (diagnóstico);
+   *  xl = conteúdo grande (preview de documento). */
+  size?: 'md' | 'lg' | 'xl';
 }
 
+const sizeClasses = {
+  md: 'max-w-lg',
+  lg: 'max-w-3xl',
+  xl: 'max-w-5xl',
+};
+
 // Camada flutuante: única superfície com sombra (guia — raio & elevação).
-export function Dialog({ open, onClose, title, children }: DialogProps) {
+export function Dialog({ open, onClose, title, children, size = 'md' }: DialogProps) {
   useEffect(() => {
     if (!open) return;
     function onKeyDown(event: KeyboardEvent) {
@@ -31,7 +40,7 @@ export function Dialog({ open, onClose, title, children }: DialogProps) {
         aria-modal="true"
         aria-label={title}
         onClick={(e) => e.stopPropagation()}
-        className="w-full max-w-lg rounded-card border border-line-strong bg-surface shadow-[0_8px_24px_rgba(26,35,51,.2)]"
+        className={`w-full ${sizeClasses[size]} rounded-card border border-line-strong bg-surface shadow-[0_8px_24px_rgba(26,35,51,.2)]`}
       >
         <div className="flex items-center justify-between border-b border-line px-5 py-3.5">
           <h2 className="font-ui text-base font-semibold">{title}</h2>

@@ -1,174 +1,171 @@
-# EasyNR10 v2 — Documento de Projeto
+# EasyNR10 — Documento de Projeto
 
-> Projeto de refatoração completa do EasyNR10. Complementa a [`ANALISE-EASYNR10.md`](./ANALISE-EASYNR10.md), que registra o diagnóstico do sistema atual e a justificativa das escolhas de stack.
+> Plataforma de gestão de conformidade com a **NR-10** da PSO Engenharia.
 >
-> **Versão:** 0.1 · **Data:** 02/07/2026 · **Status:** rascunho para validação
+> **Versão:** 1.0 · **Atualizado em:** 04/07/2026 · **Status:** em desenvolvimento (F0–F4 entregues)
 
 ---
 
-## 1. Descrição
+## 1. Visão geral
 
-O **EasyNR10 v2** é a reescrita da plataforma de gestão de conformidade com a **NR-10** usada pela PSO Engenharia para atender múltiplas empresas clientes. A plataforma organiza, por **empresa → unidade**:
+### 1.1 O produto
 
-- o **PIE (Prontuário de Instalações Elétricas)** — a gestão de documentos exigida pela norma: árvore de pastas padronizada, arquivos com validade, versionamento e avisos de vencimento;
-- a **avaliação de conformidade** — diagnósticos dos itens de adequação da unidade frente aos requisitos da NR-10, com evidências e parecer técnico;
-- o **plano de ação** derivado das não conformidades;
-- **dashboards** e uma seção de **relatórios analíticos** exportáveis em PDF e CSV.
+O **EasyNR10** é uma plataforma multi-tenant que a PSO Engenharia usa para conduzir e acompanhar a conformidade de seus clientes com a **NR-10** (Segurança em Instalações e Serviços em Eletricidade). Organizada por **empresa → unidade**, a plataforma cobre o ciclo completo da consultoria:
 
-A v2 parte do modelo de domínio já validado pelo sistema atual e do fluxo de usuário prototipado no `client-test` (navegação orientada a URL: empresas → unidades → unidade → PIE), reescrevendo frontend e backend sobre uma stack unificada em TypeScript.
+- o **PIE (Prontuário de Instalações Elétricas)** — a gestão documental exigida pela norma: árvore de pastas padronizada por esquemas, documentos com validade, versionamento imutável, preview e avisos de vencimento;
+- a **avaliação de conformidade** — diagnósticos dos itens de adequação da unidade frente aos 90 requisitos catalogados da NR-10, com evidências estruturadas e parecer técnico;
+- o **plano de ação** derivado das não conformidades, com prioridade calculada e acompanhamento de prazos;
+- **cadastros** de colaboradores e equipamentos (elétricos, ferramentas, EPI, EPC) integrados ao PIE e ao motor de evidências;
+- **dashboards** e **relatórios analíticos** exportáveis em PDF e CSV.
 
-## 2. Objetivo
+### 1.2 O problema
 
-### Objetivo geral
+A conformidade NR-10 exige manter dezenas de documentos válidos por unidade (laudos, certificados, treinamentos, ASOs), avaliar periodicamente ~90 exigências normativas e comprovar cada avaliação com evidências. Sem sistema, esse controle vive em planilhas e pastas de rede: documentos vencem sem aviso, evidências se perdem e o cliente não tem visibilidade do próprio risco. O EasyNR10 centraliza esse fluxo e dá ao consultor e ao cliente a mesma fotografia da conformidade, em tempo real.
 
-Entregar uma plataforma multi-tenant de gestão de conformidade NR-10 que substitua integralmente o sistema atual, com o mesmo domínio funcional, melhor experiência de uso e uma base de código sustentável (tipada ponta a ponta, testada e sem as dívidas estruturais mapeadas na análise).
-
-### Objetivos específicos
-
-| # | Objetivo | Métrica de sucesso |
-|---|---|---|
-| O1 | Reescrever o frontend sobre o fluxo do `client-test` | 100% das telas navegáveis por URL; ≤ 3 stores globais |
-| O2 | Contrato tipado ponta a ponta (banco → tela) | Zero DTOs duplicados entre front e back |
-| O3 | Isolamento multi-tenant garantido no servidor | Teste automatizado de acesso cruzado entre tenants passando |
-| O4 | Qualidade desde o início | Cobertura de testes nas regras de conformidade; e2e dos fluxos críticos em CI |
-| O5 | Segurança corrigida | Zero segredos no repositório; upload via presigned URL |
-| O6 | Migração sem perda de dados | Dados e arquivos do sistema atual migrados e conferidos em staging |
-
-## 3. Escopo
-
-**Dentro do escopo (v2.0):** autenticação (e-mail/senha + Google), gestão de empresas/unidades/usuários, PIE completo, catálogo de normas e requisitos, itens de adequação, diagnósticos com evidências, plano de ação, dashboards, seção de relatórios com exportação PDF/CSV, notificações in-app e por e-mail, importação por planilha, migração dos dados atuais.
-
-**Fora do escopo (backlog):** API pública para terceiros, aplicativo móvel, outras NRs além da NR-10 (a modelagem por `Norm` deixa a porta aberta), assinatura digital de documentos, SSO corporativo (SAML).
-
-## 4. Atores
+### 1.3 Atores
 
 | Ator | Descrição |
 |---|---|
 | **Admin (consultor PSO)** | Gerencia empresas, unidades, usuários, catálogo de normas e esquemas de pastas; executa diagnósticos e emite pareceres técnicos |
 | **Cliente (gestor da unidade)** | Acessa as unidades às quais pertence; consulta o PIE, envia documentos, acompanha plano de ação, dashboards e relatórios |
-| **Sistema (agendador)** | Verifica vencimentos de documentos e prazos do plano de ação; dispara notificações in-app e e-mails |
-
-### 4.1 Diagrama de casos de uso
+| **Sistema (agendador)** | Verifica vencimentos de documentos e prazos do plano de ação; dispara notificações in-app e e-mails *(fase F5)* |
 
 ```mermaid
 graph LR
-    subgraph atores_internos [" "]
-        ADM(["👤 Admin<br/>(consultor PSO)"])
-    end
-    subgraph atores_externos [" "]
-        CLI(["👤 Cliente<br/>(gestor da unidade)"])
-        SYS(["⏰ Agendador"])
-    end
+    ADM(["👤 Admin<br/>(consultor PSO)"])
+    CLI(["👤 Cliente<br/>(gestor da unidade)"])
+    SYS(["⏰ Agendador"])
 
-    subgraph EasyNR10["EasyNR10 v2"]
+    subgraph EasyNR10
         UC1([Autenticar-se])
         UC2([Gerenciar empresas e unidades])
         UC3([Gerenciar usuários e vínculos])
-        UC4([Gerenciar catálogo de normas])
-        UC5([Gerenciar PIE: pastas e documentos])
-        UC6([Realizar diagnóstico com evidências])
-        UC7([Acompanhar plano de ação])
+        UC4([Gerenciar PIE: pastas e documentos])
+        UC5([Realizar diagnóstico com evidências])
+        UC6([Acompanhar plano de ação])
+        UC7([Gerenciar cadastros: colaboradores e equipamentos])
         UC8([Consultar dashboards])
         UC9([Gerar e exportar relatórios PDF/CSV])
         UC10([Importar cadastros por planilha])
         UC11([Notificar vencimentos e prazos])
-        UC12([Consultar PIE e enviar documentos])
     end
 
     ADM --> UC1 & UC2 & UC3 & UC4 & UC5 & UC6 & UC7 & UC8 & UC9 & UC10
-    CLI --> UC1 & UC12 & UC7 & UC8 & UC9
+    CLI --> UC1 & UC4 & UC6 & UC8 & UC9
     SYS --> UC11
-    UC6 -.«include».-> UC5
-    UC7 -.«extend».-> UC6
+    UC5 -.«include».-> UC4
+    UC6 -.«extend».-> UC5
     UC9 -.«include».-> UC8
 ```
 
-## 5. Requisitos
+## 2. Escopo
 
-### 5.1 Requisitos funcionais
+**Dentro do escopo (1.0):** autenticação (e-mail/senha + Google), gestão de empresas/unidades/usuários, PIE completo (esquemas de pastas, upload presigned, versões, validade, preview), catálogo de normas e requisitos, itens de adequação, diagnósticos com evidências, plano de ação com prioridade, cadastros de colaboradores/equipamentos com campos personalizados e importação por planilha, dashboards, relatórios com exportação PDF/CSV, notificações in-app e por e-mail.
 
-Prioridade MoSCoW: **M** (must) · **S** (should) · **C** (could).
+**Fora do escopo (backlog):** API pública para terceiros, aplicativo móvel, outras NRs além da NR-10 (a modelagem por `norm` deixa a porta aberta), assinatura digital de documentos, SSO corporativo (SAML).
+
+## 3. Requisitos
+
+### 3.1 Requisitos funcionais
+
+Prioridade MoSCoW: **M** (must) · **S** (should) · **C** (could). ✅ = entregue.
 
 **Autenticação e acesso**
-| ID | Requisito | Prior. |
-|---|---|---|
-| RF01 | Login com e-mail/senha e com Google (OAuth2); sessão gerenciada pelo better-auth | M |
-| RF02 | Recuperação de senha por e-mail | M |
-| RF03 | Perfis de acesso (admin, cliente) com permissões distintas, aplicadas no servidor | M |
-| RF04 | Vínculo de usuários a unidades; usuário só enxerga empresas/unidades às quais pertence | M |
+| ID | Requisito | Prior. | Status |
+|---|---|---|---|
+| RF01 | Login com e-mail/senha e com Google (OAuth2); sessão gerenciada pelo better-auth | M | ✅ |
+| RF02 | Recuperação de senha por e-mail | M | pendente |
+| RF03 | Perfis de acesso (admin, cliente) com permissões distintas, aplicadas no servidor | M | ✅ |
+| RF03.1 | Criação de usuários pela UI (admin) e **papéis por unidade criáveis com mapeamento de permissões** (Gestor/Leitor do sistema + customizados) | M | ✅ |
+| RF03.2 | **Painel de usuários por empresa**: lista só quem tem vínculo na empresa; cria usuário já vinculado às unidades escolhidas com papel da empresa; acessos gerenciados no escopo da empresa | M | ✅ |
+| RF04 | Vínculo de usuários a unidades; usuário só enxerga empresas/unidades às quais pertence | M | ✅ |
 
 **Estrutura organizacional**
-| ID | Requisito | Prior. |
-|---|---|---|
-| RF05 | CRUD de empresas | M |
-| RF06 | CRUD de unidades por empresa, com logo e configuração de e-mail | M |
-| RF07 | Navegação por contexto empresa/unidade com a URL como fonte da verdade | M |
+| ID | Requisito | Prior. | Status |
+|---|---|---|---|
+| RF05 | CRUD de empresas | M | ✅ |
+| RF06 | CRUD de unidades por empresa | M | ✅ |
+| RF07 | Navegação por contexto empresa/unidade com a **URL como fonte da verdade** (filtros, ordenação e pasta atual compartilháveis por link) | M | ✅ |
 
 **PIE — Prontuário de Instalações Elétricas**
-| ID | Requisito | Prior. |
-|---|---|---|
-| RF08 | Árvore de pastas por unidade a partir de esquemas padrão reaproveitáveis | M |
-| RF09 | Upload/download de documentos via presigned URL (S3) | M |
-| RF09.1 | Todo novo upload sobre um documento existente cria uma **nova versão**, preservando as anteriores (histórico imutável) | M |
-| RF09.2 | Histórico de versões consultável: número, autor, data/hora e tamanho de cada versão | M |
-| RF09.3 | Download de qualquer versão anterior | M |
-| RF09.4 | Restaurar uma versão anterior — a restauração cria uma nova versão apontando para o conteúdo antigo (nunca sobrescreve o histórico) | S |
-| RF10 | Validade de documentos: data de expiração e antecedência de aviso configurável | M |
-| RF11 | Documentos referenciados vinculados a grupos documentais exigidos pela norma | S |
+| ID | Requisito | Prior. | Status |
+|---|---|---|---|
+| RF08 | Árvore de pastas por unidade a partir de esquemas padrão reaproveitáveis (gerador de estruturas) | M | ✅ |
+| RF09 | Upload/download de documentos via presigned URL (S3) — a API não trafega binário | M | ✅ |
+| RF09.1 | Todo novo upload sobre um documento existente cria uma **nova versão**, preservando as anteriores (histórico imutável) | M | ✅ |
+| RF09.2 | Histórico de versões consultável: número, autor, data/hora e tamanho | M | ✅ |
+| RF09.3 | Download de qualquer versão anterior | M | ✅ |
+| RF09.4 | Restaurar versão anterior — a restauração cria uma nova versão apontando para o conteúdo antigo | S | ✅ |
+| RF09.5 | **Preview** de documentos no navegador (PDF/imagem/texto inline; demais tipos caem no download) | S | ✅ |
+| RF09.6 | Seleção de documento em qualquer tela via **modal com navegação de pastas**, iniciando na pasta do grupo quando houver contexto | S | ✅ |
+| RF10 | Validade de documentos: data de expiração e antecedência de aviso configurável | M | ✅ |
+| RF11 | Documentos referenciados vinculados aos grupos documentais exigidos pela norma (catálogo `default_document`) | S | parcial |
 
 **Normas e conformidade**
-| ID | Requisito | Prior. |
-|---|---|---|
-| RF12 | Catálogo de normas/requisitos com peso de importância e grupo documental | M |
-| RF13 | Itens de adequação por unidade × norma, ativáveis/desativáveis | M |
-| RF13.1 | Configuração de **requisitos de evidência** por item de adequação: tipo (`documento`, `parecer`, `grupo`), pergunta, grupo de cadastro vinculado (quando tipo grupo) e documento padrão de referência | M |
-| RF14 | Diagnóstico por item: status, prazo, responsável, ação recomendada, parecer técnico, autor | M |
-| RF15 | Evidências estruturadas por requisito no diagnóstico: tipo `documento` vincula um documento do PIE; tipo `parecer` registra resposta textual; tipo `grupo` **expande os itens do grupo** (ex.: a lista de colaboradores) exigindo um documento de evidência por item | M |
-| RF15.1 | Sugestão automática de documento por item do grupo — busca na pasta do item no PIE por nome de arquivo — com vínculo manual como alternativa/correção | M |
-| RF16 | Plano de ação consolidado das não conformidades (diagnósticos com aderência abaixo de `conforme`), com acompanhamento de prazos | M |
-| RF17 | Importação de cadastros por planilha (Excel/CSV) | S |
+| ID | Requisito | Prior. | Status |
+|---|---|---|---|
+| RF12 | Catálogo de normas/requisitos com peso de importância e grupo documental (90 normas + 101 requisitos seedados) | M | ✅ |
+| RF13 | Itens de adequação por unidade × norma, ativáveis/desativáveis, com orientação própria da unidade | M | ✅ |
+| RF13.1 | Configuração de **requisitos de evidência** por item: tipo (`documento`, `parecer`, `grupo`), pergunta, grupo-alvo e documento padrão de referência | M | ✅ |
+| RF14 | Diagnóstico por item: aderência (escala de 5 níveis), prazo, responsável, ação recomendada, parecer técnico, autor | M | ✅ |
+| RF15 | Evidências estruturadas por requisito: `documento` vincula documento do PIE; `parecer` registra resposta textual; `grupo` **expande os itens do cadastro-alvo** exigindo um documento por item | M | ✅ |
+| RF15.1 | Sugestão automática de documento por item do grupo — busca na pasta do item no PIE pelo nome do documento padrão — com vínculo manual como alternativa | M | ✅ |
+| RF16 | Plano de ação consolidado das não conformidades (aderência abaixo de `plena` com prazo), com **prioridade calculada** (seção 6.2) e acompanhamento de prazos | M | ✅ |
+| RF17 | Importação de cadastros por planilha (Excel/CSV), com de-para de colunas e upsert por nome | S | ✅ |
 
-**Cadastros auxiliares**
-| ID | Requisito | Prior. |
-|---|---|---|
-| RF18 | **Módulo genérico de grupos de cadastro** por unidade (grupo → itens, com metadados livres e pasta correspondente no PIE por item) — base do motor de evidências tipo grupo, preservado do sistema atual | M |
-| RF18.1 | Módulos especializados de **Colaboradores** e **Equipamentos** com **entidades próprias no banco** (`employee`, `equipment`) e telas/campos dedicados, cada registro ligado 1:1 a um item da base genérica de grupos — participando do motor de evidências e das pastas do PIE como qualquer item | S |
-| RF18.2 | Equipamentos classificados por **tipo** (`equipamento elétrico`, `ferramenta`, `EPI`, `EPC`), com campos específicos por tipo evolutivos (ex.: CA e validade para EPI, calibração para ferramenta) | S |
-| RF18.3 | **Configuração da pasta do item no PIE feita na própria tela do módulo** (colaboradores, equipamentos ou grupo genérico): ao criar o item o sistema sugere criar uma subpasta com o nome dele sob a pasta-raiz do grupo, e o usuário pode aceitar ou apontar para outra pasta existente; a pasta pode ser trocada depois na mesma tela | M |
+**Cadastros**
+| ID | Requisito | Prior. | Status |
+|---|---|---|---|
+| RF18 | Módulos de **Colaboradores** e **Equipamentos** por unidade, com campos default do sistema + **campos personalizados** por grupo-alvo | M | ✅ |
+| RF18.1 | Equipamentos classificados por **tipo** (`elétrico`, `ferramenta`, `EPI`, `EPC`), cada tipo com estrutura própria de colunas | M | ✅ |
+| RF18.2 | Cada item de cadastro tem **pasta correspondente no PIE**, criada automaticamente em estrutura fixa (`Colaboradores/Lista de Colaboradores/[nome]`, `Equipamentos/<Tipo>/Lista de <Tipo>/[nome]`), opcionalmente com esquema de subpastas | M | ✅ |
+| RF18.3 | Campos **kind=document** (ex.: CA do EPI): código cadastrado + vínculo com documento do PIE (1 documento pode cobrir N itens) — base das automações de vencimento | S | ✅ |
 
 **Visualização e relatórios**
-| ID | Requisito | Prior. |
-|---|---|---|
-| RF19 | Dashboard geral de conformidade por empresa/unidade | M |
-| RF20 | Painéis por categoria (colaboradores, equipamentos, instalações, procedimentos) | S |
-| RF21 | Seção de relatórios analíticos (ex.: Relatório de Não Conformidades, situação documental do PIE, pendências do plano de ação) | M |
-| RF22 | Exportação de qualquer relatório em PDF (apresentação) e CSV (dados) | M |
+| ID | Requisito | Prior. | Status |
+|---|---|---|---|
+| RF19 | Dashboard de conformidade por empresa (aderência por unidade) e por unidade (aderência geral, distribuição, grupos documentais, evolução no tempo, plano e documentos) | M | ✅ |
+| RF20 | Aderência por grupo documental (instalações, instruções e procedimentos, colaboradores, equipamentos) | S | ✅ |
+| RF21 | Relatórios analíticos: Não Conformidades, Situação Documental do PIE e Plano de Ação — com busca, filtros componíveis e ordenação por coluna | M | ✅ |
+| RF22 | Exportação de qualquer relatório em PDF (apresentação) e CSV (dados), espelhando os filtros da tela | M | ✅ |
 
-**Notificações**
-| ID | Requisito | Prior. |
-|---|---|---|
-| RF23 | Notificações in-app por usuário (lida/não lida, ativar/desativar) | S |
-| RF24 | E-mails de vencimento de documento e prazo de ação, via agendador | M |
+**Notificações** *(fase F5)*
+| ID | Requisito | Prior. | Status |
+|---|---|---|---|
+| RF23 | Notificações in-app por usuário (lida/não lida, ativar/desativar) | S | pendente |
+| RF24 | E-mails de vencimento de documento e prazo de ação, via agendador | M | pendente |
 
-### 5.2 Requisitos não funcionais
+### 3.2 Requisitos não funcionais
 
 | ID | Categoria | Requisito |
 |---|---|---|
-| RNF01 | Segurança | Hash bcrypt/argon2, sessões seguras, Helmet, rate limiting, validação Zod estrita; nenhum segredo em repositório |
-| RNF02 | Multi-tenancy | Toda query filtrada pelo contexto autorizado (middleware de tenant no tRPC); RLS no Postgres como segunda defesa |
-| RNF03 | Auditoria/LGPD | Soft-delete, `created_at`/`updated_at` e autoria em entidades de negócio; trilha de alterações em diagnósticos e pareceres |
-| RNF04 | Desempenho | Listagens paginadas no servidor; agregações no banco; tabelas virtualizadas; p95 de API < 300 ms nas consultas usuais |
-| RNF05 | Upload | Arquivos direto ao S3 (presigned); API sem tráfego de binário |
-| RNF06 | Testabilidade | Unit (Vitest — mesmo runtime Node da produção e mesmo pipeline Vite do front) nas regras de conformidade e autorização; e2e (Playwright) nos fluxos críticos; tudo em CI |
-| RNF07 | Observabilidade | Logs estruturados (pino) + OpenTelemetry; dashboards de infra somente quando houver produção |
-| RNF08 | Reprodutibilidade | Monorepo Bun com lockfile único; Docker multi-stage; seed de dev automática |
-| RNF09 | Disponibilidade | Backup automatizado do Postgres e do bucket; migrations Drizzle como único mecanismo de mudança de schema |
-| RNF10 | Usabilidade | pt-BR, responsivo, URLs compartilháveis |
-| RNF11 | Manutenibilidade | Identificadores em inglês / UI em pt-BR; componentes pequenos; oxlint + prettier em CI |
+| RNF01 | Segurança | Hash de senha e sessões pelo better-auth; validação Zod estrita em toda entrada; nenhum segredo em repositório |
+| RNF02 | Multi-tenancy | Toda query filtrada pelo contexto autorizado (`unitProcedure` no tRPC verifica admin ou membership da unidade); mesma checagem nas rotas HTTP |
+| RNF03 | Auditoria | Soft-delete, `created_at`/`updated_at` e autoria em entidades de negócio; diagnósticos e versões de documento imutáveis (histórico completo) |
+| RNF04 | Desempenho | Agregações no servidor; consultas reduzidas em memória apenas em volumes conhecidos (~90 itens/unidade); p95 de API < 300 ms nas consultas usuais |
+| RNF05 | Upload | Arquivos direto ao S3 (presigned URL); API sem tráfego de binário |
+| RNF06 | Testabilidade | Regras de negócio puras no pacote `shared` (testáveis por unit); fluxos críticos validados por e2e (Playwright) na stack Docker |
+| RNF07 | Reprodutibilidade | Monorepo Bun com lockfile único; Docker multi-stage; migrations programáticas aplicadas no boot; seed de dev automática |
+| RNF08 | Disponibilidade | Backup do Postgres e do bucket; migrations Drizzle como único mecanismo de mudança de schema |
+| RNF09 | Usabilidade | pt-BR, responsivo, URLs compartilháveis, dark mode |
+| RNF10 | Manutenibilidade | Identificadores em inglês / UI em pt-BR; componentes de UI únicos (pills, chips, tabs, dialogs); lint (oxlint) + typecheck em CI |
 
-## 6. Arquitetura
+## 4. Arquitetura
 
-### 6.1 Visão de containers
+### 4.1 Stack
+
+| Camada | Tecnologia | Papel |
+|---|---|---|
+| Runtime | **Bun** (único — sem Node em nenhum ambiente) | Executa API, build do front e tooling |
+| API | **Hono** sobre `Bun.serve` + **tRPC v11** | Roteador HTTP fetch-native fino; procedures tipadas ponta a ponta |
+| Auth | **better-auth** | E-mail/senha + Google; sessões por cookie |
+| Banco | **PostgreSQL 17** + **Drizzle ORM** | Persistência; migrations versionadas |
+| Front | **React 19 + Vite + TanStack Router/Query** + **Tailwind 4** | SPA com URL como fonte da verdade; estado global mínimo (zustand só para contexto ativo e tema) |
+| Storage | **MinIO / S3** (presigned URLs) | Documentos do PIE |
+| PDF | **Gotenberg** | HTML → PDF na exportação de relatórios |
+| Proxy | **nginx** | Serve o SPA e proxya `/api` |
+
+### 4.2 Visão de containers
 
 ```mermaid
 graph TB
@@ -176,90 +173,98 @@ graph TB
 
     subgraph Monorepo["Monorepo Bun"]
         WEB["apps/web<br/>React 19 + Vite<br/>TanStack Router/Query"]
-        API["apps/api<br/>Fastify + tRPC v11<br/>better-auth · Drizzle"]
-        SHARED["packages/shared<br/>schemas Zod"]
-        DB_PKG["packages/db<br/>schema Drizzle + migrations"]
+        API["apps/api<br/>Hono + tRPC v11<br/>better-auth · Drizzle"]
+        SHARED["packages/shared<br/>Zod schemas · enums · regras puras"]
+        DB_PKG["packages/db<br/>schema Drizzle + migrations + seeds"]
     end
 
     PG[("PostgreSQL 17")]
     S3[("MinIO / S3")]
     GOT["Gotenberg<br/>(HTML → PDF)"]
-    SMTP["SMTP"]
-    JOBS["pg-boss<br/>(jobs/cron)"]
+    SMTP["SMTP<br/>(F5)"]
 
-    U -->|HTTPS| WEB
+    U -->|HTTPS / nginx| WEB
     WEB -->|tRPC tipado| API
-    WEB -->|"upload/download<br/>(presigned URL)"| S3
+    WEB -->|"upload/download/preview<br/>(presigned URL)"| S3
     API --> PG
     API --> S3
     API --> GOT
-    API --> JOBS
-    JOBS --> PG
-    JOBS -->|e-mails| SMTP
+    API -.->|e-mails F5| SMTP
     WEB -.importa tipos.-> SHARED
-    API -.importa tipos.-> SHARED
+    API -.usa.-> SHARED
     API -.usa.-> DB_PKG
 ```
 
-### 6.2 Navegação (fluxo do `client-test`)
+### 4.3 Organização do código (SRP por módulo)
+
+```
+apps/api/src/
+  main.ts                 # Hono: CORS, auth, tRPC, export, health
+  trpc.ts                 # procedures base (protected, unitProcedure)
+  services/               # camada de dados/regras — routers e HTTP consomem daqui
+    reports.ts            #   builders de relatórios/dashboards (RF19–RF22)
+  routers/                # procedures tRPC por domínio
+    adequacy/             #   composto por módulos: items, requirements,
+                          #   diagnostics, actions (namespace adequacy.*)
+    documents.ts folders.ts registers.ts reports.ts users.ts …
+  report-export.ts        # rota HTTP GET /api/reports/export (CSV/PDF)
+  s3.ts auth.ts env.ts cascade.ts
+
+apps/web/src/
+  pages/                  # uma página por rota — composição, sem lógica de UI duplicada
+  components/
+    ui/                   # primitivos ÚNICOS: pill, status-pill, filter-chips,
+                          #   tabs (SegmentedTabs), sortable, dialog, row-menu…
+    layout/               # sidebar (+ botão Novo), header, árvore do PIE, logo
+    pie/                  # document-picker, upload, versões, preview, esquemas
+    diagnostico/          # assessment-dialog (avaliação + evidências + histórico)
+    registros/            # import-dialog (planilha)
+  lib/                    # trpc, auth-client, format (datas/bytes pt-BR)
+  stores/                 # contexto ativo (empresa/unidade), tema
+
+packages/shared/src/      # contrato entre front e back
+  enums.ts                # enums, labels, scores, faixas, actionPriority,
+                          #   compareNormCodes, normalizeText, registerBasePath
+  schemas.ts              # Zod schemas dos inputs de mutation
+```
+
+Convenções de dependência: **páginas → componentes → ui**; **routers → services → db**; regras de negócio puras (fórmulas, faixas, ordenação) vivem no `shared` e são a única fonte para front e back.
+
+### 4.4 Navegação
 
 ```mermaid
 graph LR
-    L["/login"] --> D["/ (dashboard geral)"]
+    L["/login"] --> D["/ (início)"]
     D --> E["/empresas"]
-    E --> EO["/:empresaId (visão da empresa)"]
+    E --> EO["/:empresaId (painel da empresa)"]
     EO --> UN["/:empresaId/unidades"]
-    UN --> UH["/:empresaId/:unidadeId (home da unidade)"]
-    UH --> PIE["/:empresaId/:unidadeId/pie"]
-    UH --> DIAG["/:empresaId/:unidadeId/diagnosticos"]
-    UH --> PA["/:empresaId/:unidadeId/plano-de-acao"]
-    UH --> REL["/:empresaId/:unidadeId/relatorios"]
-    UH --> CFG["/:empresaId/:unidadeId/configuracoes"]
+    UN --> UH["/:empresaId/:unidadeId (painel da unidade)"]
+    UH --> PIE["…/pie (?pasta=&ver=&venc=)"]
+    UH --> DIAG["…/diagnosticos (?status=)"]
+    UH --> PA["…/plano-de-acao"]
+    UH --> REL["…/relatorios (?tipo=&status=&grupo=&q=)"]
+    UH --> CAD["…/colaboradores · …/equipamentos"]
+    D --> USR["/usuarios (admin)"]
 ```
 
-## 7. Modelo de domínio
+Todos os filtros/ordenadores vivem na URL (`?ord=&dir=` padrão via `sortSearch`; status componível em CSV: `?status=inexistente,inadequada`). O botão **Novo** da sidebar navega com flags (`?nova=pasta|documento`, `?novo=1`) que a tela de destino consome para abrir o fluxo de criação.
 
-### 7.1 Diagrama de classes (domínio)
+## 5. Modelo de domínio
+
+### 5.1 Diagrama de classes
 
 ```mermaid
 classDiagram
     direction LR
 
-    class Company {
-        +uuid id
-        +string name
-        +string logoKey
-    }
-    class Unit {
-        +uuid id
-        +string name
-        +string logoKey
-        +EmailConfig emailConfig
-    }
-    class User {
-        +uuid id
-        +string name
-        +string email
-        +Role role
-    }
-    class Membership {
-        +MemberRole role
-    }
-    class Folder {
-        +uuid id
-        +string name
-        +uuid parentId
-    }
-    class FolderSchema {
-        +string name
-        +json structure
-        +bool isDefault
-    }
+    class Company { +uuid id +string name }
+    class Unit { +uuid id +string name }
+    class User { +uuid id +string email +Role role }
+    class Membership { +MemberRole role }
+    class Folder { +string name +uuid parentId }
+    class FolderSchema { +string name +json structure }
     class Document {
-        +uuid id
         +string name
-        +string storageKey
-        +string mimeType
         +date expiresAt
         +int warnDaysBefore
         +currentVersion() DocumentVersion
@@ -267,71 +272,33 @@ classDiagram
     class DocumentVersion {
         +int number
         +string storageKey
-        +datetime uploadedAt
-        +User uploadedBy
+        +string mimeType
         +int sizeBytes
     }
     class Norm {
         +string code
-        +string description
-        +string orientation
         +int importanceWeight
         +DocumentGroup documentGroup
     }
-    class NormRequirement {
-        +RequirementType type
-        +string question
-    }
-    class AdequacyItem {
-        +bool isActive
-        +complianceScore() number
-    }
+    class NormRequirement { +RequirementType type +string question }
+    class AdequacyItem { +bool isActive +string orientation }
     class AdequacyItemRequirement {
         +RequirementType type
         +string question
-        +RegisterGroup registerGroup
-        +Document defaultDocument
+        +RegisterTarget targetGroup
     }
     class Diagnostic {
         +DiagnosticStatus status
         +date deadline
-        +string responsible
-        +string recommendedAction
         +string technicalOpinion
     }
-    class Evidence {
-        +RequirementType type
-        +string question
-    }
-    class EvidenceItem {
-        +string label
-        +string answer
-    }
-    class RegisterGroup {
-        +string name
-        +GroupKind kind
-        +json metadataConfig
-    }
-    class RegisterItem {
-        +string name
-        +json metadata
-        +Folder folder
-    }
-    class Employee {
-    }
-    class Equipment {
-        +EquipmentType type
-    }
-    class ActionItem {
-        +ActionStatus status
-        +date deadline
-        +isOverdue() bool
-    }
-    class Notification {
-        +string title
-        +string body
-        +bool read
-    }
+    class Evidence { +RequirementType type +string question }
+    class EvidenceItem { +string label +string answer }
+    class Employee { +string name +json metadata }
+    class Equipment { +EquipmentType type +json metadata }
+    class CustomField { +RegisterTarget target +string name }
+    class RegisterDocumentLink { +string fieldKey }
+    class ActionItem { +ActionStatus status +date deadline +priority() Priority }
 
     Company "1" --> "*" Unit
     User "1" --> "*" Membership
@@ -343,185 +310,49 @@ classDiagram
     Norm "1" --> "*" NormRequirement
     Unit "1" --> "*" AdequacyItem
     Norm "1" --> "*" AdequacyItem
-    AdequacyItem "1" --> "*" AdequacyItemRequirement : requisitos configurados
-    NormRequirement "1" ..> "*" AdequacyItemRequirement : modelo do catálogo
-    AdequacyItemRequirement "*" --> "0..1" RegisterGroup : tipo grupo
+    AdequacyItem "1" --> "*" AdequacyItemRequirement
+    NormRequirement "1" ..> "*" AdequacyItemRequirement : copia no 1º acesso
     AdequacyItem "1" --> "*" Diagnostic
-    Diagnostic "1" --> "*" Evidence : uma por requisito
+    Diagnostic "1" --> "*" Evidence : snapshot por requisito
     Evidence "1" --> "*" EvidenceItem
     EvidenceItem "*" --> "0..1" Document : prova
-    EvidenceItem "*" --> "0..1" RegisterItem : membro do grupo
-    Unit "1" --> "*" RegisterGroup
-    RegisterGroup "1" --> "*" RegisterItem
-    RegisterItem "*" --> "0..1" Folder : pasta no PIE
-    RegisterItem "1" --> "0..1" Employee : detalhe especializado
-    RegisterItem "1" --> "0..1" Equipment : detalhe especializado
-    Diagnostic "1" --> "0..1" ActionItem : aderência abaixo de conforme gera
+    EvidenceItem "*" --> "0..1" Employee : membro do grupo
+    EvidenceItem "*" --> "0..1" Equipment : membro do grupo
+    Unit "1" --> "*" Employee
+    Unit "1" --> "*" Equipment
+    Unit "1" --> "*" CustomField
+    Employee "*" --> "0..1" Folder : pasta no PIE
+    Equipment "*" --> "0..1" Folder : pasta no PIE
+    RegisterDocumentLink "*" --> "1" Document
+    RegisterDocumentLink "*" --> "0..1" Employee
+    RegisterDocumentLink "*" --> "0..1" Equipment
+    Diagnostic "1" --> "0..1" ActionItem : abaixo de plena + prazo
     User "1" --> "*" Diagnostic : autor
-    User "1" --> "*" Notification
 ```
 
-### 7.2 Diagrama entidade-relacionamento (persistência)
+### 5.2 Dicionário de dados
 
-```mermaid
-erDiagram
-    company ||--o{ unit : possui
-    unit ||--o{ membership : tem
-    "user" ||--o{ membership : participa
-    unit ||--o{ folder : contem
-    folder ||--o{ folder : "subpasta"
-    folder ||--o{ document : armazena
-    document ||--o{ document_version : versiona
-    norm ||--o{ norm_requirement : detalha
-    unit ||--o{ adequacy_item : avalia
-    norm ||--o{ adequacy_item : referencia
-    adequacy_item ||--o{ adequacy_item_requirement : configura
-    adequacy_item ||--o{ diagnostic : historico
-    diagnostic ||--o{ evidence : "uma por requisito"
-    evidence ||--o{ evidence_item : compoe
-    document ||--o{ evidence_item : prova
-    employee ||--o{ evidence_item : "membro do grupo"
-    equipment ||--o{ evidence_item : "membro do grupo"
-    diagnostic ||--o| action_item : origina
-    "user" ||--o{ diagnostic : autoria
-    "user" ||--o{ user_notification : recebe
-    notification ||--o{ user_notification : entrega
-    unit ||--o{ employee : cadastra
-    unit ||--o{ equipment : cadastra
-    unit ||--o{ custom_field : configura
-    folder ||--o{ employee : "pasta no PIE"
-    folder ||--o{ equipment : "pasta no PIE"
-
-    company {
-        uuid id PK
-        varchar name
-        timestamptz created_at
-        timestamptz deleted_at
-    }
-    unit {
-        uuid id PK
-        uuid company_id FK
-        varchar name
-        jsonb email_config
-    }
-    "user" {
-        uuid id PK
-        varchar email UK
-        varchar role
-    }
-    membership {
-        uuid unit_id FK
-        uuid user_id FK
-        varchar role
-    }
-    document {
-        uuid id PK
-        uuid folder_id FK
-        uuid current_version_id FK
-        date expires_at
-        int warn_days_before
-    }
-    document_version {
-        uuid id PK
-        uuid document_id FK
-        uuid uploaded_by FK
-        int number
-        varchar storage_key
-        bigint size_bytes
-        timestamptz created_at
-    }
-    norm {
-        uuid id PK
-        varchar code
-        int importance_weight
-    }
-    adequacy_item {
-        uuid id PK
-        uuid unit_id FK
-        uuid norm_id FK
-        bool is_active
-        text orientation
-    }
-    adequacy_item_requirement {
-        uuid id PK
-        uuid adequacy_item_id FK
-        varchar target_group
-        varchar type
-        text question
-    }
-    diagnostic {
-        uuid id PK
-        uuid adequacy_item_id FK
-        uuid author_id FK
-        varchar status
-        date deadline
-        text technical_opinion
-    }
-    evidence {
-        uuid id PK
-        uuid diagnostic_id FK
-        varchar type
-        text question
-    }
-    evidence_item {
-        uuid id PK
-        uuid evidence_id FK
-        uuid document_id FK
-        uuid employee_id FK
-        uuid equipment_id FK
-        varchar label
-        text answer
-    }
-    employee {
-        uuid id PK
-        uuid unit_id FK
-        varchar name
-        uuid folder_id FK
-        jsonb metadata
-    }
-    equipment {
-        uuid id PK
-        uuid unit_id FK
-        varchar name
-        varchar type
-        uuid folder_id FK
-        jsonb metadata
-    }
-    action_item {
-        uuid id PK
-        uuid diagnostic_id FK
-        varchar status
-        date deadline
-    }
-```
-
-### 7.3 Dicionário de dados
-
-Convenções gerais:
-
-- **PK** = chave primária · **FK** = chave estrangeira · **UK** = única · **NN** = obrigatório.
-- Todas as tabelas de negócio possuem as **colunas de auditoria**: `created_at timestamptz NN default now()`, `updated_at timestamptz NN` e `deleted_at timestamptz` (soft-delete; `NULL` = ativo). Elas são omitidas dos quadros abaixo.
-- Identificadores são `uuid` gerados pela aplicação (v7, ordenável por tempo).
+Convenções: **PK/FK/UK/NN** usuais; todas as tabelas de negócio têm colunas de auditoria `created_at`, `updated_at` e `deleted_at` (soft-delete, `NULL` = ativo), omitidas abaixo. Identificadores são `uuid` v7 (ordenáveis por tempo).
 
 #### Tipos enumerados
 
 | Enum | Valores | Uso |
 |---|---|---|
 | `user_role` | `admin`, `client` | Papel global do usuário |
-| `member_role` | `manager`, `viewer` | Papel do usuário dentro da unidade |
-| `diagnostic_status` | `insuficiente`, `parcial`, `suficiente`, `conforme` | Aderência do item à norma no diagnóstico (seção 7.4). Item **sem diagnóstico** = "sem avaliação" (ausência de registro, não um valor do enum); item fora de escopo usa `adequacy_item.is_active = false` |
+| — | — | Papel na unidade virou entidade (`app_role`): papéis criáveis com mapeamento de permissões |
+| `diagnostic_status` | `inexistente`, `inadequada`, `parcial`, `suficiente`, `plena` | Aderência do item à norma (escala de 5 níveis — seção 6.1). Item **sem diagnóstico** = "sem avaliação" (ausência de registro); item fora de escopo usa `adequacy_item.is_active = false` |
 | `action_status` | `pendente`, `em_andamento`, `concluida`, `cancelada` | Situação da ação do plano |
-| `requirement_type` | `document`, `opinion`, `group` | Tipo do requisito de evidência (documento único, parecer textual, ou expansão de grupo de cadastro) |
-| `register_target` | `colaboradores`, `eletrico`, `ferramenta`, `epi`, `epc` | Alvo fixo dos requisitos tipo `group` (revisão 03/07/2026) |
-| `equipment_type` | `eletrico`, `ferramenta`, `epi`, `epc` | Tipo do equipamento (RF18.2) |
-| `document_group` | `instalacoes`, `instrucoes_e_procedimentos`, `colaboradores`, `equipamentos` | Grupos documentais do prontuário (herdados do sistema atual); classificam normas, documentos e o catálogo de documentos padrão |
+| `requirement_type` | `document`, `opinion`, `group` | Tipo do requisito de evidência |
+| `register_target` | `colaboradores`, `eletrico`, `ferramenta`, `epi`, `epc` | Alvo fixo dos requisitos tipo `group` e dos campos personalizados |
+| `equipment_type` | `eletrico`, `ferramenta`, `epi`, `epc` | Tipo do equipamento |
+| `document_group` | `instalacoes`, `instrucoes_e_procedimentos`, `colaboradores`, `equipamentos` | Grupos documentais do prontuário; classificam normas, documentos e o catálogo padrão |
 
 #### `company` — empresa cliente
 
 | Coluna | Tipo | Restrições | Descrição |
 |---|---|---|---|
 | `id` | uuid | PK | Identificador |
-| `name` | varchar(255) | NN, UK | Razão social / nome da empresa |
+| `name` | varchar(255) | NN, UK | Nome da empresa |
 | `logo_key` | varchar(512) | | Chave do logotipo no S3 |
 
 #### `unit` — unidade da empresa
@@ -529,12 +360,12 @@ Convenções gerais:
 | Coluna | Tipo | Restrições | Descrição |
 |---|---|---|---|
 | `id` | uuid | PK | Identificador |
-| `company_id` | uuid | FK → company, NN | Empresa à qual a unidade pertence |
+| `company_id` | uuid | FK → company, NN | Empresa dona |
 | `name` | varchar(255) | NN, UK (company_id, name) | Nome da unidade |
 | `logo_key` | varchar(512) | | Chave do logotipo no S3 |
-| `email_config` | jsonb | | Configuração SMTP própria (host, porta, remetente; credenciais no secret manager) |
+| `email_config` | jsonb | | Configuração SMTP própria (F5) |
 
-#### `user` — usuário do sistema
+#### `user` — usuário
 
 | Coluna | Tipo | Restrições | Descrição |
 |---|---|---|---|
@@ -542,9 +373,18 @@ Convenções gerais:
 | `name` | varchar(255) | NN | Nome de exibição |
 | `email` | varchar(255) | NN, UK | E-mail de login |
 | `role` | user_role | NN, default `client` | Papel global |
-| `notifications_enabled` | bool | NN, default `true` | Preferência de recebimento de notificações |
+| `notifications_enabled` | bool | NN, default `true` | Preferência de notificações |
 
-> Credenciais (hash de senha, contas Google, sessões, tokens de reset) ficam nas tabelas gerenciadas pelo **better-auth**, fora deste dicionário.
+> Credenciais (hash, contas Google, sessões, tokens) ficam nas tabelas do **better-auth**.
+
+#### `app_role` — papel de acesso (mapeamento de permissões)
+
+| Coluna | Tipo | Restrições | Descrição |
+|---|---|---|---|
+| `company_id` | uuid | FK → company | `NULL` = padrão do sistema (disponível em toda empresa, imutável); preenchido = papel customizado da empresa |
+| `name` | varchar(120) | NN, UK (company_id, name) entre ativos | Nome do papel |
+| `is_system` | bool | NN, default false | Gestor/Leitor são do sistema |
+| `permissions` | jsonb | NN, default `[]` | Itens GRANULARES do catálogo `unitActionCatalog` (24 capacidades em 6 grupos, cada uma com rótulo e descrição): cada módulo tem a permissão de **leitura** (`*.ler` — sem ela o módulo some da navegação e responde 403 por link) e as de escrita (ex.: `pie.documento.enviar`, `diagnostico.avaliar`). Tela **Papéis** (por empresa) dá controle por item e mostra o mapeamento 1:1 com os endpoints do servidor (`users.permissionCatalog`) |
 
 #### `membership` — vínculo usuário × unidade
 
@@ -552,447 +392,327 @@ Convenções gerais:
 |---|---|---|---|
 | `unit_id` | uuid | PK, FK → unit | Unidade |
 | `user_id` | uuid | PK, FK → user | Usuário |
-| `role` | member_role | NN, default `viewer` | Papel do usuário na unidade |
+| `role_id` | uuid | FK → app_role, NN | Papel do usuário nesta unidade |
 
-#### `folder_schema` — esquema padrão de pastas
-
-| Coluna | Tipo | Restrições | Descrição |
-|---|---|---|---|
-| `id` | uuid | PK | Identificador |
-| `name` | varchar(255) | NN | Nome do esquema |
-| `structure` | jsonb | NN | Árvore de pastas do modelo |
-| `is_default` | bool | NN, default `false` | Aplicado automaticamente a unidades novas |
-
-#### `folder` — pasta do PIE
+#### `folder_schema` / `folder` — esquemas e pastas do PIE
 
 | Coluna | Tipo | Restrições | Descrição |
 |---|---|---|---|
-| `id` | uuid | PK | Identificador |
-| `unit_id` | uuid | FK → unit, NN | Unidade dona da pasta |
-| `parent_id` | uuid | FK → folder | Pasta pai (`NULL` = raiz do prontuário) |
-| `name` | varchar(255) | NN, UK (unit_id, parent_id, name) | Nome da pasta |
-| `schema_id` | uuid | FK → folder_schema | Esquema que originou a pasta, se houver |
+| `folder_schema.name` | varchar(255) | NN | Nome do esquema (por unidade, copiado dos modelos globais no 1º uso) |
+| `folder_schema.structure` | jsonb | NN | Árvore de pastas do modelo |
+| `folder.unit_id` | uuid | FK → unit, NN | Unidade dona |
+| `folder.parent_id` | uuid | FK → folder | Pasta pai (`NULL` = raiz) |
+| `folder.name` | varchar(255) | NN, UK (unit_id, parent_id, name) | Nome |
 
-#### `document` — documento do PIE (registro lógico)
-
-| Coluna | Tipo | Restrições | Descrição |
-|---|---|---|---|
-| `id` | uuid | PK | Identificador |
-| `folder_id` | uuid | FK → folder, NN | Pasta onde o documento está |
-| `current_version_id` | uuid | FK → document_version | Versão corrente (RF09.1) |
-| `name` | varchar(255) | NN | Nome de exibição |
-| `document_group` | document_group | | Grupo documental exigido pela norma (RF11) |
-| `expires_at` | date | | Data de vencimento (`NULL` = não expira) |
-| `warn_days_before` | int | | Antecedência do aviso de vencimento, em dias |
-
-#### `document_version` — versão de documento (conteúdo)
+#### `document` / `document_version` — documentos do PIE
 
 | Coluna | Tipo | Restrições | Descrição |
 |---|---|---|---|
-| `id` | uuid | PK | Identificador |
-| `document_id` | uuid | FK → document, NN | Documento lógico |
-| `number` | int | NN, UK (document_id, number) | Número sequencial da versão |
-| `storage_key` | varchar(512) | NN | Chave do objeto no S3 |
-| `mime_type` | varchar(255) | NN | Tipo do arquivo |
-| `size_bytes` | bigint | NN | Tamanho do arquivo |
-| `uploaded_by` | uuid | FK → user, NN | Autor do upload |
+| `document.folder_id` | uuid | FK → folder, NN | Pasta do documento |
+| `document.current_version_id` | uuid | FK → document_version | Versão corrente |
+| `document.name` | varchar(255) | NN | Nome de exibição |
+| `document.document_group` | document_group | | Grupo documental (RF11) |
+| `document.expires_at` | date | | Vencimento (`NULL` = não expira) |
+| `document.warn_days_before` | int | | Antecedência do aviso (default 30) |
+| `document_version.number` | int | NN, UK (document_id, number) | Sequencial |
+| `document_version.storage_key` | varchar(512) | NN | Chave no S3 (`units/<unitId>/<uuid>/<nome>`) |
+| `document_version.mime_type` | varchar(255) | NN | Tipo do arquivo |
+| `document_version.size_bytes` | bigint | NN | Tamanho |
+| `document_version.uploaded_by` | uuid | FK → user, NN | Autor do upload |
 
-> Versões são **imutáveis**: sem `updated_at`/`deleted_at`; restauração cria versão nova (seção 7.5).
+> Versões são **imutáveis** (sem `updated_at`/`deleted_at`); restaurar cria versão nova (seção 6.3). A árvore lógica de pastas vive só no banco — as chaves do S3 são desacopladas (mover/renomear não toca o storage).
 
-#### `default_document` — catálogo de documentos padrão (RF11)
+#### `default_document` — catálogo global de documentos padrão
 
 | Coluna | Tipo | Restrições | Descrição |
 |---|---|---|---|
-| `id` | uuid | PK | Identificador |
-| `name` | varchar(255) | NN, UK (name, document_group) entre ativos | Nome padrão do documento (ex.: "Diagrama Unifilar - *", "Certificado Treinamento NR10 Básico") |
+| `name` | varchar(255) | NN, UK (name, document_group) entre ativos | Nome padrão (30 seedados; sufixo `" - *"` = documento **por item**, o `*` vira o nome do alvo) |
 | `document_group` | document_group | NN | Grupo documental |
-| `is_optional` | bool | NN, default `false` | Documento opcional no prontuário |
+| `is_optional` | bool | NN, default `false` | Opcional no prontuário |
 
-> Catálogo **global** portado do seed do sistema legado (30 nomes únicos: 12 Instalações, 7 Instruções e Procedimentos, 6 Colaboradores, 5 Equipamentos). Convenção de nome: o sufixo `" - *"` indica documento **por item** — o `*` é substituído pelo nome do alvo (ex.: "Certificado de Aprovação (CA) - Luva Isolante"). É a base dos documentos referenciados e da sugestão de nomes no upload do PIE.
-
-#### `norm` — norma / requisito da NR-10 (catálogo global)
+#### `norm` / `norm_requirement` — catálogo da NR-10
 
 | Coluna | Tipo | Restrições | Descrição |
 |---|---|---|---|
-| `id` | uuid | PK | Identificador |
-| `code` | varchar(50) | NN, UK | Código do item da norma (ex.: `10.2.4`) |
-| `description` | text | NN | Texto do requisito |
-| `orientation` | text | NN | Orientação de adequação |
-| `importance_weight` | int | NN | Peso no cálculo de conformidade |
-| `document_group` | document_group | | Grupo documental associado |
+| `norm.code` | varchar(50) | NN, UK | Código do item (ex.: `10.2.4`) — ordenação natural (`10.2` < `10.11`) |
+| `norm.description` | text | NN | Texto do requisito |
+| `norm.orientation` | text | NN | Orientação de adequação |
+| `norm.importance_weight` | int | NN | Peso 1–4 no cálculo de conformidade (seção 6.1/6.2) — **nunca exibido na UI** |
+| `norm.document_group` | document_group | | Grupo documental |
+| `norm_requirement.type` | requirement_type | NN | Tipo de evidência (modelo) |
+| `norm_requirement.question` | text | NN | Pergunta/exigência |
 
-#### `norm_requirement` — requisito de evidência do catálogo (modelo)
-
-| Coluna | Tipo | Restrições | Descrição |
-|---|---|---|---|
-| `id` | uuid | PK | Identificador |
-| `norm_id` | uuid | FK → norm, NN | Norma pai |
-| `type` | requirement_type | NN | Tipo de evidência esperada |
-| `question` | text | NN | Pergunta/exigência do requisito |
-
-#### `adequacy_item` — item de adequação (norma aplicada à unidade)
+#### `adequacy_item` / `adequacy_item_requirement` — adequação por unidade
 
 | Coluna | Tipo | Restrições | Descrição |
 |---|---|---|---|
-| `id` | uuid | PK | Identificador |
-| `unit_id` | uuid | FK → unit, NN, UK (unit_id, norm_id) | Unidade avaliada |
-| `norm_id` | uuid | FK → norm, NN | Norma aplicada |
-| `is_active` | bool | NN, default `true` | Item considerado na avaliação da unidade |
-| `orientation` | text | | Orientação específica da unidade (complementa a do catálogo) |
+| `adequacy_item.unit_id` | uuid | FK → unit, NN, UK (unit_id, norm_id) | Unidade avaliada |
+| `adequacy_item.norm_id` | uuid | FK → norm, NN | Norma aplicada |
+| `adequacy_item.is_active` | bool | NN, default `true` | Item no escopo da avaliação |
+| `adequacy_item.orientation` | text | | Orientação específica da unidade |
+| `…requirement.type` | requirement_type | NN | Tipo exigido (copiado do catálogo no 1º acesso, editável) |
+| `…requirement.question` | text | NN | Pergunta |
+| `…requirement.target_group` | register_target | | Alvo expandido (obrigatório quando `type = group`) |
+| `…requirement.default_document_id` | uuid | FK → default_document | Termo de busca da sugestão automática |
 
-#### `adequacy_item_requirement` — requisito de evidência configurado no item (RF13.1)
-
-| Coluna | Tipo | Restrições | Descrição |
-|---|---|---|---|
-| `id` | uuid | PK | Identificador |
-| `adequacy_item_id` | uuid | FK → adequacy_item, NN | Item de adequação configurado |
-| `type` | requirement_type | NN | Tipo de evidência exigida |
-| `question` | text | NN | Pergunta/exigência (herdada do catálogo, editável por unidade) |
-| `target_group` | register_target | | Alvo fixo expandido na evidência (obrigatório quando `type = group`) |
-| `default_document_id` | uuid | FK → default_document | Nome de documento padrão usado como termo de busca na sugestão automática (requisitos `group`) |
-
-#### `diagnostic` — diagnóstico de um item de adequação
+#### `diagnostic` / `evidence` / `evidence_item` — avaliação
 
 | Coluna | Tipo | Restrições | Descrição |
 |---|---|---|---|
-| `id` | uuid | PK | Identificador |
-| `adequacy_item_id` | uuid | FK → adequacy_item, NN | Item avaliado |
-| `author_id` | uuid | FK → user, NN | Consultor que avaliou |
-| `status` | diagnostic_status | NN | Resultado da avaliação |
-| `deadline` | date | | Prazo para adequação |
-| `responsible` | varchar(255) | | Responsável pela ação na unidade |
-| `recommended_action` | text | | Ação recomendada |
-| `technical_opinion` | text | | Parecer técnico |
+| `diagnostic.adequacy_item_id` | uuid | FK, NN | Item avaliado |
+| `diagnostic.author_id` | uuid | FK → user, NN | Consultor |
+| `diagnostic.status` | diagnostic_status | NN | Aderência avaliada |
+| `diagnostic.deadline` | date | | Prazo para adequação |
+| `diagnostic.responsible` | varchar(255) | | Responsável na unidade |
+| `diagnostic.recommended_action` | text | | Ação recomendada |
+| `diagnostic.technical_opinion` | text | | Parecer técnico |
+| `evidence.type` / `evidence.question` | | NN | **Snapshot** do requisito no momento do diagnóstico |
+| `evidence_item.document_id` | uuid | FK → document | Documento-prova |
+| `evidence_item.employee_id` / `equipment_id` | uuid | FK | Membro do grupo comprovado |
+| `evidence_item.label` | varchar(512) | NN | Rótulo (ex.: "ASO de João Silva") |
+| `evidence_item.answer` | text | | Resposta textual (tipo `opinion`) |
 
-#### `evidence` — evidência do diagnóstico (snapshot do requisito)
-
-| Coluna | Tipo | Restrições | Descrição |
-|---|---|---|---|
-| `id` | uuid | PK | Identificador |
-| `diagnostic_id` | uuid | FK → diagnostic, NN | Diagnóstico comprovado |
-| `type` | requirement_type | NN | Tipo do requisito **no momento do diagnóstico** |
-| `question` | text | NN | Pergunta do requisito no momento do diagnóstico |
-
-> `type` e `question` são copiados do requisito (snapshot): alterar a configuração do item depois **não** reescreve diagnósticos já realizados.
-
-#### `evidence_item` — item da evidência
+#### `action_item` — ação do plano
 
 | Coluna | Tipo | Restrições | Descrição |
 |---|---|---|---|
-| `id` | uuid | PK | Identificador |
-| `evidence_id` | uuid | FK → evidence, NN | Evidência composta |
-| `employee_id` | uuid | FK → employee | Colaborador comprovado — preenchido quando o requisito é tipo `group` de colaboradores |
-| `equipment_id` | uuid | FK → equipment | Equipamento comprovado — requisitos tipo `group` de equipamentos |
-| `document_id` | uuid | FK → document | Documento do PIE usado como prova (sugerido automaticamente ou vinculado manualmente — RF15.1) |
-| `label` | varchar(512) | NN | Rótulo exibido (ex.: "ASO de João Silva") |
-| `answer` | text | | Resposta textual (requisitos tipo `opinion`) ou nome do arquivo vinculado |
+| `diagnostic_id` | uuid | FK, NN, UK | Não conformidade de origem |
+| `status` | action_status | NN, default `pendente` | Situação |
+| `deadline` | date | NN | Prazo |
+| `completed_at` | timestamptz | | Conclusão efetiva |
 
-#### `action_item` — ação do plano de ação
+#### `employee` / `equipment` / `custom_field` — cadastros
 
 | Coluna | Tipo | Restrições | Descrição |
 |---|---|---|---|
-| `id` | uuid | PK | Identificador |
-| `diagnostic_id` | uuid | FK → diagnostic, NN, UK | Não conformidade de origem |
-| `status` | action_status | NN, default `pendente` | Situação da ação |
-| `deadline` | date | NN | Prazo de conclusão |
-| `completed_at` | timestamptz | | Data de conclusão efetiva |
+| `employee.name` | varchar(255) | NN, UK (unit_id, name) entre ativos | Nome do colaborador |
+| `employee.folder_id` | uuid | FK → folder | Pasta no PIE (base da sugestão de evidência) |
+| `employee.metadata` | jsonb | NN, default `{}` | Campos default (Função, Matrícula) + personalizados |
+| `equipment.type` | equipment_type | NN | Tipo do equipamento |
+| `equipment.metadata` | jsonb | NN, default `{}` | Campos default por tipo + personalizados (inclui o **código** dos campos kind=document, ex.: nº do CA) |
+| `custom_field.target` | register_target | NN | Grupo-alvo do campo |
+| `custom_field.name` | varchar(120) | NN, UK (unit_id, target, name) entre ativos | Nome (valor no `metadata` do item) |
 
-#### `notification` / `user_notification` — notificações
-
-| Coluna | Tipo | Restrições | Descrição |
-|---|---|---|---|
-| `notification.id` | uuid | PK | Identificador |
-| `notification.unit_id` | uuid | FK → unit | Unidade de contexto |
-| `notification.title` | varchar(255) | NN | Título |
-| `notification.body` | text | NN | Conteúdo |
-| `user_notification.notification_id` | uuid | PK, FK → notification | Notificação entregue |
-| `user_notification.user_id` | uuid | PK, FK → user | Destinatário |
-| `user_notification.read_at` | timestamptz | | Momento da leitura (`NULL` = não lida) |
-
-> **Revisão de 03/07/2026 (decisão do usuário)**: o módulo genérico de grupos
-> de cadastro (`register_group`/`register_item`) foi **removido**. Colaboradores
-> e Equipamentos são módulos próprios com tabelas standalone; o requisito tipo
-> `group` aponta para um **alvo fixo** (`register_target`): `colaboradores`,
-> `eletrico`, `ferramenta`, `epi` ou `epc`.
-
-#### `employee` — colaborador (RF18.1)
+#### `register_target_setting` — configuração do grupo-alvo
 
 | Coluna | Tipo | Restrições | Descrição |
 |---|---|---|---|
-| `id` | uuid | PK | Identificador |
-| `unit_id` | uuid | FK → unit, NN | Unidade dona do cadastro |
-| `name` | varchar(255) | NN, UK (unit_id, name) entre ativos | Nome do colaborador |
-| `folder_id` | uuid | FK → folder | Pasta correspondente no PIE — base da busca automática de evidência (RF15.1/RF18.3) |
-| `metadata` | jsonb | NN, default `{}` | Valores dos campos default do sistema (Função, Matrícula) + campos personalizados da unidade |
+| `unit_id` | uuid | FK → unit, NN, UK (unit_id, target) entre ativos | Unidade dona |
+| `target` | register_target | NN | Grupo configurado |
+| `folder_schema_id` | uuid | FK → folder_schema | Estrutura de pastas **pré-selecionada** (opcional) ao criar itens do grupo |
 
-#### `equipment` — equipamento (RF18.1/RF18.2)
+#### `register_document_link` — vínculo campo → documento
 
 | Coluna | Tipo | Restrições | Descrição |
 |---|---|---|---|
-| `id` | uuid | PK | Identificador |
-| `unit_id` | uuid | FK → unit, NN | Unidade dona do cadastro |
-| `name` | varchar(255) | NN, UK (unit_id, name) entre ativos | Nome do equipamento |
-| `type` | equipment_type | NN | Tipo: `eletrico`, `ferramenta`, `epi`, `epc` |
-| `folder_id` | uuid | FK → folder | Pasta correspondente no PIE (RF18.3) |
-| `metadata` | jsonb | NN, default `{}` | Valores dos campos default (Fabricante, Identificação/TAG) + personalizados |
+| `document_id` | uuid | FK → document, NN | Documento do PIE (1 doc pode cobrir N itens) |
+| `employee_id` / `equipment_id` | uuid | FK, UK (item, field_key) entre ativos | Item vinculado |
+| `field_key` | varchar(120) | NN | Campo kind=document (ex.: `ca`) |
 
-#### `custom_field` — campo personalizado da unidade
+#### `notification` / `user_notification` — notificações (F5)
 
 | Coluna | Tipo | Restrições | Descrição |
 |---|---|---|---|
-| `id` | uuid | PK | Identificador |
-| `unit_id` | uuid | FK → unit, NN | Unidade dona do campo |
-| `target` | register_target | NN | Grupo-alvo (cada tipo de equipamento tem estrutura própria de colunas) |
-| `name` | varchar(120) | NN, UK (unit_id, target, name) entre ativos | Nome do campo (valor fica no `metadata` do item) |
+| `notification.title` / `body` | | NN | Conteúdo |
+| `user_notification.read_at` | timestamptz | | `NULL` = não lida |
 
-> **Estrutura de pastas dos cadastros é FIXA** (criada sob demanda ao cadastrar):
-> `Colaboradores/Lista de Colaboradores/[nome]/[estrutura opcional]` e
-> `Equipamentos/<Tipo>/Lista de <Tipo>/[nome]/[estrutura opcional]`
-> (constante `registerBasePath` no pacote shared).
+## 6. Regras de negócio
 
-#### `register_document_link` — vínculo campo→documento (automações de vencimento)
+As regras puras vivem em `packages/shared/src/enums.ts` — única fonte para front e back.
 
-| Coluna | Tipo | Restrições | Descrição |
-|---|---|---|---|
-| `id` | uuid | PK | Identificador |
-| `document_id` | uuid | FK → document, NN | Documento do PIE (ex.: Certificado de Aprovação) — um documento pode cobrir N itens |
-| `employee_id` | uuid | FK → employee, UK (employee_id, field_key) entre ativos | Colaborador vinculado |
-| `equipment_id` | uuid | FK → equipment, UK (equipment_id, field_key) entre ativos | Equipamento vinculado |
-| `field_key` | varchar(120) | NN | Campo kind=document do cadastro (ex.: `ca` do EPI) |
+### 6.1 Escala de aderência e aderência agregada
 
-> **Colunas de domínio serão adicionadas quando a necessidade aparecer** (via migration Drizzle). Para campos específicos por tipo de equipamento (RF18.2), a estratégia é: campos ainda instáveis podem nascer em jsonb validado por Zod; ao se estabilizarem ou precisarem de índice/constraint/relatório, viram coluna ou tabela de extensão 1:1 por tipo (`equipment_epi`, …).
+Cada diagnóstico avalia o item numa escala de **5 níveis** com scores fixos:
 
-### 7.4 Estados do diagnóstico
+| Nível | Score |
+|---|---|
+| `inexistente` | 0% |
+| `inadequada` | 25% |
+| `parcial` | 50% |
+| `suficiente` | 75% |
+| `plena` | 100% |
 
-A escala de **aderência** tem cinco níveis (revisão do usuário em 03/07/2026): `inexistente` → `inadequada` → `parcial` → `suficiente` → `plena`, com scores 0/25/50/75/100% para a aderência agregada (média ponderada pelo peso da norma; faixas 0-20/21-40/41-70/71-90/91-100 dão rótulo e frase de alerta). Cada diagnóstico registra o nível avaliado; o nível atual do item é o do diagnóstico mais recente. Diagnósticos abaixo de `plena` podem gerar ação no plano; a reavaliação (novo diagnóstico) move o item na escala em qualquer direção.
+O nível atual do item é o do **diagnóstico mais recente**. A **aderência agregada** (unidade, grupo documental ou empresa) é a média dos scores **ponderada pelo peso da norma** (`importance_weight`), considerando apenas itens ativos já avaliados. As faixas dão rótulo, emoji e frase de alerta (`adherenceBands`):
+
+| Faixa | Rótulo |
+|---|---|
+| 0–20% | ❌ Inexistente |
+| 21–40% | ⛔ Inadequada |
+| 41–70% | ⚠️ Parcial |
+| 71–90% | 🔷 Suficiente |
+| 91–100% | ✅ Plena |
 
 ```mermaid
 stateDiagram-v2
     [*] --> SemAvaliacao : item ativado
-    SemAvaliacao --> Insuficiente : diagnóstico
-    SemAvaliacao --> Parcial : diagnóstico
-    SemAvaliacao --> Suficiente : diagnóstico
-    SemAvaliacao --> Conforme : diagnóstico
-    Insuficiente --> Parcial : reavaliação
-    Parcial --> Suficiente : reavaliação
-    Suficiente --> Conforme : reavaliação
-    Conforme --> Insuficiente : regressão detectada
+    SemAvaliacao --> Avaliado : diagnóstico
+    Avaliado --> Avaliado : reavaliação (qualquer direção na escala)
     note right of SemAvaliacao
-        Sem registro de diagnóstico.
-        Item fora de escopo:
-        is_active = false (não é status)
+        Sem registro de diagnóstico
+        (exibido como Inexistente).
+        Fora de escopo: is_active = false
     end note
-    note right of Insuficiente
-        Reavaliação pode mover
-        para qualquer nível;
-        abaixo de Conforme
-        pode gerar ação no plano
+    note right of Avaliado
+        inexistente · inadequada · parcial
+        suficiente · plena — abaixo de plena
+        com prazo gera ação no plano
     end note
 ```
 
-### 7.5 Versionamento de documentos
+### 6.2 Prioridade do plano de ação
 
-Regras do modelo (RF09.1–RF09.4):
+O peso da norma **não aparece na UI** — ele alimenta a prioridade da ação, calculada no servidor (`actionPriority`):
 
-1. **`Document` é o registro lógico; `DocumentVersion` é o conteúdo.** O documento aponta para a versão corrente (`current_version_id`); cada versão guarda seu próprio `storage_key` no S3, autor, tamanho e data.
-2. **Histórico imutável**: versões nunca são sobrescritas nem apagadas — um novo upload cria a versão `n+1` e move o ponteiro de versão corrente. O bucket opera com versionamento habilitado como redundância.
-3. **Restaurar = criar versão nova**: restaurar a versão `k` gera a versão `n+1` reutilizando o `storage_key` de `k`. O histórico conta a história completa, inclusive a restauração (importante para auditoria de conformidade).
-4. **Metadados ficam no documento, conteúdo na versão**: validade (`expires_at`), pasta e vínculos com evidências pertencem ao `Document` — trocar a versão não quebra evidências de diagnósticos nem os avisos de vencimento.
-5. **Exclusão é soft-delete do `Document`** (o prontuário é registro legal); as versões e objetos no S3 são retidos conforme política de retenção.
+```
+risco     = (nota_máx − nota) × peso        // nota 0–4 (escala), peso 1–4
+amplitude = nota_máx × peso_máx = 16
+percent   = 100 × (amplitude − risco) / amplitude
+```
 
-### 7.6 Motor de evidências (requisitos → evidências estruturadas)
+| Percent | Prioridade |
+|---|---|
+| 0–50% | 🔴 Alta |
+| 51–90% | 🟡 Média |
+| 91–100% | 🟢 Baixa |
 
-Mecanismo herdado do sistema atual e **preservado na v2** (RF13.1, RF15, RF15.1, RF18):
+A ação nasce automaticamente quando um diagnóstico abaixo de `plena` tem prazo; prazo vencido de ação pendente/em andamento é sinalizado em toda a UI.
 
-1. **Configuração**: cada item de adequação recebe requisitos de evidência (`adequacy_item_requirement`), criados a partir dos modelos do catálogo (`norm_requirement`) e ajustáveis por unidade. Cada requisito tem um tipo:
-   - `document` — exige um documento do PIE;
-   - `opinion` — exige uma resposta/parecer textual;
-   - `group` — aponta para um **grupo de cadastro** da unidade.
-2. **Execução (diagnóstico)**: cada requisito vira uma `evidence` no diagnóstico. Para requisitos tipo `group`, o sistema **expande os itens do grupo** — ex.: um requisito "ASO" sobre o grupo Colaboradores gera um `evidence_item` por colaborador ("ASO de João Silva", "ASO de Maria…"), cada um exigindo um documento como prova.
-3. **Sugestão automática**: como cada item de cadastro tem sua **pasta no PIE** (`register_item.folder_id`), o sistema sugere o documento buscando na pasta do item por nome de arquivo; o consultor confirma ou vincula manualmente (RF15.1). A pasta do item é **configurada na tela do próprio módulo** (RF18.3): colaborador e equipamento não têm vínculo direto com pasta — herdam a do `register_item` que os representa, então o motor de evidências não precisa saber se o item é genérico ou especializado.
-4. **Snapshot**: a evidência copia tipo e pergunta do requisito no momento do diagnóstico — reconfigurar o item não altera diagnósticos passados (auditoria).
-5. **Genérico vs. especializado**: o **módulo genérico de grupos permanece** como a base do motor (qualquer grupo criado pelo usuário pode ser alvo de requisito tipo `group`). Os módulos especializados de **Colaboradores** e **Equipamentos** (RF18.1) têm **entidades próprias no banco** (`employee`, `equipment`) com telas, campos e validações dedicadas — mas cada registro é ligado 1:1 a um `register_item` de um grupo com `kind` correspondente. Para o motor de evidências e para as pastas do PIE, colaboradores e equipamentos são itens de grupo como quaisquer outros: nenhum caminho do código trata evidência de colaborador diferente de evidência de grupo custom.
-6. **Tipos de equipamento** (RF18.2): `equipment.type` classifica em `eletrico`, `ferramenta`, `epi`, `epc`. As entidades especializadas nascem só com o essencial (ponte + tipo); colunas de domínio entram quando a necessidade aparecer, seguindo a estratégia de evolução registrada na seção 7.3.
+### 6.3 Versionamento de documentos
 
-## 8. Diagramas de sequência
+1. **`document` é o registro lógico; `document_version` é o conteúdo.** O documento aponta para a versão corrente; cada versão tem seu `storage_key`, autor, tamanho e data.
+2. **Histórico imutável**: novo upload cria a versão `n+1` e move o ponteiro — nada é sobrescrito.
+3. **Restaurar = criar versão nova** reutilizando o `storage_key` da versão restaurada (a auditoria vê a restauração).
+4. **Metadados no documento, conteúdo na versão**: validade, pasta e vínculos de evidência pertencem ao `document` — trocar versão não quebra evidências nem avisos.
+5. **Exclusão é soft-delete** (o prontuário é registro legal).
 
-### 8.1 Upload de documento no PIE (presigned URL)
+### 6.4 Situação documental
+
+Derivada de `expires_at` + `warn_days_before` (default 30): `vencido` (< hoje) · `a_vencer` (dentro da janela de aviso) · `em_dia` · `sem_validade`. Usada no PIE, nos relatórios, no dashboard e nos chips de vínculo dos cadastros.
+
+### 6.5 Motor de evidências
+
+1. **Configuração**: cada item de adequação recebe requisitos de evidência copiados do catálogo no primeiro acesso (contando excluídos, para não ressuscitar requisitos removidos) e ajustáveis por unidade — tipos `document`, `opinion`, `group`.
+2. **Execução**: no diagnóstico, cada requisito preenchido vira uma `evidence`. Requisito `group` **expande os membros do alvo fixo** (colaboradores ou equipamentos de um tipo) — ex.: "ASO" sobre colaboradores gera um `evidence_item` por colaborador, cada um exigindo documento-prova.
+3. **Sugestão automática**: como cada item de cadastro tem pasta no PIE, o sistema busca na subárvore da pasta pelo nome do documento padrão do requisito; o consultor confirma ou vincula manualmente pelo seletor com navegação de pastas.
+4. **Snapshot**: a evidência copia tipo e pergunta do requisito no momento do diagnóstico — reconfigurar o item não altera diagnósticos passados.
+
+## 7. Fluxos principais
+
+### 7.1 Upload de documento (presigned URL)
 
 ```mermaid
 sequenceDiagram
-    actor C as Cliente
+    actor C as Usuário
     participant W as apps/web
-    participant A as apps/api (tRPC)
+    participant A as apps/api
     participant S as S3/MinIO
     participant P as Postgres
 
     C->>W: seleciona arquivo na pasta do PIE
-    W->>A: document.createUploadUrl(folderId, meta)
-    A->>A: autoriza tenant (empresa/unidade)
-    A->>S: gera presigned PUT
+    W->>A: documents.createUploadUrl(fileName, mimeType)
+    A->>A: autoriza tenant (unitProcedure)
     A-->>W: { uploadUrl, storageKey }
     W->>S: PUT arquivo (direto, sem passar pela API)
-    S-->>W: 200
-    W->>A: document.confirmUpload(storageKey, validade)
+    W->>A: documents.confirmUpload(storageKey, validade, grupo)
     A->>P: insere document + document_version
-    A-->>W: documento criado
     W-->>C: pasta atualizada (invalidate query)
 ```
 
-### 8.2 Nova versão e restauração de documento
+### 7.2 Diagnóstico com evidências e plano de ação
 
 ```mermaid
 sequenceDiagram
-    actor U as Usuário
-    participant W as apps/web
-    participant A as apps/api
-    participant S as S3/MinIO
-    participant P as Postgres
-
-    U->>W: envia novo arquivo sobre documento existente
-    W->>A: document.createUploadUrl(documentId)
-    A-->>W: { uploadUrl, storageKey }
-    W->>S: PUT arquivo
-    W->>A: document.confirmNewVersion(documentId, storageKey)
-    A->>P: insere document_version (n+1)
-    A->>P: atualiza current_version_id
-    A-->>W: histórico atualizado
-
-    U->>W: abre histórico de versões
-    W->>A: document.listVersions(documentId)
-    A-->>W: [v1..vN] (autor, data, tamanho)
-
-    alt baixar versão anterior
-        U->>W: download v(k)
-        W->>A: document.getDownloadUrl(versionId)
-        A-->>W: presigned GET de v(k)
-        W->>S: GET arquivo
-    else restaurar versão anterior
-        U->>W: restaurar v(k)
-        W->>A: document.restoreVersion(versionId)
-        A->>P: insere versão n+1 reutilizando storage_key de v(k)
-        A->>P: atualiza current_version_id
-        A-->>W: v(k) restaurada como versão corrente
-    end
-```
-
-### 8.3 Diagnóstico e plano de ação
-
-```mermaid
-sequenceDiagram
-    actor AD as Admin (consultor)
+    actor AD as Consultor
     participant W as apps/web
     participant A as apps/api
     participant P as Postgres
-    participant J as pg-boss
 
-    AD->>W: abre avaliação do item de adequação
-    W->>A: adequacyItem.requirements(adequacyItemId)
-    A-->>W: requisitos configurados (document | opinion | group)
-    loop para cada requisito tipo grupo
-        W->>A: evidence.previewGroup(requirementId, termoBusca)
-        A->>P: itens do grupo + busca de documento na pasta de cada item
-        A-->>W: lista expandida (ex.: 1 linha por colaborador, com documento sugerido)
-        AD->>W: confirma sugestões / vincula manualmente
+    AD->>W: abre avaliação do item
+    W->>A: adequacy.requirements(itemId)
+    A-->>W: requisitos (document | opinion | group)
+    opt requisito tipo grupo
+        W->>A: adequacy.expandGroupRequirement(reqId)
+        A->>P: membros do alvo + busca de documento na pasta de cada item
+        A-->>W: 1 linha por membro, com documento sugerido
     end
-    AD->>W: preenche status, prazo, parecer e conclui
-    W->>A: diagnostic.create(adequacyItemId, status=Insuficiente, evidências estruturadas)
-    A->>P: insere diagnostic + evidence + evidence_item (snapshot)
-    A->>P: cria action_item vinculado
-    A->>J: agenda lembrete de prazo
+    AD->>W: preenche aderência, prazo, parecer e evidências
+    W->>A: adequacy.diagnose(status, deadline, evidences)
+    A->>P: diagnostic + evidence/evidence_item (snapshot) em transação
+    A->>P: action_item quando status < plena e há prazo
     A-->>W: diagnóstico registrado
-    Note over J: no vencimento
-    J->>A: job de prazo
-    A->>P: cria notificação
-    A->>A: envia e-mail (react-email + nodemailer)
 ```
 
-### 8.4 Relatório analítico com exportação
+### 7.3 Relatório com exportação
 
 ```mermaid
 sequenceDiagram
     actor U as Usuário
     participant W as apps/web
     participant A as apps/api
-    participant P as Postgres
+    participant SV as services/reports
     participant G as Gotenberg
 
-    U->>W: abre "Relatório de Não Conformidades" (filtros na URL)
-    W->>A: reports.nonConformities(unitId, filtros)
-    A->>P: query de agregação (Drizzle/SQL)
-    A-->>W: dados do relatório
-    W-->>U: tabela + gráficos na aplicação
-
-    alt exportar CSV
-        U->>W: exportar CSV
-        W->>A: reports.export(formato=csv)
-        A-->>W: arquivo CSV gerado dos dados
-    else exportar PDF
-        U->>W: exportar PDF
-        W->>A: reports.export(formato=pdf)
-        A->>G: HTML do relatório → PDF
-        G-->>A: PDF
-        A-->>W: arquivo PDF
+    U->>W: abre relatório (filtros na URL)
+    W->>A: reports.nonConformities | documentsSituation | actionPlan
+    A->>SV: builder do relatório
+    SV-->>W: linhas tipadas
+    U->>W: exportar
+    W->>A: GET /api/reports/export?type&format&filtros (cookie de sessão)
+    A->>SV: mesmo builder + mesmos filtros da tela
+    alt CSV
+        A-->>W: CSV (BOM UTF-8, ";" — Excel pt-BR)
+    else PDF
+        A->>G: HTML A4 paisagem → PDF
+        A-->>W: PDF
     end
 ```
 
-## 9. Implantação
+## 8. Segurança e multi-tenancy
 
-```mermaid
-graph TB
-    subgraph Dev["Ambiente de desenvolvimento (docker compose)"]
-        d1["web (vite dev)"]
-        d2["api (node --watch)"]
-        d3[("postgres:17")]
-        d4[("minio")]
-        d5["gotenberg"]
-        d6["mailpit (SMTP fake)"]
-    end
+- **Autorização no servidor, sempre**: `unitProcedure` (tRPC) valida sessão + admin/membership da unidade e carrega no contexto as **permissões do papel** do membro (`app_role`); queries e mutations usam `unitAction('<ação>')`, que exige a ação GRANULAR no papel (catálogo de 24 capacidades com descrição — `unitActionCatalog`; leituras `*.ler` por módulo). A rota HTTP de exportação repete a checagem de membership. Buscar entidade sempre passa pelo filtro de tenant.
+- **Papéis por unidade**: cada membership tem um papel; Gestor (tudo) e Leitor (só leitura) são do sistema, e o admin pode criar papéis com qualquer combinação das ações. A matriz completa (permissão + ação por endpoint) é gerada por `bun run permissions` → `PERMISSOES.md`.
+- **Visibilidade organizacional** centralizada em `services/visibility.ts` (`visibleUnits`/`canAccessCompany`) — nada de branch por papel dentro das rotas.
+- **Sessões** por cookie (better-auth); CORS restrito ao front com `credentials`.
+- **Uploads/downloads** por presigned URL de curta duração (10/5 min) — a API nunca vê o binário; endpoint público do S3 distinto do interno.
+- **Validação** Zod em todos os inputs (schemas compartilhados no `shared`).
+- **Soft-delete + autoria** nas entidades de negócio; versões e diagnósticos imutáveis.
+- Nenhum segredo no repositório: `.env` gitignored em dev, secret manager em produção.
 
-    subgraph Prod["Produção"]
-        p0["Reverse proxy / TLS"]
-        p1["web (estático — nginx/CDN)"]
-        p2["api (container Node LTS)"]
-        p3[("Postgres gerenciado<br/>+ backup")]
-        p4[("S3 / MinIO<br/>+ versionamento")]
-        p5["gotenberg (container)"]
-        p6["SMTP (provedor)"]
-    end
+## 9. Infraestrutura e operação
 
-    p0 --> p1 & p2
-    p2 --> p3 & p4 & p5 & p6
-```
+- **Dev**: `docker compose up -d --build` sobe a stack completa (web+nginx, api, postgres, minio, gotenberg, mailpit); `docker-compose.dev.yml` sobe só a infra para rodar api/web com hot reload no host. Config central no `.env` (portas e credenciais com defaults).
+- **Runtime**: 100% Bun — imagens `oven/bun` (o wrapper `node`→bun da imagem cobre CLIs com shebang node); scripts de vite/drizzle-kit usam `bunx --bun`. Não há dependência de Node em nenhum ambiente.
+- **Migrations**: programáticas (`packages/db/src/migrate.ts`), aplicadas no boot do container da API; geradas por `drizzle-kit generate`.
+- **Seeds**: catálogo NR-10 (90 normas + 101 requisitos), 30 documentos padrão e dados de desenvolvimento.
+- **CI (alvo)**: lint (oxlint) → typecheck → build; e2e Playwright nos fluxos críticos.
+- **Backups**: Postgres + bucket versionado.
 
-- **CI (GitHub Actions):** lint (oxlint) → typecheck → unit (Vitest) → e2e (Playwright) → build das imagens.
-- **Segredos:** `.env` gitignored em dev; secret manager em produção.
-- **Migração de schema:** exclusivamente via migrations Drizzle, aplicadas no deploy.
+## 10. Qualidade
 
-## 10. Plano de entrega
+1. Todo requisito implementado com autorização de tenant verificada no servidor.
+2. Regras de negócio puras no `shared` (unit-testáveis); fluxos críticos (login, upload, diagnóstico, exportação) validados por e2e na stack Docker.
+3. Lint + typecheck limpos.
+4. UI em pt-BR, navegável por URL, responsiva, dark mode.
+5. Componentes de UI únicos (pill/chips/tabs/dialog/sortable) — nada de estilos inline duplicados por página.
 
-| Fase | Entrega | Conteúdo | Critério de saída |
+## 11. Roadmap
+
+| Fase | Entrega | Conteúdo | Status |
 |---|---|---|---|
-| F0 | Fundação | Monorepo Bun, CI, auth (better-auth + organizations), contexto de tenant, esqueleto de navegação | Login + troca de contexto empresa/unidade funcionando com teste e2e |
-| F1 | Núcleo organizacional | Empresas, unidades, usuários/vínculos, importação por planilha | RF05–RF07, RF17 aceitos |
-| F2 | PIE | Pastas por esquema, upload presigned, versões, validade | RF08–RF11 aceitos; e2e de upload |
-| F3 | Conformidade | Normas, itens de adequação, diagnósticos, evidências, plano de ação | RF12–RF16 aceitos; unit tests das regras de score |
-| F4 | Visualização | Dashboards, seção de relatórios, exportação PDF/CSV | RF19–RF22 aceitos |
-| F5 | Notificações | In-app + e-mail agendado (pg-boss) | RF23–RF24 aceitos |
-| F6 | Migração e cutover | Script Postgres→Postgres + cópia do bucket, staging, somente-leitura no legado, virada | O6 aceito; legado desligado |
+| F0 | Fundação | Monorepo, auth, contexto de tenant, navegação | ✅ |
+| F1 | Núcleo organizacional | Empresas, unidades, usuários/vínculos | ✅ |
+| F2 | PIE | Esquemas de pastas, upload presigned, versões, validade, preview | ✅ |
+| F3 | Conformidade | Catálogo, itens de adequação, diagnósticos, evidências, plano de ação | ✅ |
+| F3.5 | Cadastros | Colaboradores/Equipamentos, campos personalizados, importação, vínculos de documento | ✅ |
+| F4 | Visualização | Dashboards, relatórios, exportação PDF/CSV | ✅ |
+| F5 | Notificações | In-app + e-mails agendados (vencimentos e prazos) | pendente |
+| F6 | Automações | Vencimento dos campos kind=document → alertas/diagnóstico; `referenced_document` (RF11) | pendente |
 
-## 11. Riscos
+## 12. Riscos
 
 | Risco | Prob. | Impacto | Mitigação |
 |---|---|---|---|
-| Segredos já expostos no repositório legado serem explorados | Alta | Alto | Revogar/rotacionar imediatamente (independe da v2) |
-| Regras de negócio implícitas no código legado (sem testes) se perderem na reescrita | Média | Alto | Levantamento por módulo antes de cada fase; validação com usuários da PSO a cada entrega |
-| Divergência de dados na migração (typos de schema, soft-deletes) | Média | Médio | Script de migração idempotente + relatório de conferência rodado em staging |
-| Escopo crescer durante a reescrita ("já que estamos mexendo...") | Alta | Médio | Backlog separado da v2.0; fases fechadas por critério de saída |
-| better-auth/tRPC serem novidade para a equipe | Baixa | Médio | F0 concentra o aprendizado; padrões documentados no repositório |
-
-## 12. Critérios de aceite gerais (Definition of Done)
-
-1. Requisito implementado com autorização de tenant verificada no servidor.
-2. Testes: unit para regra de negócio nova; e2e quando o fluxo é crítico (login, upload, diagnóstico, exportação).
-3. Lint + typecheck limpos em CI.
-4. UI em pt-BR, navegável por URL, responsiva.
-5. Sem segredos, mocks ou dados falsos na árvore de produção.
+| Regra de conformidade divergir do entendimento do consultor | Média | Alto | Regras puras centralizadas no `shared` + validação com a PSO a cada entrega |
+| Crescimento do volume documental degradar listagens | Baixa | Médio | Agregações no servidor; paginação onde o volume justificar |
+| Vencimentos passarem despercebidos até F5 | Média | Médio | Situação documental visível em PIE/dashboard/relatórios desde F2 |
+| Escopo crescer durante o desenvolvimento | Alta | Médio | Backlog separado; fases fechadas por critério de saída |

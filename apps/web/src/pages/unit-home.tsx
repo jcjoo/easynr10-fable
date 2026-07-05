@@ -12,6 +12,7 @@ import {
 import { trpc } from '@/lib/trpc';
 import { Page } from '@/components/ui/page';
 import { statusPillLabel } from '@/components/ui/status-pill';
+import { SegmentedTabs } from '@/components/ui/tabs';
 import { AdherenceTimeline } from '@/components/charts/adherence-timeline';
 
 // Painel da unidade (RF19): aderência geral, distribuição da avaliação,
@@ -132,14 +133,6 @@ export function UnitHomePage() {
     ? data.actions.counts.pendente + data.actions.counts.em_andamento
     : 0;
 
-  const chip = (active: boolean) =>
-    `inline-flex items-center rounded-full border px-2.5 py-0.5 font-ui text-[12.5px]
-     font-semibold cursor-pointer ${
-       active
-         ? 'border-ink bg-ink text-paper'
-         : 'border-line-strong bg-surface text-ink-soft hover:border-ink-soft'
-     }`;
-
   const sectionLink = (label: string, to: string, search?: Record<string, string>) => (
     <Link
       to={to}
@@ -182,8 +175,8 @@ export function UnitHomePage() {
             <span className="text-3xl" aria-hidden>
               {band?.emoji ?? '⏳'}
             </span>
-            <div className="flex items-baseline gap-3">
-              <span className="font-ui text-5xl font-bold tracking-tight">
+            <div className="flex items-center gap-3">
+              <span className="font-ui text-5xl font-bold leading-none tracking-tight">
                 {percent !== null ? `${percent}%` : '—'}
               </span>
               <div>
@@ -293,24 +286,21 @@ export function UnitHomePage() {
           <SectionCard
             title="Evolução da aderência"
             action={
-              <div role="group" aria-label="Período" className="flex gap-1.5">
-                {dashboardPeriods.map((value) => (
-                  <button
-                    key={value}
-                    type="button"
-                    className={chip(period === value)}
-                    onClick={() =>
-                      navigate({
-                        to: '/$companyId/$unitId',
-                        params: { companyId, unitId },
-                        search: value === '90d' ? {} : { periodo: value },
-                      })
-                    }
-                  >
-                    {periodLabels[value]}
-                  </button>
-                ))}
-              </div>
+              <SegmentedTabs
+                label="Período"
+                value={period}
+                options={dashboardPeriods.map((value) => ({
+                  value,
+                  label: periodLabels[value],
+                }))}
+                onChange={(value) =>
+                  navigate({
+                    to: '/$companyId/$unitId',
+                    params: { companyId, unitId },
+                    search: value === '90d' ? {} : { periodo: value },
+                  })
+                }
+              />
             }
           >
             <AdherenceTimeline points={timeline.data ?? []} interval={range.interval} />

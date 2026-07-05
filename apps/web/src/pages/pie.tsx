@@ -2,16 +2,25 @@ import { useMemo, useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useNavigate, useParams, useSearch } from '@tanstack/react-router';
 import { Download, FileText, FolderPlus, Layers, List, Pencil, Upload } from 'lucide-react';
+
 import { trpc } from '@/lib/trpc';
+import { useUnitPermissions } from '@/lib/use-unit-permissions';
+import { formatDate } from '@/lib/format';
 import { Button } from '@/components/ui/button';
 import { Page } from '@/components/ui/page';
 import { Dialog } from '@/components/ui/dialog';
 import { Field } from '@/components/ui/field';
 import { FileTypeIcon, FolderIcon } from '@/components/ui/icons';
 import { Menu, RowMenu, type MenuItem, type MenuPosition } from '@/components/ui/row-menu';
+import { Pill } from '@/components/ui/pill';
 import { UploadDocumentDialog } from '@/components/pie/upload-document-dialog';
 import { FolderSchemasDialog } from '@/components/pie/folder-schemas-dialog';
 import { ExpiryFilter, filterByExpiry } from '@/components/pie/expiry-filter';
+import { DocumentVersionsDialog } from '@/components/pie/document-versions-dialog';
+import {
+  DocumentPreviewDialog,
+  type DocumentPreview,
+} from '@/components/pie/document-preview-dialog';
 import {
   PlainTh,
   SortableTh,
@@ -42,27 +51,6 @@ interface DocumentRow {
   folderId?: string;
 }
 
-function formatBytes(bytes: number | null) {
-  if (bytes == null) return '—';
-  if (bytes < 1024) return `${bytes} B`;
-  const units = ['KB', 'MB', 'GB'];
-  let value = bytes / 1024;
-  let unit = 0;
-  while (value >= 1024 && unit < units.length - 1) {
-    value /= 1024;
-    unit += 1;
-  }
-  return `${value.toFixed(value >= 100 ? 0 : 1)} ${units[unit]}`;
-}
-
-function formatDateTime(value: string | Date) {
-  return new Date(value).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' });
-}
-
-function formatDate(value: string | Date) {
-  return new Date(value).toLocaleDateString('pt-BR');
-}
-
 const DEFAULT_WARN_DAYS = 30;
 
 // Ações rápidas da linha (estilo do legado): invisíveis até o hover da linha
@@ -82,18 +70,9 @@ function ExpiryPill({
     (new Date(`${expiresAt}T00:00:00`).getTime() - Date.now()) / 86_400_000,
   );
   const date = formatDate(`${expiresAt}T00:00:00`);
-  const pill = (className: string, title: string) => (
-    <span
-      title={title}
-      className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-2.5 py-0.5 font-ui text-[12.5px] font-semibold ${className}`}
-    >
-      <span aria-hidden className="size-[7px] rounded-full bg-current" />
-      {date}
-    </span>
-  );
-  if (days < 0) return pill('text-bad bg-bad-soft', 'Vencido');
+  if (days < 0) return <Pill label={date} className="text-bad bg-bad-soft" title="Vencido" />;
   if (days <= (warnDaysBefore ?? DEFAULT_WARN_DAYS)) {
-    return pill('text-warn bg-warn-soft', `Vence em ${days} d`);
+    return <Pill label={date} className="text-warn bg-warn-soft" title={`Vence em ${days} d`} />;
   }
   return <span className="tabular font-mono text-[13px]">{date}</span>;
 }
@@ -107,6 +86,19 @@ export function PiePage() {
   const queryClient = useQueryClient();
   // Visão "apenas documentos" (?ver=documentos): lista tudo abaixo da pasta atual.
   const docsOnly = ver === 'documentos';
+
+  // Ações de escrita só aparecem com a permissão confirmada no papel
+  // (`can` é estrito: falso até carregar) — sem isso o usuário vê botões
+  // que só renderiam 403 no servidor.
+  const { can } = useUnitPermissions(unitId);
+  const canCreateFolder = can('pie.pasta.criar');
+  const canRenameFolder = can('pie.pasta.renomear');
+  const canDeleteFolder = can('pie.pasta.excluir');
+  const canUploadDoc = can('pie.documento.enviar');
+  const canEditDoc = can('pie.documento.editar');
+  const canDeleteDoc = can('pie.documento.excluir');
+  const canRestoreDoc = can('pie.documento.restaurar');
+  const canManageSchemas = can('pie.estruturas.gerenciar');
 
   const folders = useQuery(trpc.folders.list.queryOptions({ unitId }));
   const documents = useQuery({
@@ -267,33 +259,23 @@ export function PiePage() {
   );
 
   const [versionsTarget, setVersionsTarget] = useState<DocumentRow | null>(null);
-  const versions = useQuery({
-    ...trpc.documents.versions.queryOptions({
-      unitId,
-      documentId: versionsTarget?.id ?? '',
-    }),
-    enabled: Boolean(versionsTarget),
-  });
-  const restoreVersion = useMutation(
-    trpc.documents.restoreVersion.mutationOptions({
-      onSuccess: () => {
-        if (versionsTarget) {
-          queryClient.invalidateQueries({
-            queryKey: trpc.documents.versions.queryKey({
-              unitId,
-              documentId: versionsTarget.id,
-            }),
-          });
-        }
-        invalidateDocuments();
-      },
-    }),
-  );
 
   const downloadUrl = useMutation(trpc.documents.downloadUrl.mutationOptions());
   async function download(documentId: string, versionId?: string) {
     const { url } = await downloadUrl.mutateAsync({ unitId, documentId, versionId });
     window.open(url, '_blank');
+  }
+
+  // — Preview (RF09): dialog em components/pie/document-preview-dialog.tsx —
+  const [preview, setPreview] = useState<DocumentPreview | null>(null);
+  const previewUrl = useMutation(trpc.documents.previewUrl.mutationOptions());
+  async function openPreview(doc: DocumentRow, versionId?: string) {
+    const { url, mimeType } = await previewUrl.mutateAsync({
+      unitId,
+      documentId: doc.id,
+      versionId,
+    });
+    setPreview({ documentId: doc.id, name: doc.name, url, mimeType });
   }
 
   function openEdit(doc: DocumentRow) {
@@ -305,16 +287,25 @@ export function PiePage() {
 
   // Mesmo menu no ⋯ e no clique direito da linha.
   const documentMenuItems = (doc: DocumentRow): MenuItem[] => [
+    { label: 'Visualizar', onSelect: () => openPreview(doc) },
     { label: 'Baixar', onSelect: () => download(doc.id) },
     { label: 'Histórico de versões', onSelect: () => setVersionsTarget(doc) },
-    { label: 'Editar', onSelect: () => openEdit(doc) },
-    { label: 'Excluir', danger: true, onSelect: () => setDeleteTarget(doc) },
+    ...(canEditDoc ? [{ label: 'Editar', onSelect: () => openEdit(doc) }] : []),
+    ...(canDeleteDoc
+      ? [{ label: 'Excluir', danger: true, onSelect: () => setDeleteTarget(doc) }]
+      : []),
   ];
 
   const [contextMenu, setContextMenu] = useState<{
     position: MenuPosition;
     doc: DocumentRow;
   } | null>(null);
+  // Clique direito numa pasta (ações dela) e na área da lista (Nova pasta).
+  const [folderMenu, setFolderMenu] = useState<{
+    position: MenuPosition;
+    node: FolderNode;
+  } | null>(null);
+  const [sectionMenu, setSectionMenu] = useState<MenuPosition | null>(null);
 
   // `view` omitido mantém o modo atual; 'lista' força a visão normal.
   // O filtro de vencimento acompanha a navegação entre pastas.
@@ -381,13 +372,12 @@ export function PiePage() {
           <h1 className="text-[28px] font-bold tracking-tight">PIE</h1>
         </div>
         <div className="flex gap-2">
-          <Button variant="secondary" onClick={() => setSchemasOpen(true)}>
-            <Layers aria-hidden className="size-4" /> Estruturas
-          </Button>
-          <Button variant="secondary" onClick={() => setCreating((value) => !value)}>
-            <FolderPlus aria-hidden className="size-4" /> Nova pasta
-          </Button>
-          {pasta && (
+          {canManageSchemas && (
+            <Button variant="secondary" onClick={() => setSchemasOpen(true)}>
+              <Layers aria-hidden className="size-4" /> Estruturas
+            </Button>
+          )}
+          {pasta && canUploadDoc && (
             <Button onClick={() => setUploadOpen(true)}>
               <Upload aria-hidden className="size-4" /> Enviar documento
             </Button>
@@ -491,37 +481,22 @@ export function PiePage() {
       </div>
       </div>
 
-      {creating && (
-        <form
-          onSubmit={(e) => {
-            e.preventDefault();
-            if (folderName.trim())
-              createFolder.mutate({ unitId, parentId: pasta ?? null, name: folderName.trim() });
-          }}
-          className="flex gap-2"
-        >
-          <input
-            autoFocus
-            value={folderName}
-            onChange={(e) => setFolderName(e.target.value)}
-            placeholder="Nome da nova pasta"
-            aria-label="Nome da nova pasta"
-            className="flex-1 rounded-ctl border border-line-strong bg-surface px-2.5 py-2 text-[15px] focus-visible:border-action focus-visible:outline-2 focus-visible:outline-action focus-visible:outline-offset-0"
-          />
-          <Button type="submit" disabled={createFolder.isPending}>
-            Criar pasta
-          </Button>
-        </form>
-      )}
-
       {(actionError || removeFolder.error) && (
         <p role="alert" className="text-sm text-bad">
           {actionError ?? removeFolder.error?.message}
         </p>
       )}
 
-      {/* Lista única (estilo drive): pastas no topo, arquivos abaixo */}
-      <div className="overflow-x-auto">
+      {/* Lista única (estilo drive): pastas no topo, arquivos abaixo.
+          Clique direito fora das linhas abre o menu da seção (Nova pasta). */}
+      <div
+        className="min-h-48 overflow-x-auto"
+        onContextMenu={(e) => {
+          if (docsOnly || (!canCreateFolder && !(pasta && canUploadDoc))) return;
+          e.preventDefault();
+          setSectionMenu({ top: e.clientY, left: e.clientX });
+        }}
+      >
         <table className="w-full border-collapse text-sm">
           <thead>
             <tr>
@@ -570,25 +545,31 @@ export function PiePage() {
               </tr>
             )}
 
-            {!docsOnly && children.length === 0 && (documents.data?.length ?? 0) === 0 && (
+            {!docsOnly && !creating && children.length === 0 && (documents.data?.length ?? 0) === 0 && (
               <tr>
                 <td colSpan={4} className="px-3.5 py-12 text-center">
                   {pasta ? (
                     <span className="text-muted">
-                      Pasta vazia — envie um documento ou crie uma subpasta.
+                      {canUploadDoc || canCreateFolder
+                        ? 'Pasta vazia — envie um documento ou crie uma subpasta.'
+                        : 'Pasta vazia.'}
                     </span>
                   ) : (
                     <div className="flex flex-col items-center gap-3">
                       <span className="text-muted">
-                        Prontuário vazio — gere uma estrutura de pastas ou crie a primeira pasta.
+                        {canManageSchemas || canCreateFolder
+                          ? 'Prontuário vazio — gere uma estrutura de pastas ou crie a primeira pasta.'
+                          : 'Prontuário vazio.'}
                       </span>
-                      <Button
-                        type="button"
-                        variant="secondary"
-                        onClick={() => setSchemasOpen(true)}
-                      >
-                        <Layers aria-hidden className="size-4" /> Gerar estrutura de pastas
-                      </Button>
+                      {canManageSchemas && (
+                        <Button
+                          type="button"
+                          variant="secondary"
+                          onClick={() => setSchemasOpen(true)}
+                        >
+                          <Layers aria-hidden className="size-4" /> Gerar estrutura de pastas
+                        </Button>
+                      )}
                     </div>
                   )}
                 </td>
@@ -600,6 +581,11 @@ export function PiePage() {
               <tr
                 key={node.id}
                 onClick={() => goTo(node.id)}
+                onContextMenu={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  setFolderMenu({ position: { top: e.clientY, left: e.clientX }, node });
+                }}
                 className="group cursor-pointer hover:bg-paper"
               >
                 <td className="border-b border-line px-3.5 py-2.5">
@@ -620,40 +606,89 @@ export function PiePage() {
                 </td>
                 <td className="border-b border-line px-3.5 py-2.5">
                   <div className="flex items-center justify-end gap-0.5">
-                    <button
-                      type="button"
-                      title="Renomear"
-                      aria-label={`Renomear pasta ${node.name}`}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setRenameTarget(node);
-                        setRenameValue(node.name);
-                      }}
-                      className={rowActionClass}
-                    >
-                      <Pencil aria-hidden className="size-4" />
-                    </button>
-                    <RowMenu
-                      label={`Ações da pasta ${node.name}`}
-                      items={[
-                        {
-                          label: 'Renomear',
-                          onSelect: () => {
-                            setRenameTarget(node);
-                            setRenameValue(node.name);
-                          },
-                        },
-                        {
-                          label: 'Excluir',
-                          danger: true,
-                          onSelect: () => setDeleteFolderTarget(node),
-                        },
-                      ]}
-                    />
+                    {canRenameFolder && (
+                      <button
+                        type="button"
+                        title="Renomear"
+                        aria-label={`Renomear pasta ${node.name}`}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setRenameTarget(node);
+                          setRenameValue(node.name);
+                        }}
+                        className={rowActionClass}
+                      >
+                        <Pencil aria-hidden className="size-4" />
+                      </button>
+                    )}
+                    {(canRenameFolder || canDeleteFolder) && (
+                      <RowMenu
+                        label={`Ações da pasta ${node.name}`}
+                        items={[
+                          ...(canRenameFolder
+                            ? [
+                                {
+                                  label: 'Renomear',
+                                  onSelect: () => {
+                                    setRenameTarget(node);
+                                    setRenameValue(node.name);
+                                  },
+                                },
+                              ]
+                            : []),
+                          ...(canDeleteFolder
+                            ? [
+                                {
+                                  label: 'Excluir',
+                                  danger: true,
+                                  onSelect: () => setDeleteFolderTarget(node),
+                                },
+                              ]
+                            : []),
+                        ]}
+                      />
+                    )}
                   </div>
                 </td>
               </tr>
             ))}
+
+            {/* Input inline de nova pasta — entra logo depois da última pasta */}
+            {!docsOnly && creating && (
+              <tr>
+                <td colSpan={4} className="border-b border-line px-3.5 py-2">
+                  <form
+                    onSubmit={(e) => {
+                      e.preventDefault();
+                      if (folderName.trim())
+                        createFolder.mutate({
+                          unitId,
+                          parentId: pasta ?? null,
+                          name: folderName.trim(),
+                        });
+                    }}
+                    className="flex items-center gap-2.5"
+                  >
+                    <FolderPlus aria-hidden className="size-4 shrink-0 text-muted" />
+                    <input
+                      autoFocus
+                      value={folderName}
+                      onChange={(e) => setFolderName(e.target.value)}
+                      onKeyDown={(e) => e.key === 'Escape' && setCreating(false)}
+                      placeholder="Nome da nova pasta"
+                      aria-label="Nome da nova pasta"
+                      className="flex-1 rounded-ctl border border-line-strong bg-surface px-2.5 py-1.5 text-sm focus-visible:border-action focus-visible:outline-2 focus-visible:outline-action focus-visible:outline-offset-0"
+                    />
+                    <Button type="submit" disabled={createFolder.isPending}>
+                      {createFolder.isPending ? 'Criando…' : 'Criar'}
+                    </Button>
+                    <Button type="button" variant="secondary" onClick={() => setCreating(false)}>
+                      Cancelar
+                    </Button>
+                  </form>
+                </td>
+              </tr>
+            )}
 
             {docRows.map(
               (doc) => (
@@ -661,6 +696,7 @@ export function PiePage() {
                   key={doc.id}
                   onContextMenu={(e) => {
                     e.preventDefault();
+                    e.stopPropagation();
                     setContextMenu({ position: { top: e.clientY, left: e.clientX }, doc });
                   }}
                   className="group hover:bg-paper"
@@ -673,7 +709,14 @@ export function PiePage() {
                         name={doc.name}
                         className="size-4 shrink-0"
                       />
-                      <span className="truncate">{doc.name}</span>
+                      <button
+                        type="button"
+                        title={`Visualizar ${doc.name}`}
+                        onClick={() => openPreview(doc)}
+                        className="cursor-pointer truncate hover:text-action hover:underline"
+                      >
+                        {doc.name}
+                      </button>
                     </span>
                   </td>
                   {docsOnly && (
@@ -712,15 +755,17 @@ export function PiePage() {
                       >
                         <Download aria-hidden className="size-4" />
                       </button>
-                      <button
-                        type="button"
-                        title="Editar"
-                        aria-label={`Editar ${doc.name}`}
-                        onClick={() => openEdit(doc)}
-                        className={rowActionClass}
-                      >
-                        <Pencil aria-hidden className="size-4" />
-                      </button>
+                      {canEditDoc && (
+                        <button
+                          type="button"
+                          title="Editar"
+                          aria-label={`Editar ${doc.name}`}
+                          onClick={() => openEdit(doc)}
+                          className={rowActionClass}
+                        >
+                          <Pencil aria-hidden className="size-4" />
+                        </button>
+                      )}
                       <RowMenu label={`Ações de ${doc.name}`} items={documentMenuItems(doc)} />
                     </div>
                   </td>
@@ -882,80 +927,28 @@ export function PiePage() {
         </div>
       </Dialog>
 
-      <Dialog
-        open={Boolean(versionsTarget)}
+      <DocumentVersionsDialog
+        unitId={unitId}
+        target={versionsTarget}
+        uploading={uploading}
+        canUpload={canUploadDoc}
+        canRestore={canRestoreDoc}
         onClose={() => setVersionsTarget(null)}
-        title={`Histórico — ${versionsTarget?.name ?? ''}`}
-      >
-        <button
-          type="button"
-          disabled={uploading}
-          onClick={() => {
-            if (!versionsTarget) return;
-            versionTargetRef.current = versionsTarget.id;
-            fileInputRef.current?.click();
-          }}
-          className="mb-4 flex w-full cursor-pointer items-center justify-center gap-2 rounded-card border border-dashed border-line-strong py-3.5 font-ui text-sm font-semibold text-ink-soft hover:border-action hover:text-action disabled:opacity-50"
-        >
-          <Upload aria-hidden className="size-4" />
-          {uploading ? 'Enviando…' : 'Enviar nova versão'}
-        </button>
-        {versions.isLoading ? (
-          <p className="text-sm text-muted">Carregando…</p>
-        ) : (
-          <ul className="flex flex-col">
-            {versions.data?.map((version, index) => (
-              <li
-                key={version.id}
-                className="flex items-center justify-between gap-3 border-b border-line py-2.5 last:border-b-0"
-              >
-                <div className="flex items-baseline gap-3">
-                  <span className="tabular font-mono text-[13px] font-semibold">
-                    v{version.number}
-                  </span>
-                  <span className="tabular font-mono text-[12px] text-muted">
-                    {formatBytes(version.sizeBytes)}
-                  </span>
-                  <span className="text-[13px] text-muted">
-                    {version.uploadedBy ?? '—'} · {formatDateTime(version.createdAt)}
-                  </span>
-                  {index === 0 && (
-                    <span className="rounded-full bg-action-soft px-2 py-0.5 font-ui text-[11px] font-semibold text-action">
-                      atual
-                    </span>
-                  )}
-                </div>
-                <div className="flex items-center gap-3">
-                  <button
-                    type="button"
-                    onClick={() => versionsTarget && download(versionsTarget.id, version.id)}
-                    className="cursor-pointer font-ui text-[13px] font-semibold text-action hover:underline"
-                  >
-                    Baixar
-                  </button>
-                  {index !== 0 && (
-                    <button
-                      type="button"
-                      disabled={restoreVersion.isPending}
-                      onClick={() =>
-                        versionsTarget &&
-                        restoreVersion.mutate({
-                          unitId,
-                          documentId: versionsTarget.id,
-                          versionId: version.id,
-                        })
-                      }
-                      className="cursor-pointer font-ui text-[13px] font-semibold text-ink-soft hover:underline disabled:opacity-50"
-                    >
-                      Restaurar
-                    </button>
-                  )}
-                </div>
-              </li>
-            ))}
-          </ul>
-        )}
-      </Dialog>
+        onUploadNewVersion={() => {
+          if (!versionsTarget) return;
+          versionTargetRef.current = versionsTarget.id;
+          fileInputRef.current?.click();
+        }}
+        onDownload={(versionId) => versionsTarget && download(versionsTarget.id, versionId)}
+        onPreview={(versionId) => versionsTarget && openPreview(versionsTarget, versionId)}
+        onDocumentsChanged={invalidateDocuments}
+      />
+
+      <DocumentPreviewDialog
+        preview={preview}
+        onClose={() => setPreview(null)}
+        onDownload={(documentId) => download(documentId)}
+      />
 
       {pasta && (
         <UploadDocumentDialog
@@ -979,6 +972,71 @@ export function PiePage() {
           position={contextMenu.position}
           items={documentMenuItems(contextMenu.doc)}
           onClose={() => setContextMenu(null)}
+        />
+      )}
+
+      {folderMenu && (
+        <Menu
+          position={folderMenu.position}
+          onClose={() => setFolderMenu(null)}
+          items={[
+            { label: 'Abrir', onSelect: () => goTo(folderMenu.node.id) },
+            ...(canRenameFolder
+              ? [
+                  {
+                    label: 'Renomear',
+                    onSelect: () => {
+                      setRenameTarget(folderMenu.node);
+                      setRenameValue(folderMenu.node.name);
+                    },
+                  },
+                ]
+              : []),
+            ...(canCreateFolder
+              ? [
+                  {
+                    label: 'Nova pasta dentro',
+                    onSelect: () => {
+                      goTo(folderMenu.node.id);
+                      setFolderName('');
+                      setCreating(true);
+                    },
+                  },
+                ]
+              : []),
+            ...(canDeleteFolder
+              ? [
+                  {
+                    label: 'Excluir',
+                    danger: true,
+                    onSelect: () => setDeleteFolderTarget(folderMenu.node),
+                  },
+                ]
+              : []),
+          ]}
+        />
+      )}
+
+      {sectionMenu && (
+        <Menu
+          position={sectionMenu}
+          onClose={() => setSectionMenu(null)}
+          items={[
+            ...(canCreateFolder
+              ? [
+                  {
+                    label: 'Nova pasta',
+                    onSelect: () => {
+                      setFolderName('');
+                      setCreating(true);
+                    },
+                  },
+                ]
+              : []),
+            ...(pasta && canUploadDoc
+              ? [{ label: 'Enviar documento', onSelect: () => setUploadOpen(true) }]
+              : []),
+          ]}
         />
       )}
     </Page>

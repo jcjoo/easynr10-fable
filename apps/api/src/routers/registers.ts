@@ -15,10 +15,18 @@ import {
 } from '@easynr10/shared';
 import { z } from 'zod';
 import { db } from '../db';
-import { router, unitProcedure } from '../trpc';
+import { router, unitAction } from '../trpc';
 import { ensureFolderStructure, findUnitSchemaOrThrow } from './folder-schemas';
 
-const { customField, document, employee, equipment, folder, registerDocumentLink } = schema;
+const {
+  customField,
+  document,
+  employee,
+  equipment,
+  folder,
+  registerDocumentLink,
+  registerTargetSetting,
+} = schema;
 
 // Cadastros da unidade: Colaboradores e Equipamentos (RF18). A estrutura de
 // pastas no PIE é FIXA e criada sob demanda:
@@ -75,7 +83,7 @@ export const registersRouter = router({
 
   // — Colaboradores —
 
-  listEmployees: unitProcedure.query(async ({ input }) => {
+  listEmployees: unitAction('cadastros.ler').query(async ({ input }) => {
     await ensureRegisterSkeleton(input.unitId);
     return db
       .select({
@@ -92,7 +100,7 @@ export const registersRouter = router({
       .orderBy(asc(employee.name));
   }),
 
-  upsertEmployee: unitProcedure.input(employeeUpsertSchema).mutation(async ({ input }) => {
+  upsertEmployee: unitAction('cadastros.itens').input(employeeUpsertSchema).mutation(async ({ input }) => {
     if (input.employeeId) {
       const [updated] = await db
         .update(employee)
@@ -123,7 +131,7 @@ export const registersRouter = router({
     return created;
   }),
 
-  removeEmployee: unitProcedure
+  removeEmployee: unitAction('cadastros.itens')
     .input(z.object({ employeeId: z.uuid() }))
     .mutation(async ({ input }) => {
       await db
@@ -141,7 +149,7 @@ export const registersRouter = router({
 
   // — Equipamentos —
 
-  listEquipment: unitProcedure.query(async ({ input }) => {
+  listEquipment: unitAction('cadastros.ler').query(async ({ input }) => {
     await ensureRegisterSkeleton(input.unitId);
     return db
       .select({
@@ -159,7 +167,7 @@ export const registersRouter = router({
       .orderBy(asc(equipment.name));
   }),
 
-  upsertEquipment: unitProcedure.input(equipmentUpsertSchema).mutation(async ({ input }) => {
+  upsertEquipment: unitAction('cadastros.itens').input(equipmentUpsertSchema).mutation(async ({ input }) => {
     if (input.equipmentId) {
       const [updated] = await db
         .update(equipment)
@@ -196,7 +204,7 @@ export const registersRouter = router({
     return created;
   }),
 
-  removeEquipment: unitProcedure
+  removeEquipment: unitAction('cadastros.itens')
     .input(z.object({ equipmentId: z.uuid() }))
     .mutation(async ({ input }) => {
       await db
@@ -214,7 +222,57 @@ export const registersRouter = router({
 
   // — Campos personalizados da unidade (por grupo-alvo) —
 
-  listCustomFields: unitProcedure
+  // — Configuração do grupo-alvo: estrutura de pastas padrão pré-selecionada
+  //   (opcional) ao criar itens do grupo —
+  targetSettings: unitAction('cadastros.ler').query(async ({ input }) => {
+    return db
+      .select({
+        target: registerTargetSetting.target,
+        folderSchemaId: registerTargetSetting.folderSchemaId,
+      })
+      .from(registerTargetSetting)
+      .where(
+        and(
+          eq(registerTargetSetting.unitId, input.unitId),
+          isNull(registerTargetSetting.deletedAt),
+        ),
+      );
+  }),
+
+  setTargetSetting: unitAction('cadastros.config')
+    .input(
+      z.object({
+        target: z.enum(registerTargets),
+        folderSchemaId: z.uuid().nullable(),
+      }),
+    )
+    .mutation(async ({ input }) => {
+      if (input.folderSchemaId) {
+        await findUnitSchemaOrThrow(input.unitId, input.folderSchemaId);
+      }
+      const existing = await db.query.registerTargetSetting.findFirst({
+        where: and(
+          eq(registerTargetSetting.unitId, input.unitId),
+          eq(registerTargetSetting.target, input.target),
+          isNull(registerTargetSetting.deletedAt),
+        ),
+      });
+      if (existing) {
+        await db
+          .update(registerTargetSetting)
+          .set({ folderSchemaId: input.folderSchemaId })
+          .where(eq(registerTargetSetting.id, existing.id));
+      } else {
+        await db.insert(registerTargetSetting).values({
+          unitId: input.unitId,
+          target: input.target,
+          folderSchemaId: input.folderSchemaId,
+        });
+      }
+      return { success: true };
+    }),
+
+  listCustomFields: unitAction('cadastros.ler')
     .input(z.object({ target: z.enum(registerTargets) }))
     .query(async ({ input }) => {
       return db
@@ -230,7 +288,7 @@ export const registersRouter = router({
         .orderBy(asc(customField.createdAt));
     }),
 
-  addCustomField: unitProcedure.input(customFieldCreateSchema).mutation(async ({ input }) => {
+  addCustomField: unitAction('cadastros.campos').input(customFieldCreateSchema).mutation(async ({ input }) => {
     const [created] = await db
       .insert(customField)
       .values({ unitId: input.unitId, target: input.target, name: input.name })
@@ -238,7 +296,7 @@ export const registersRouter = router({
     return created;
   }),
 
-  removeCustomField: unitProcedure
+  removeCustomField: unitAction('cadastros.campos')
     .input(z.object({ customFieldId: z.uuid() }))
     .mutation(async ({ input }) => {
       await db
@@ -256,7 +314,7 @@ export const registersRouter = router({
 
   // — Vínculo campo→documento (campos kind=document, ex.: CA do EPI) —
 
-  documentLinks: unitProcedure.query(async ({ input }) => {
+  documentLinks: unitAction('cadastros.ler').query(async ({ input }) => {
     const rows = await db
       .select({
         id: registerDocumentLink.id,
@@ -275,7 +333,7 @@ export const registersRouter = router({
     return rows;
   }),
 
-  linkDocument: unitProcedure.input(documentLinkSchema).mutation(async ({ input }) => {
+  linkDocument: unitAction('cadastros.vinculos').input(documentLinkSchema).mutation(async ({ input }) => {
     // Documento precisa ser da unidade.
     const [doc] = await db
       .select({ id: document.id })
@@ -334,7 +392,7 @@ export const registersRouter = router({
     return { linked: input.employeeIds.length + input.equipmentIds.length };
   }),
 
-  unlinkDocument: unitProcedure.input(documentUnlinkSchema).mutation(async ({ input }) => {
+  unlinkDocument: unitAction('cadastros.vinculos').input(documentUnlinkSchema).mutation(async ({ input }) => {
     await db
       .update(registerDocumentLink)
       .set({ deletedAt: new Date() })
@@ -353,7 +411,7 @@ export const registersRouter = router({
   // — Importação por planilha (linhas mapeadas no cliente) —
   // Upsert por nome: existente atualiza metadata (merge); novo cria com pasta.
 
-  importEmployees: unitProcedure.input(employeeImportSchema).mutation(async ({ input }) => {
+  importEmployees: unitAction('cadastros.importar').input(employeeImportSchema).mutation(async ({ input }) => {
     let created = 0;
     let updated = 0;
     for (const item of input.items) {
@@ -381,7 +439,7 @@ export const registersRouter = router({
     return { created, updated };
   }),
 
-  importEquipment: unitProcedure.input(equipmentImportSchema).mutation(async ({ input }) => {
+  importEquipment: unitAction('cadastros.importar').input(equipmentImportSchema).mutation(async ({ input }) => {
     let created = 0;
     let updated = 0;
     for (const item of input.items) {

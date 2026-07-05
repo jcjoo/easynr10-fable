@@ -9,8 +9,8 @@ import {
 } from '@easynr10/shared';
 import { z } from 'zod';
 import { db } from '../db';
-import { router, unitProcedure } from '../trpc';
-import { buildStorageKey, presignDownload, presignUpload } from '../s3';
+import { router, unitAction } from '../trpc';
+import { buildStorageKey, presignDownload, presignPreview, presignUpload } from '../s3';
 
 const { document, documentVersion, folder, user } = schema;
 
@@ -31,7 +31,7 @@ async function findUnitDocument(unitId: string, documentId: string) {
 }
 
 export const documentsRouter = router({
-  listByFolder: unitProcedure
+  listByFolder: unitAction('pie.ler')
     .input(z.object({ folderId: z.uuid() }))
     .query(async ({ input }) => {
       return db
@@ -63,7 +63,7 @@ export const documentsRouter = router({
 
   // Visão "apenas documentos": tudo abaixo da pasta (null = unidade inteira),
   // com folderId para a coluna Local. Descendentes calculados da lista flat.
-  listBySubtree: unitProcedure
+  listBySubtree: unitAction('pie.ler')
     .input(z.object({ folderId: z.uuid().nullable() }))
     .query(async ({ input }) => {
       const allFolders = await db
@@ -108,14 +108,14 @@ export const documentsRouter = router({
     }),
 
   // Passo 1 do upload: URL presigned de PUT direto no S3 (RF09).
-  createUploadUrl: unitProcedure.input(uploadRequestSchema).mutation(async ({ input }) => {
+  createUploadUrl: unitAction('pie.documento.enviar').input(uploadRequestSchema).mutation(async ({ input }) => {
     const storageKey = buildStorageKey(input.unitId, input.fileName);
     const uploadUrl = await presignUpload(storageKey, input.mimeType);
     return { uploadUrl, storageKey };
   }),
 
   // Passo 2: confirma e cria documento + versão 1 (RF09.1).
-  confirmUpload: unitProcedure.input(documentConfirmSchema).mutation(async ({ ctx, input }) => {
+  confirmUpload: unitAction('pie.documento.enviar').input(documentConfirmSchema).mutation(async ({ ctx, input }) => {
     const parent = await db.query.folder.findFirst({
       where: and(
         eq(folder.id, input.folderId),
@@ -158,7 +158,7 @@ export const documentsRouter = router({
   }),
 
   // Novo upload sobre documento existente → versão n+1 (RF09.1).
-  confirmNewVersion: unitProcedure
+  confirmNewVersion: unitAction('pie.documento.enviar')
     .input(documentVersionConfirmSchema)
     .mutation(async ({ ctx, input }) => {
       const doc = await findUnitDocument(input.unitId, input.documentId);
@@ -188,7 +188,7 @@ export const documentsRouter = router({
 
   // Restaurar versão = nova versão reutilizando o conteúdo antigo (RF09.4).
   // O histórico registra a restauração; nada é sobrescrito.
-  restoreVersion: unitProcedure
+  restoreVersion: unitAction('pie.documento.restaurar')
     .input(z.object({ documentId: z.uuid(), versionId: z.uuid() }))
     .mutation(async ({ ctx, input }) => {
       const doc = await findUnitDocument(input.unitId, input.documentId);
@@ -226,7 +226,7 @@ export const documentsRouter = router({
     }),
 
   // Nome e validade (RF10).
-  update: unitProcedure.input(documentUpdateSchema).mutation(async ({ input }) => {
+  update: unitAction('pie.documento.editar').input(documentUpdateSchema).mutation(async ({ input }) => {
     const doc = await findUnitDocument(input.unitId, input.documentId);
     const [updated] = await db
       .update(document)
@@ -243,7 +243,7 @@ export const documentsRouter = router({
   }),
 
   // Soft-delete: o prontuário é registro legal — versões e objetos ficam retidos.
-  remove: unitProcedure
+  remove: unitAction('pie.documento.excluir')
     .input(z.object({ documentId: z.uuid() }))
     .mutation(async ({ input }) => {
       const doc = await findUnitDocument(input.unitId, input.documentId);
@@ -252,7 +252,7 @@ export const documentsRouter = router({
     }),
 
   // Histórico de versões (RF09.2).
-  versions: unitProcedure
+  versions: unitAction('pie.ler')
     .input(z.object({ documentId: z.uuid() }))
     .query(async ({ input }) => {
       const doc = await findUnitDocument(input.unitId, input.documentId);
@@ -272,7 +272,7 @@ export const documentsRouter = router({
     }),
 
   // Download presigned da versão corrente ou de uma versão específica (RF09.3).
-  downloadUrl: unitProcedure
+  downloadUrl: unitAction('pie.ler')
     .input(z.object({ documentId: z.uuid(), versionId: z.uuid().optional() }))
     .mutation(async ({ input }) => {
       const doc = await findUnitDocument(input.unitId, input.documentId);
@@ -291,5 +291,28 @@ export const documentsRouter = router({
       }
       const url = await presignDownload(version.storageKey, doc.name);
       return { url };
+    }),
+
+  // Preview presigned (inline) da versão corrente ou de uma específica —
+  // o mimeType volta para a UI decidir como renderizar (iframe/img/fallback).
+  previewUrl: unitAction('pie.ler')
+    .input(z.object({ documentId: z.uuid(), versionId: z.uuid().optional() }))
+    .mutation(async ({ input }) => {
+      const doc = await findUnitDocument(input.unitId, input.documentId);
+      const versionId = input.versionId ?? doc.currentVersionId;
+      if (!versionId) {
+        throw new TRPCError({ code: 'NOT_FOUND', message: 'Documento sem conteúdo' });
+      }
+      const version = await db.query.documentVersion.findFirst({
+        where: and(
+          eq(documentVersion.id, versionId),
+          eq(documentVersion.documentId, doc.id),
+        ),
+      });
+      if (!version) {
+        throw new TRPCError({ code: 'NOT_FOUND', message: 'Versão não encontrada' });
+      }
+      const url = await presignPreview(version.storageKey, doc.name, version.mimeType);
+      return { url, mimeType: version.mimeType };
     }),
 });

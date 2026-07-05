@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useNavigate, useParams, useSearch } from '@tanstack/react-router';
 import { Download, Search, X } from 'lucide-react';
 import {
-  actionStatusLabels,
+  actionPriorities,
   compareNormCodes,
   diagnosticStatusLabels,
   diagnosticStatusScore,
@@ -11,14 +11,21 @@ import {
   documentSituationLabels,
   documentSituations,
   normalizeText,
-  type ActionStatus,
   type DiagnosticStatus,
   type DocumentGroup,
-  type DocumentSituation,
 } from '@easynr10/shared';
 import { trpc } from '@/lib/trpc';
+import { formatDate } from '@/lib/format';
 import { Page } from '@/components/ui/page';
-import { StatusPill } from '@/components/ui/status-pill';
+import { FilterChips, type FilterChipOption } from '@/components/ui/filter-chips';
+import {
+  ActionStatusPill,
+  PriorityPill,
+  SituationPill,
+  StatusPill,
+  adherenceDots,
+  situationDots,
+} from '@/components/ui/status-pill';
 import {
   SortableTh,
   sortRows,
@@ -61,38 +68,6 @@ const ncStatuses = ['sem_avaliacao', 'inexistente', 'inadequada', 'parcial', 'su
 
 const td = 'border-b border-line px-3.5 py-2.5 align-top';
 
-function formatDate(value: string | Date | null) {
-  if (!value) return '—';
-  if (value instanceof Date) return value.toLocaleDateString('pt-BR');
-  const [year, month, day] = value.slice(0, 10).split('-');
-  return `${day}/${month}/${year}`;
-}
-
-const situationStyles: Record<DocumentSituation, string> = {
-  vencido: 'text-bad bg-bad-soft',
-  a_vencer: 'text-warn bg-warn-soft',
-  em_dia: 'text-ok bg-ok-soft',
-  sem_validade: 'text-idle bg-idle-soft',
-};
-
-const actionStyles: Record<ActionStatus, string> = {
-  pendente: 'text-idle bg-idle-soft',
-  em_andamento: 'text-warn bg-warn-soft',
-  concluida: 'text-ok bg-ok-soft',
-  cancelada: 'text-muted bg-idle-soft',
-};
-
-function Pill({ label, className }: { label: string; className: string }) {
-  return (
-    <span
-      className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-2.5 py-0.5 font-ui text-[12.5px] font-semibold ${className}`}
-    >
-      <span aria-hidden className="size-[7px] rounded-full bg-current" />
-      {label}
-    </span>
-  );
-}
-
 export function RelatoriosPage() {
   const { companyId, unitId } = useParams({ from: '/_authed/$companyId/$unitId/relatorios' });
   const search = useSearch({ from: '/_authed/$companyId/$unitId/relatorios' });
@@ -132,7 +107,11 @@ export function RelatoriosPage() {
   const dir: SortDir = search.dir ?? 'asc';
 
   // — Filtros + ordenação por relatório (contadores dos chips consideram
-  //   busca e grupo, mas não o próprio status — padrão do Diagnóstico) —
+  //   busca e grupo, mas não o próprio status — padrão do Diagnóstico).
+  //   Chips de status COMPÕEM (união): ?status=a,b na URL. —
+
+  const statusTokens = (search.status ?? '').split(',').filter(Boolean);
+  const hasStatus = (value: string) => statusTokens.includes(value);
 
   const matchesQ = (haystack: string) => !qNorm || normalizeText(haystack).includes(qNorm);
 
@@ -143,14 +122,13 @@ export function RelatoriosPage() {
       matchesQ(`${row.normCode} ${row.normDescription} ${row.responsible ?? ''}`),
   );
   const ncFiltered = ncBase.filter(
-    (row) => !search.status || (row.status ?? 'sem_avaliacao') === search.status,
+    (row) => statusTokens.length === 0 || hasStatus(row.status ?? 'sem_avaliacao'),
   );
   const ncOrd = search.ord ?? 'norma';
   type NcRow = (typeof ncFiltered)[number];
   const ncAccessors: Record<string, (r: NcRow) => SortValue> = {
     norma: (r) => r.normCode,
     exigencia: (r) => normalizeText(r.normDescription),
-    peso: (r) => r.importanceWeight,
     aderencia: (r) => (r.status ? diagnosticStatusScore[r.status] : -1),
     prazo: (r) => r.deadline,
     responsavel: (r) => (r.responsible ? normalizeText(r.responsible) : null),
@@ -169,7 +147,9 @@ export function RelatoriosPage() {
       (!search.grupo || row.documentGroup === search.grupo) &&
       matchesQ(`${row.name} ${row.path}`),
   );
-  const docFiltered = docBase.filter((row) => !search.status || row.situation === search.status);
+  const docFiltered = docBase.filter(
+    (row) => statusTokens.length === 0 || hasStatus(row.situation),
+  );
   const docOrd = search.ord ?? 'documento';
   type DocRow = (typeof docFiltered)[number];
   const docAccessors: Record<string, (r: DocRow) => SortValue> = {
@@ -182,18 +162,19 @@ export function RelatoriosPage() {
   };
   const docSorted = sortRows(docFiltered, docAccessors[docOrd] ?? docAccessors.documento!, dir);
 
-  // Plano de Ação (default = pendências; chips para os demais recortes)
-  const planStatus = search.status ?? 'pendencias';
+  // Plano de Ação (default = pendências; 'todas' é exclusivo, o resto compõe)
   const planBase = (actions.data ?? []).filter((row) =>
     matchesQ(`${row.normCode} ${row.normDescription} ${row.responsible ?? ''}`),
   );
   const isPending = (row: (typeof planBase)[number]) =>
     row.status === 'pendente' || row.status === 'em_andamento';
   const planFiltered = planBase.filter((row) => {
-    if (planStatus === 'todas') return true;
-    if (planStatus === 'pendencias') return isPending(row);
-    if (planStatus === 'vencidas') return row.overdue;
-    return row.status === planStatus;
+    if (statusTokens.length === 0) return isPending(row);
+    return statusTokens.some((token) => {
+      if (token === 'todas') return true;
+      if (token === 'vencidas') return row.overdue;
+      return row.status === token;
+    });
   });
   const planOrd = search.ord ?? 'prazo';
   type PlanRow = (typeof planFiltered)[number];
@@ -202,6 +183,7 @@ export function RelatoriosPage() {
   const planAccessors: Record<string, (r: PlanRow) => SortValue> = {
     norma: (r) => r.normCode,
     exigencia: (r) => normalizeText(r.normDescription),
+    prioridade: (r) => actionPriorities.indexOf(r.priority),
     aderencia: (r) => diagnosticStatusScore[r.adherence],
     status: (r) => actionRank(r),
     prazo: (r) => r.deadline,
@@ -235,39 +217,15 @@ export function RelatoriosPage() {
     return `/api/reports/export?${params}`;
   };
 
-  const chip = (active: boolean) =>
-    `inline-flex items-center gap-1.5 rounded-full border px-3 py-1 font-ui text-[13px]
-     font-semibold cursor-pointer ${
-       active
-         ? 'border-ink bg-ink text-paper'
-         : 'border-line-strong bg-surface text-ink-soft hover:border-ink-soft'
-     }`;
-  const smallChip = (active: boolean) =>
-    `inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 font-ui text-[12.5px]
-     font-semibold cursor-pointer ${
-       active
-         ? 'border-ink bg-ink text-paper'
-         : 'border-line-strong bg-surface text-ink-soft hover:border-ink-soft'
-     }`;
-  const countBadge = (active: boolean, totalCount: number) => (
-    <span
-      className={`tabular rounded-full px-1.5 font-mono text-[11px] ${
-        active ? 'bg-paper/20' : 'bg-paper text-muted'
-      }`}
-    >
-      {totalCount}
-    </span>
-  );
-
   const exportButton =
     'inline-flex items-center gap-2 rounded-ctl px-4 py-2 font-ui text-sm font-semibold ' +
     'leading-snug cursor-pointer bg-surface text-ink border border-line-strong hover:bg-paper';
 
-  // Chips de status com contadores por relatório.
-  let statusChips: { value: string | null; label: string; count: number }[] = [];
+  // Chips de status com contadores por relatório (ponto na cor da pill).
+  let statusChips: FilterChipOption[] = [];
   if (tab === 'nao-conformidades') {
     statusChips = [
-      { value: null, label: 'Todas', count: ncBase.length },
+      { value: null, label: 'Todas', count: ncBase.length, dot: 'bg-line-strong' },
       ...ncStatuses.map((value) => ({
         value: value as string,
         label:
@@ -275,35 +233,64 @@ export function RelatoriosPage() {
             ? 'Sem avaliação'
             : diagnosticStatusLabels[value as DiagnosticStatus],
         count: ncBase.filter((row) => (row.status ?? 'sem_avaliacao') === value).length,
+        dot: adherenceDots[value],
       })),
     ];
   } else if (tab === 'situacao-documental') {
     statusChips = [
-      { value: null, label: 'Todos', count: docBase.length },
+      { value: null, label: 'Todos', count: docBase.length, dot: 'bg-line-strong' },
       ...documentSituations.map((value) => ({
         value: value as string,
         label: documentSituationLabels[value],
         count: docBase.filter((row) => row.situation === value).length,
+        dot: situationDots[value],
       })),
     ];
   } else {
     statusChips = [
-      { value: null, label: 'Pendências', count: planBase.filter(isPending).length },
-      { value: 'vencidas', label: 'Prazo vencido', count: planBase.filter((r) => r.overdue).length },
+      {
+        value: null,
+        label: 'Pendências',
+        count: planBase.filter(isPending).length,
+        dot: 'bg-idle',
+      },
+      {
+        value: 'vencidas',
+        label: 'Prazo vencido',
+        count: planBase.filter((r) => r.overdue).length,
+        dot: 'bg-bad',
+      },
       {
         value: 'concluida',
         label: 'Concluídas',
         count: planBase.filter((r) => r.status === 'concluida').length,
+        dot: 'bg-ok',
       },
       {
         value: 'cancelada',
         label: 'Canceladas',
         count: planBase.filter((r) => r.status === 'cancelada').length,
+        dot: 'bg-idle',
       },
-      { value: 'todas', label: 'Todas', count: planBase.length },
+      { value: 'todas', label: 'Todas', count: planBase.length, dot: 'bg-line-strong' },
     ];
   }
-  const activeStatus = search.status ?? null;
+  // Alterna um chip na seleção composta; null (Todas/Pendências) limpa e
+  // 'todas' do plano é exclusivo (é superconjunto dos demais recortes).
+  function toggleStatus(value: string | null) {
+    if (value === null) return patchSearch({ status: undefined });
+    let next: string[];
+    if (value === 'todas') {
+      next = hasStatus('todas') ? [] : ['todas'];
+    } else {
+      next = hasStatus(value)
+        ? statusTokens.filter((token) => token !== value)
+        : [...statusTokens.filter((token) => token !== 'todas'), value];
+    }
+    patchSearch({ status: next.length > 0 ? next.join(',') : undefined });
+  }
+  const chipActive = (value: string | null) =>
+    value === null ? statusTokens.length === 0 : hasStatus(value);
 
   return (
     <Page>
@@ -322,18 +309,7 @@ export function RelatoriosPage() {
         </div>
       </div>
 
-      <div role="group" aria-label="Escolher relatório" className="flex flex-wrap gap-1.5">
-        {reportTabs.map((value) => (
-          <button
-            key={value}
-            type="button"
-            className={chip(tab === value)}
-            onClick={() => setSearch({ tipo: value })}
-          >
-            {tabLabels[value]}
-          </button>
-        ))}
-      </div>
+      {/* A escolha do relatório vive na sidebar (filhos de Relatórios, ?tipo=). */}
 
       {/* Filtros: busca + grupo + status (uma linha, quebram em telas menores) */}
       <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
@@ -370,22 +346,12 @@ export function RelatoriosPage() {
           </select>
         )}
 
-        <div role="group" aria-label="Filtrar por status" className="flex flex-wrap gap-1.5">
-          {statusChips.map(({ value, label, count }) => {
-            const active = activeStatus === value;
-            return (
-              <button
-                key={value ?? 'todos'}
-                type="button"
-                className={smallChip(active)}
-                onClick={() => patchSearch({ status: value ?? undefined })}
-              >
-                {label}
-                {countBadge(active, count)}
-              </button>
-            );
-          })}
-        </div>
+        <FilterChips
+          label="Filtrar por status"
+          options={statusChips}
+          isActive={chipActive}
+          onSelect={toggleStatus}
+        />
 
         {(search.status || search.grupo || qNorm) && (
           <button
@@ -417,7 +383,6 @@ export function RelatoriosPage() {
                   [
                     ['norma', 'Norma'],
                     ['exigencia', 'Exigência'],
-                    ['peso', 'Peso'],
                     ['aderencia', 'Aderência'],
                     ['prazo', 'Prazo'],
                     ['responsavel', 'Responsável'],
@@ -438,7 +403,7 @@ export function RelatoriosPage() {
             <tbody>
               {ncSorted.length === 0 && (
                 <tr>
-                  <td colSpan={7} className="px-3.5 py-10 text-center text-muted">
+                  <td colSpan={6} className="px-3.5 py-10 text-center text-muted">
                     {ncBase.length === 0 && !qNorm && !search.grupo
                       ? 'Nenhuma não conformidade — todos os itens ativos estão com aderência Plena. 🎉'
                       : 'Nenhum item com esses filtros.'}
@@ -455,7 +420,6 @@ export function RelatoriosPage() {
                   <td className={`${td} w-full`}>
                     <span className="line-clamp-2">{row.normDescription}</span>
                   </td>
-                  <td className={`${td} tabular font-mono text-[13px]`}>{row.importanceWeight}</td>
                   <td className={td}>
                     <StatusPill status={row.status ?? 'sem_avaliacao'} />
                   </td>
@@ -517,10 +481,7 @@ export function RelatoriosPage() {
                     {row.documentGroup ? documentGroupLabels[row.documentGroup] : '—'}
                   </td>
                   <td className={td}>
-                    <Pill
-                      label={documentSituationLabels[row.situation]}
-                      className={situationStyles[row.situation]}
-                    />
+                    <SituationPill situation={row.situation} />
                   </td>
                   <td className={`${td} tabular font-mono text-[13px]`}>{formatDate(row.expiresAt)}</td>
                   <td className={`${td} tabular font-mono text-[13px]`}>
@@ -540,6 +501,7 @@ export function RelatoriosPage() {
                   [
                     ['norma', 'Norma'],
                     ['exigencia', 'Exigência'],
+                    ['prioridade', 'Prioridade'],
                     ['aderencia', 'Aderência'],
                     ['status', 'Status'],
                     ['prazo', 'Prazo'],
@@ -560,7 +522,7 @@ export function RelatoriosPage() {
             <tbody>
               {planSorted.length === 0 && (
                 <tr>
-                  <td colSpan={6} className="px-3.5 py-10 text-center text-muted">
+                  <td colSpan={7} className="px-3.5 py-10 text-center text-muted">
                     {planBase.length === 0 && !qNorm
                       ? 'Nenhuma ação no plano desta unidade.'
                       : 'Nenhuma ação com esses filtros.'}
@@ -578,14 +540,13 @@ export function RelatoriosPage() {
                     <span className="line-clamp-2">{row.normDescription}</span>
                   </td>
                   <td className={td}>
+                    <PriorityPill priority={row.priority} />
+                  </td>
+                  <td className={td}>
                     <StatusPill status={row.adherence} />
                   </td>
                   <td className={td}>
-                    {row.overdue ? (
-                      <Pill label="Prazo vencido" className="text-bad bg-bad-soft" />
-                    ) : (
-                      <Pill label={actionStatusLabels[row.status]} className={actionStyles[row.status]} />
-                    )}
+                    <ActionStatusPill status={row.status} overdue={row.overdue} />
                   </td>
                   <td className={`${td} tabular font-mono text-[13px]`}>{formatDate(row.deadline)}</td>
                   <td className={td}>{row.responsible ?? '—'}</td>

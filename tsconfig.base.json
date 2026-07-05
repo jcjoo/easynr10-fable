@@ -1,5 +1,8 @@
 {
   "compilerOptions": {
+    // Editores com TypeScript 6.x acusam deprecações que só somem no TS 7;
+    // o tsc do repo (5.9) segue mandando — silencia só o aviso, não erros reais.
+    "ignoreDeprecations": "6.0",
     "target": "ES2023",
     "lib": ["ES2023"],
     "module": "ESNext",

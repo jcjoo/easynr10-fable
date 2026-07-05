@@ -2,7 +2,7 @@ import { jsonb, pgTable, uniqueIndex, uuid, varchar } from 'drizzle-orm/pg-core'
 import { audit, id, whereActive } from './helpers';
 import { equipmentType, registerTarget } from './enums';
 import { unit } from './org';
-import { document, folder } from './pie';
+import { document, folder, folderSchema } from './pie';
 
 // Cadastros da unidade (decisão do usuário em 03/07/2026: sem módulo genérico
 // de grupos — Colaboradores e Equipamentos são módulos próprios; o requisito
@@ -57,6 +57,27 @@ export const customField = pgTable(
   (t) => [
     uniqueIndex('uq_custom_field_unit_target_name')
       .on(t.unitId, t.target, t.name)
+      .where(whereActive(t)),
+  ],
+);
+
+// Configuração do grupo-alvo por unidade: estrutura de pastas padrão que vem
+// PRÉ-selecionada (mas opcional) ao criar um item do grupo — a pasta do item
+// nasce com essa estrutura dentro.
+export const registerTargetSetting = pgTable(
+  'register_target_setting',
+  {
+    id: id(),
+    unitId: uuid('unit_id')
+      .notNull()
+      .references(() => unit.id),
+    target: registerTarget('target').notNull(),
+    folderSchemaId: uuid('folder_schema_id').references(() => folderSchema.id),
+    ...audit,
+  },
+  (t) => [
+    uniqueIndex('uq_register_target_setting')
+      .on(t.unitId, t.target)
       .where(whereActive(t)),
   ],
 );

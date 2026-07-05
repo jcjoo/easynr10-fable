@@ -4,7 +4,6 @@ import {
   diagnosticStatuses,
   documentGroups,
   equipmentTypes,
-  memberRoles,
   registerTargets,
   requirementTypes,
 } from './enums';
@@ -32,13 +31,6 @@ export const unitUpdateSchema = z.object({
   name: z.string().trim().min(2).max(255).optional(),
 });
 export type UnitUpdateInput = z.infer<typeof unitUpdateSchema>;
-
-export const membershipSetSchema = z.object({
-  unitId: z.uuid(),
-  userId: z.uuid(),
-  role: z.enum(memberRoles),
-});
-export type MembershipSetInput = z.infer<typeof membershipSetSchema>;
 
 // — PIE (F2) —
 
