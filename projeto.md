@@ -203,11 +203,13 @@ apps/api/src/
   trpc.ts                 # procedures base (protected, unitProcedure)
   services/               # camada de dados/regras — routers e HTTP consomem daqui
     reports.ts            #   builders de relatórios/dashboards (RF19–RF22)
+    folders.ts registers.ts register-folders.ts visibility.ts
   routers/                # procedures tRPC por domínio
     adequacy/             #   composto por módulos: items, requirements,
                           #   diagnostics, actions (namespace adequacy.*)
     documents.ts folders.ts registers.ts reports.ts users.ts …
   report-export.ts        # rota HTTP GET /api/reports/export (CSV/PDF)
+  permissions.ts          # gera PERMISSOES.md dos metadados dos procedures
   s3.ts auth.ts env.ts cascade.ts
 
 apps/web/src/
@@ -215,17 +217,21 @@ apps/web/src/
   components/
     ui/                   # primitivos ÚNICOS: pill, status-pill, filter-chips,
                           #   tabs (SegmentedTabs), sortable, dialog, row-menu…
-    layout/               # sidebar (+ botão Novo), header, árvore do PIE, logo
+    layout/               # sidebar (drawer no mobile, + botão Novo), header,
+                          #   busca global, árvore do PIE, logo
     pie/                  # document-picker, upload, versões, preview, esquemas
     diagnostico/          # assessment-dialog (avaliação + evidências + histórico)
     registros/            # import-dialog (planilha)
-  lib/                    # trpc, auth-client, format (datas/bytes pt-BR)
+  lib/                    # trpc, auth-client, format (datas/bytes pt-BR),
+                          #   use-unit-permissions, use-dialog-mutation
   stores/                 # contexto ativo (empresa/unidade), tema
 
 packages/shared/src/      # contrato entre front e back
   enums.ts                # enums, labels, scores, faixas, actionPriority,
                           #   compareNormCodes, normalizeText, registerBasePath
   schemas.ts              # Zod schemas dos inputs de mutation
+  expiry.ts               # situação documental (vencido/a vencer) — regra única
+  nr10-groups.ts          # grupos A–O do checklist (Visão Geral) + agregados
 ```
 
 Convenções de dependência: **páginas → componentes → ui**; **routers → services → db**; regras de negócio puras (fórmulas, faixas, ordenação) vivem no `shared` e são a única fonte para front e back.
@@ -238,8 +244,10 @@ graph LR
     D --> E["/empresas"]
     E --> EO["/:empresaId (painel da empresa)"]
     EO --> UN["/:empresaId/unidades"]
+    EO --> EU["/:empresaId/usuarios · …/papeis (admin)"]
     UN --> UH["/:empresaId/:unidadeId (painel da unidade)"]
     UH --> PIE["…/pie (?pasta=&ver=&venc=)"]
+    UH --> VG["…/visao-geral (?status=)"]
     UH --> DIAG["…/diagnosticos (?status=)"]
     UH --> PA["…/plano-de-acao"]
     UH --> REL["…/relatorios (?tipo=&status=&grupo=&q=)"]
@@ -684,15 +692,16 @@ sequenceDiagram
 - **Runtime**: 100% Bun — imagens `oven/bun` (o wrapper `node`→bun da imagem cobre CLIs com shebang node); scripts de vite/drizzle-kit usam `bunx --bun`. Não há dependência de Node em nenhum ambiente.
 - **Migrations**: programáticas (`packages/db/src/migrate.ts`), aplicadas no boot do container da API; geradas por `drizzle-kit generate`.
 - **Seeds**: catálogo NR-10 (90 normas + 101 requisitos), 30 documentos padrão e dados de desenvolvimento.
-- **CI (alvo)**: lint (oxlint) → typecheck → build; e2e Playwright nos fluxos críticos.
+- **Testes**: `bun test` — o preload (`packages/db/tests/preload.ts`) recria um banco descartável `easynr10_test` na infra de dev (5433) e aplica as migrations; testes de API exercitam os routers via caller do tRPC.
+- **CI (alvo)**: lint (oxlint) → typecheck → test → build; e2e Playwright nos fluxos críticos.
 - **Backups**: Postgres + bucket versionado.
 
 ## 10. Qualidade
 
 1. Todo requisito implementado com autorização de tenant verificada no servidor.
-2. Regras de negócio puras no `shared` (unit-testáveis); fluxos críticos (login, upload, diagnóstico, exportação) validados por e2e na stack Docker.
-3. Lint + typecheck limpos.
-4. UI em pt-BR, navegável por URL, responsiva, dark mode.
+2. Regras de negócio puras no `shared` cobertas por testes unitários; routers cobertos por testes de integração (tRPC caller + banco de teste); fluxos críticos (login, upload, diagnóstico, exportação) validados na stack Docker.
+3. Lint + typecheck + testes limpos.
+4. UI em pt-BR, navegável por URL, responsiva (desktop e mobile, sidebar em drawer), dark mode.
 5. Componentes de UI únicos (pill/chips/tabs/dialog/sortable) — nada de estilos inline duplicados por página.
 
 ## 11. Roadmap

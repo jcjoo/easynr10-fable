@@ -1,4 +1,4 @@
-import { z } from 'zod';
+import { z } from "zod";
 import {
   actionStatuses,
   diagnosticStatuses,
@@ -6,7 +6,7 @@ import {
   equipmentTypes,
   registerTargets,
   requirementTypes,
-} from './enums';
+} from "./enums";
 
 // Schemas de entrada compartilhados entre web (formulários) e api (procedures).
 
@@ -38,11 +38,12 @@ export interface FolderSchemaNodeInput {
   name: string;
   children?: FolderSchemaNodeInput[];
 }
-export const folderSchemaNodeSchema: z.ZodType<FolderSchemaNodeInput> = z.lazy(() =>
-  z.object({
-    name: z.string().trim().min(1).max(255),
-    children: z.array(folderSchemaNodeSchema).optional(),
-  }),
+export const folderSchemaNodeSchema: z.ZodType<FolderSchemaNodeInput> = z.lazy(
+  () =>
+    z.object({
+      name: z.string().trim().min(1).max(255),
+      children: z.array(folderSchemaNodeSchema).optional(),
+    }),
 );
 
 export const folderSchemaCreateSchema = z.object({
@@ -119,7 +120,9 @@ export const documentVersionConfirmSchema = z.object({
   mimeType: z.string().min(1).max(255),
   sizeBytes: z.number().int().nonnegative(),
 });
-export type DocumentVersionConfirmInput = z.infer<typeof documentVersionConfirmSchema>;
+export type DocumentVersionConfirmInput = z.infer<
+  typeof documentVersionConfirmSchema
+>;
 
 // — Avaliação da Conformidade (F3) —
 
@@ -173,9 +176,13 @@ export const requirementCreateSchema = z
     targetGroup: z.enum(registerTargets).nullish(),
     defaultDocumentId: z.uuid().nullish(),
   })
-  .refine((value) => value.type !== 'group' || (value.targetGroup && value.defaultDocumentId), {
-    message: 'Requisito de grupo exige o grupo alvo e o documento padrão',
-  });
+  .refine(
+    (value) =>
+      value.type !== "group" || (value.targetGroup && value.defaultDocumentId),
+    {
+      message: "Requisito de grupo exige o grupo alvo e o documento padrão",
+    },
+  );
 export type RequirementCreateInput = z.infer<typeof requirementCreateSchema>;
 
 export const actionItemStatusSchema = z.object({
@@ -230,7 +237,7 @@ export const documentLinkSchema = z
     equipmentIds: z.array(z.uuid()).default([]),
   })
   .refine((value) => value.employeeIds.length + value.equipmentIds.length > 0, {
-    message: 'Selecione ao menos um item para vincular',
+    message: "Selecione ao menos um item para vincular",
   });
 export type DocumentLinkInput = z.infer<typeof documentLinkSchema>;
 

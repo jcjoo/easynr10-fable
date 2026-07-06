@@ -1,0 +1,9 @@
+{
+  // Usa o TypeScript do repo (6.x) em vez do embutido no VS Code — evita
+  // divergência entre o que o editor acusa e o que `bun run typecheck` acusa.
+  "typescript.tsdk": "node_modules/typescript/lib",
+  // Diagnósticos do projeto inteiro no painel Problems, mesmo com os
+  // arquivos fechados (ex.: mudar um schema Zod no shared acusa nos
+  // consumidores de apps/web e apps/api na hora).
+  "typescript.tsserver.experimental.enableProjectDiagnostics": true
+}
