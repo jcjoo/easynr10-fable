@@ -10,25 +10,29 @@ export interface Crumb {
 // Contexto empresa → unidade do guia: último item é a página atual.
 export function Crumbs({ items }: { items: Crumb[] }) {
   return (
-    <nav aria-label="Contexto" className="flex items-center gap-2 font-ui text-[13px]">
+    // min-w-0 + truncate: em telas estreitas cada nível encolhe em vez de
+    // empurrar a busca/tema para fora do header.
+    <nav aria-label="Contexto" className="flex min-w-0 items-center gap-2 font-ui text-[13px]">
       {items.map((item, index) => {
         const last = index === items.length - 1;
         return (
           <Fragment key={`${item.label}-${index}`}>
             {index > 0 && (
-              <span aria-hidden className="text-line-strong">
+              <span aria-hidden className="shrink-0 text-line-strong">
                 /
               </span>
             )}
             {last || !item.to ? (
-              <span className={last ? 'font-semibold text-ink' : 'text-muted'}>
+              <span
+                className={`min-w-0 truncate ${last ? 'font-semibold text-ink' : 'text-muted'}`}
+              >
                 {item.label}
               </span>
             ) : (
               <Link
                 to={item.to}
                 params={item.params}
-                className="text-muted hover:text-action hover:underline"
+                className="min-w-0 truncate text-muted hover:text-action hover:underline"
               >
                 {item.label}
               </Link>

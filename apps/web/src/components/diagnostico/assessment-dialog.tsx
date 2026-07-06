@@ -209,7 +209,7 @@ export function AssessmentDialog({
             }}
             className="flex flex-col gap-4"
           >
-            <div className="flex gap-4">
+            <div className="flex flex-col gap-4 sm:flex-row">
               <SelectField
                 label="Aderência"
                 value={status}
@@ -303,7 +303,7 @@ export function AssessmentDialog({
                               onClick={() =>
                                 setDocPicker({ requirementId: req.id, groupIndex: index })
                               }
-                              className={`w-64 cursor-pointer truncate rounded-ctl border border-line-strong bg-surface px-2 py-1 text-left text-[13px] hover:border-action ${
+                              className={`w-64 max-w-full cursor-pointer truncate rounded-ctl border border-line-strong bg-surface px-2 py-1 text-left text-[13px] hover:border-action ${
                                 draft.documentId ? '' : 'text-muted'
                               }`}
                             >
@@ -318,7 +318,7 @@ export function AssessmentDialog({
               </div>
             )}
 
-            <div className="flex gap-4">
+            <div className="flex flex-col gap-4 sm:flex-row">
               <Field
                 label="Responsável"
                 value={responsible}

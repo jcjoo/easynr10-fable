@@ -1,4 +1,4 @@
-import { useEffect, type JSX } from 'react';
+import { useEffect, useState, type JSX } from 'react';
 import {
   Outlet,
   createRootRoute,
@@ -7,6 +7,7 @@ import {
   notFound,
   redirect,
   useParams,
+  useRouterState,
 } from '@tanstack/react-router';
 import { authClient } from '@/lib/auth-client';
 import { queryClient, trpc } from '@/lib/trpc';
@@ -25,6 +26,7 @@ import { PapeisPage } from '@/pages/papeis';
 import { UsuariosEmpresaPage } from '@/pages/usuarios-empresa';
 import { DiagnosticoItemPage } from '@/pages/diagnostico-item';
 import { DiagnosticosPage } from '@/pages/diagnosticos';
+import { VisaoGeralPage } from '@/pages/visao-geral';
 import { PlanoDeAcaoPage } from '@/pages/plano-de-acao';
 import { RelatoriosPage, reportTabs, type ReportSearch, type ReportTab } from '@/pages/relatorios';
 import {
@@ -82,14 +84,27 @@ function AuthedLayout() {
     else if (params.companyId) setCompany(params.companyId);
   }, [params.companyId, params.unitId, setCompany, setUnit]);
 
+  // No mobile a sidebar vira drawer (hambúrguer no header); navegar fecha.
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const pathname = useRouterState({ select: (state) => state.location.pathname });
+  useEffect(() => setSidebarOpen(false), [pathname]);
+
   return (
     // Shell fixo na viewport: sidebar e header não rolam; só o <main> tem scroll.
-    <div className="flex h-screen overflow-hidden bg-paper text-ink">
-      <Sidebar />
+    // h-dvh (não h-screen): no mobile a barra do navegador encolhe a viewport.
+    <div className="flex h-dvh overflow-hidden bg-paper text-ink">
+      {sidebarOpen && (
+        <div
+          aria-hidden
+          onClick={() => setSidebarOpen(false)}
+          className="fixed inset-0 z-40 bg-ink/40 lg:hidden"
+        />
+      )}
+      <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
       <div className="flex min-w-0 flex-1 flex-col">
-        <Header />
+        <Header onMenuClick={() => setSidebarOpen(true)} />
         {/* Painel de conteúdo estilo Drive: surface arredondada sobre o fundo paper */}
-        <main className="mb-3 mr-3 min-w-0 flex-1 overflow-y-auto rounded-card border border-line bg-surface">
+        <main className="mx-3 mb-3 min-w-0 flex-1 overflow-y-auto rounded-card border border-line bg-surface lg:ml-0">
           <Outlet />
         </main>
       </div>
@@ -259,6 +274,23 @@ const pieRoute = createRoute({
   }),
   component: PiePage,
 });
+// Visão Geral da conformidade: itens do diagnóstico agrupados pela estrutura
+// de grupos do checklist NR-10; mesmo filtro de aderência na URL.
+const visaoGeralRoute = createRoute({
+  getParentRoute: () => authedRoute,
+  path: '/$companyId/$unitId/visao-geral',
+  beforeLoad: ({ params }) => requireUuidParams(params),
+  validateSearch: (search: Record<string, unknown>): { status?: string } => {
+    const tokens =
+      typeof search.status === 'string'
+        ? search.status
+            .split(',')
+            .filter((token) => diagnosticFilters.includes(token as DiagnosticFilter))
+        : [];
+    return { status: tokens.length > 0 ? tokens.join(',') : undefined };
+  },
+  component: VisaoGeralPage,
+});
 // Filtro de aderência persistido na URL — CSV componível
 // (?status=inexistente,inadequada); só tokens válidos sobrevivem.
 const diagnosticosRoute = createRoute({
@@ -338,6 +370,7 @@ const routeTree = rootRoute.addChildren([
     usuariosEmpresaRoute,
     unitHomeRoute,
     pieRoute,
+    visaoGeralRoute,
     diagnosticosRoute,
     diagnosticoItemRoute,
     planoDeAcaoRoute,

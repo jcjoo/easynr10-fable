@@ -5,6 +5,7 @@ import { Download, FileText, FolderPlus, Layers, List, Pencil, Upload } from 'lu
 
 import { trpc } from '@/lib/trpc';
 import { useUnitPermissions } from '@/lib/use-unit-permissions';
+import { useDialogMutation, useDialogTarget } from '@/lib/use-dialog-mutation';
 import { formatDate } from '@/lib/format';
 import { Button } from '@/components/ui/button';
 import { Page } from '@/components/ui/page';
@@ -28,7 +29,7 @@ import {
   toggleSort,
   type SortValue,
 } from '@/components/ui/sortable';
-import { normalizeText } from '@easynr10/shared';
+import { DEFAULT_WARN_DAYS, daysUntilExpiry, normalizeText } from '@easynr10/shared';
 
 interface FolderNode {
   id: string;
@@ -51,8 +52,6 @@ interface DocumentRow {
   folderId?: string;
 }
 
-const DEFAULT_WARN_DAYS = 30;
-
 // Ações rápidas da linha (estilo do legado): invisíveis até o hover da linha
 // (tr com `group`) ou foco por teclado; o ⋯ ao lado fica sempre visível.
 const rowActionClass = `cursor-pointer rounded-ctl p-1 text-muted opacity-0 transition-opacity
@@ -66,9 +65,7 @@ function ExpiryPill({
   warnDaysBefore: number | null;
 }) {
   if (!expiresAt) return <span className="text-muted">—</span>;
-  const days = Math.ceil(
-    (new Date(`${expiresAt}T00:00:00`).getTime() - Date.now()) / 86_400_000,
-  );
+  const days = daysUntilExpiry(expiresAt);
   const date = formatDate(`${expiresAt}T00:00:00`);
   if (days < 0) return <Pill label={date} className="text-bad bg-bad-soft" title="Vencido" />;
   if (days <= (warnDaysBefore ?? DEFAULT_WARN_DAYS)) {
@@ -79,9 +76,11 @@ function ExpiryPill({
 
 export function PiePage() {
   const { companyId, unitId } = useParams({ from: '/_authed/$companyId/$unitId/pie' });
-  const { pasta, ver, venc, de, ate, ord, dir } = useSearch({
-    from: '/_authed/$companyId/$unitId/pie',
-  });
+  const search = useSearch({ from: '/_authed/$companyId/$unitId/pie' });
+  const { pasta, ver, venc, de, ate, ord, dir } = search;
+  // Um único ponto monta a search preservando o estado atual — antes cada
+  // navegação repetia a lista de parâmetros à mão.
+  const patchSearch = (patch: Partial<typeof search>) => ({ ...search, ...patch });
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   // Visão "apenas documentos" (?ver=documentos): lista tudo abaixo da pasta atual.
@@ -152,37 +151,25 @@ export function PiePage() {
   // — Nova pasta —
   const [creating, setCreating] = useState(false);
   const [folderName, setFolderName] = useState('');
-  const createFolder = useMutation(
-    trpc.folders.create.mutationOptions({
-      onSuccess: () => {
-        setFolderName('');
-        setCreating(false);
-        invalidateFolders();
-      },
-    }),
-  );
+  const createFolder = useDialogMutation(trpc.folders.create.mutationOptions(), () => {
+    setFolderName('');
+    setCreating(false);
+    invalidateFolders();
+  });
 
   // — Pasta: renomear / excluir —
-  const [renameTarget, setRenameTarget] = useState<FolderNode | null>(null);
+  const renameDialog = useDialogTarget<FolderNode>();
   const [renameValue, setRenameValue] = useState('');
-  const renameFolder = useMutation(
-    trpc.folders.rename.mutationOptions({
-      onSuccess: () => {
-        setRenameTarget(null);
-        invalidateFolders();
-      },
-    }),
-  );
-  const [deleteFolderTarget, setDeleteFolderTarget] = useState<FolderNode | null>(null);
-  const removeFolder = useMutation(
-    trpc.folders.remove.mutationOptions({
-      onSuccess: () => {
-        setDeleteFolderTarget(null);
-        invalidateFolders();
-        invalidateDocuments();
-      },
-    }),
-  );
+  const renameFolder = useDialogMutation(trpc.folders.rename.mutationOptions(), () => {
+    renameDialog.close();
+    invalidateFolders();
+  });
+  const deleteFolderDialog = useDialogTarget<FolderNode>();
+  const removeFolder = useDialogMutation(trpc.folders.remove.mutationOptions(), () => {
+    deleteFolderDialog.close();
+    invalidateFolders();
+    invalidateDocuments();
+  });
 
   // — Upload (novo documento e nova versão) —
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -235,30 +222,22 @@ export function PiePage() {
   }
 
   // — Documento: editar / excluir / versões / download —
-  const [editTarget, setEditTarget] = useState<DocumentRow | null>(null);
+  const editDialog = useDialogTarget<DocumentRow>();
   const [editName, setEditName] = useState('');
   const [editExpires, setEditExpires] = useState('');
   const [editWarnDays, setEditWarnDays] = useState('');
-  const updateDocument = useMutation(
-    trpc.documents.update.mutationOptions({
-      onSuccess: () => {
-        setEditTarget(null);
-        invalidateDocuments();
-      },
-    }),
-  );
+  const updateDocument = useDialogMutation(trpc.documents.update.mutationOptions(), () => {
+    editDialog.close();
+    invalidateDocuments();
+  });
 
-  const [deleteTarget, setDeleteTarget] = useState<DocumentRow | null>(null);
-  const removeDocument = useMutation(
-    trpc.documents.remove.mutationOptions({
-      onSuccess: () => {
-        setDeleteTarget(null);
-        invalidateDocuments();
-      },
-    }),
-  );
+  const deleteDialog = useDialogTarget<DocumentRow>();
+  const removeDocument = useDialogMutation(trpc.documents.remove.mutationOptions(), () => {
+    deleteDialog.close();
+    invalidateDocuments();
+  });
 
-  const [versionsTarget, setVersionsTarget] = useState<DocumentRow | null>(null);
+  const versionsDialog = useDialogTarget<DocumentRow>();
 
   const downloadUrl = useMutation(trpc.documents.downloadUrl.mutationOptions());
   async function download(documentId: string, versionId?: string) {
@@ -279,7 +258,7 @@ export function PiePage() {
   }
 
   function openEdit(doc: DocumentRow) {
-    setEditTarget(doc);
+    editDialog.open(doc);
     setEditName(doc.name);
     setEditExpires(doc.expiresAt ?? '');
     setEditWarnDays(doc.warnDaysBefore != null ? String(doc.warnDaysBefore) : '');
@@ -289,10 +268,10 @@ export function PiePage() {
   const documentMenuItems = (doc: DocumentRow): MenuItem[] => [
     { label: 'Visualizar', onSelect: () => openPreview(doc) },
     { label: 'Baixar', onSelect: () => download(doc.id) },
-    { label: 'Histórico de versões', onSelect: () => setVersionsTarget(doc) },
+    { label: 'Histórico de versões', onSelect: () => versionsDialog.open(doc) },
     ...(canEditDoc ? [{ label: 'Editar', onSelect: () => openEdit(doc) }] : []),
     ...(canDeleteDoc
-      ? [{ label: 'Excluir', danger: true, onSelect: () => setDeleteTarget(doc) }]
+      ? [{ label: 'Excluir', danger: true, onSelect: () => deleteDialog.open(doc) }]
       : []),
   ];
 
@@ -308,21 +287,16 @@ export function PiePage() {
   const [sectionMenu, setSectionMenu] = useState<MenuPosition | null>(null);
 
   // `view` omitido mantém o modo atual; 'lista' força a visão normal.
-  // O filtro de vencimento acompanha a navegação entre pastas.
+  // Filtros e ordenação seguem intactos (patchSearch).
   const goTo = (folderId?: string, view?: 'documentos' | 'lista') => {
     const mode = view ?? (docsOnly ? 'documentos' : 'lista');
     return navigate({
       to: '/$companyId/$unitId/pie',
       params: { companyId, unitId },
-      search: {
-        ...(folderId ? { pasta: folderId } : {}),
-        ...(mode === 'documentos' ? { ver: 'documentos' as const } : {}),
-        ...(venc ? { venc } : {}),
-        ...(de ? { de } : {}),
-        ...(ate ? { ate } : {}),
-        ord,
-        dir,
-      },
+      search: patchSearch({
+        pasta: folderId,
+        ver: mode === 'documentos' ? ('documentos' as const) : undefined,
+      }),
     });
   };
 
@@ -354,14 +328,7 @@ export function PiePage() {
     navigate({
       to: '/$companyId/$unitId/pie',
       params: { companyId, unitId },
-      search: {
-        ...(pasta ? { pasta } : {}),
-        ...(ver ? { ver } : {}),
-        ...(venc ? { venc } : {}),
-        ...(de ? { de } : {}),
-        ...(ate ? { ate } : {}),
-        ...toggleSort({ ord, dir }, key, 'nome'),
-      },
+      search: patchSearch(toggleSort({ ord, dir }, key, 'nome')),
     });
 
   return (
@@ -434,13 +401,7 @@ export function PiePage() {
           navigate({
             to: '/$companyId/$unitId/pie',
             params: { companyId, unitId },
-            search: {
-              ...(pasta ? { pasta } : {}),
-              ...(ver ? { ver } : {}),
-              ...next,
-              ord,
-              dir,
-            },
+            search: patchSearch({ venc: undefined, de: undefined, ate: undefined, ...next }),
           })
         }
       />
@@ -613,7 +574,7 @@ export function PiePage() {
                         aria-label={`Renomear pasta ${node.name}`}
                         onClick={(e) => {
                           e.stopPropagation();
-                          setRenameTarget(node);
+                          renameDialog.open(node);
                           setRenameValue(node.name);
                         }}
                         className={rowActionClass}
@@ -630,7 +591,7 @@ export function PiePage() {
                                 {
                                   label: 'Renomear',
                                   onSelect: () => {
-                                    setRenameTarget(node);
+                                    renameDialog.open(node);
                                     setRenameValue(node.name);
                                   },
                                 },
@@ -641,7 +602,7 @@ export function PiePage() {
                                 {
                                   label: 'Excluir',
                                   danger: true,
-                                  onSelect: () => setDeleteFolderTarget(node),
+                                  onSelect: () => deleteFolderDialog.open(node),
                                 },
                               ]
                             : []),
@@ -778,17 +739,17 @@ export function PiePage() {
       {/* — Diálogos — */}
 
       <Dialog
-        open={Boolean(renameTarget)}
-        onClose={() => setRenameTarget(null)}
+        open={renameDialog.isOpen}
+        onClose={() => renameDialog.close()}
         title="Renomear pasta"
       >
         <form
           onSubmit={(e) => {
             e.preventDefault();
-            if (renameTarget && renameValue.trim())
+            if (renameDialog.target && renameValue.trim())
               renameFolder.mutate({
                 unitId,
-                folderId: renameTarget.id,
+                folderId: renameDialog.target.id,
                 name: renameValue.trim(),
               });
           }}
@@ -801,7 +762,7 @@ export function PiePage() {
             autoFocus
           />
           <div className="flex justify-end gap-2">
-            <Button type="button" variant="secondary" onClick={() => setRenameTarget(null)}>
+            <Button type="button" variant="secondary" onClick={() => renameDialog.close()}>
               Cancelar
             </Button>
             <Button type="submit" disabled={renameFolder.isPending}>
@@ -812,18 +773,18 @@ export function PiePage() {
       </Dialog>
 
       <Dialog
-        open={Boolean(editTarget)}
-        onClose={() => setEditTarget(null)}
+        open={editDialog.isOpen}
+        onClose={() => editDialog.close()}
         title="Editar documento"
       >
         <form
           onSubmit={(e) => {
             e.preventDefault();
-            if (!editTarget) return;
+            if (!editDialog.target) return;
             updateDocument.mutate({
               unitId,
-              documentId: editTarget.id,
-              name: editName.trim() || editTarget.name,
+              documentId: editDialog.target.id,
+              name: editName.trim() || editDialog.target.name,
               expiresAt: editExpires || null,
               warnDaysBefore: editWarnDays ? Number(editWarnDays) : null,
             });
@@ -835,7 +796,7 @@ export function PiePage() {
             value={editName}
             onChange={(e) => setEditName(e.target.value)}
           />
-          <div className="flex gap-4">
+          <div className="flex flex-col gap-4 sm:flex-row">
             <Field
               label="Validade"
               type="date"
@@ -855,7 +816,7 @@ export function PiePage() {
             />
           </div>
           <div className="flex justify-end gap-2">
-            <Button type="button" variant="secondary" onClick={() => setEditTarget(null)}>
+            <Button type="button" variant="secondary" onClick={() => editDialog.close()}>
               Cancelar
             </Button>
             <Button type="submit" disabled={updateDocument.isPending}>
@@ -866,17 +827,17 @@ export function PiePage() {
       </Dialog>
 
       <Dialog
-        open={Boolean(deleteTarget)}
-        onClose={() => setDeleteTarget(null)}
+        open={deleteDialog.isOpen}
+        onClose={() => deleteDialog.close()}
         title="Excluir documento"
       >
         <div className="flex flex-col gap-4">
           <p className="text-sm">
-            Excluir <strong>{deleteTarget?.name}</strong>? O histórico de versões será mantido
+            Excluir <strong>{deleteDialog.target?.name}</strong>? O histórico de versões será mantido
             no registro do prontuário.
           </p>
           <div className="flex justify-end gap-2">
-            <Button type="button" variant="secondary" onClick={() => setDeleteTarget(null)}>
+            <Button type="button" variant="secondary" onClick={() => deleteDialog.close()}>
               Cancelar
             </Button>
             <Button
@@ -884,7 +845,7 @@ export function PiePage() {
               variant="danger"
               disabled={removeDocument.isPending}
               onClick={() =>
-                deleteTarget && removeDocument.mutate({ unitId, documentId: deleteTarget.id })
+                deleteDialog.target && removeDocument.mutate({ unitId, documentId: deleteDialog.target.id })
               }
             >
               Excluir
@@ -894,13 +855,13 @@ export function PiePage() {
       </Dialog>
 
       <Dialog
-        open={Boolean(deleteFolderTarget)}
-        onClose={() => setDeleteFolderTarget(null)}
+        open={deleteFolderDialog.isOpen}
+        onClose={() => deleteFolderDialog.close()}
         title="Excluir pasta"
       >
         <div className="flex flex-col gap-4">
           <p className="text-sm">
-            Excluir a pasta <strong>{deleteFolderTarget?.name}</strong>? Subpastas e documentos
+            Excluir a pasta <strong>{deleteFolderDialog.target?.name}</strong>? Subpastas e documentos
             dentro dela serão excluídos junto.
           </p>
           {removeFolder.error && (
@@ -909,7 +870,7 @@ export function PiePage() {
             </p>
           )}
           <div className="flex justify-end gap-2">
-            <Button type="button" variant="secondary" onClick={() => setDeleteFolderTarget(null)}>
+            <Button type="button" variant="secondary" onClick={() => deleteFolderDialog.close()}>
               Cancelar
             </Button>
             <Button
@@ -917,8 +878,8 @@ export function PiePage() {
               variant="danger"
               disabled={removeFolder.isPending}
               onClick={() =>
-                deleteFolderTarget &&
-                removeFolder.mutate({ unitId, folderId: deleteFolderTarget.id })
+                deleteFolderDialog.target &&
+                removeFolder.mutate({ unitId, folderId: deleteFolderDialog.target.id })
               }
             >
               Excluir
@@ -929,18 +890,18 @@ export function PiePage() {
 
       <DocumentVersionsDialog
         unitId={unitId}
-        target={versionsTarget}
+        target={versionsDialog.target}
         uploading={uploading}
         canUpload={canUploadDoc}
         canRestore={canRestoreDoc}
-        onClose={() => setVersionsTarget(null)}
+        onClose={() => versionsDialog.close()}
         onUploadNewVersion={() => {
-          if (!versionsTarget) return;
-          versionTargetRef.current = versionsTarget.id;
+          if (!versionsDialog.target) return;
+          versionTargetRef.current = versionsDialog.target.id;
           fileInputRef.current?.click();
         }}
-        onDownload={(versionId) => versionsTarget && download(versionsTarget.id, versionId)}
-        onPreview={(versionId) => versionsTarget && openPreview(versionsTarget, versionId)}
+        onDownload={(versionId) => versionsDialog.target && download(versionsDialog.target.id, versionId)}
+        onPreview={(versionId) => versionsDialog.target && openPreview(versionsDialog.target, versionId)}
         onDocumentsChanged={invalidateDocuments}
       />
 
@@ -986,7 +947,7 @@ export function PiePage() {
                   {
                     label: 'Renomear',
                     onSelect: () => {
-                      setRenameTarget(folderMenu.node);
+                      renameDialog.open(folderMenu.node);
                       setRenameValue(folderMenu.node.name);
                     },
                   },
@@ -1009,7 +970,7 @@ export function PiePage() {
                   {
                     label: 'Excluir',
                     danger: true,
-                    onSelect: () => setDeleteFolderTarget(folderMenu.node),
+                    onSelect: () => deleteFolderDialog.open(folderMenu.node),
                   },
                 ]
               : []),

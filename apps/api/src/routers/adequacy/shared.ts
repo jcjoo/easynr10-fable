@@ -1,18 +1,17 @@
 import { TRPCError } from '@trpc/server';
-import { and, count, eq, isNull } from 'drizzle-orm';
-import { schema } from '@easynr10/db';
-import { db } from '../../db';
+import { and, count, eq } from 'drizzle-orm';
+import { notDeleted, schema, type Db } from '@easynr10/db';
 
 const { adequacyItem, adequacyItemRequirement, normRequirement } = schema;
 
 // Helpers compartilhados pelos módulos do router de adequação.
 
-export async function findUnitAdequacyItem(unitId: string, adequacyItemId: string) {
+export async function findUnitAdequacyItem(db: Db, unitId: string, adequacyItemId: string) {
   const found = await db.query.adequacyItem.findFirst({
     where: and(
       eq(adequacyItem.id, adequacyItemId),
       eq(adequacyItem.unitId, unitId),
-      isNull(adequacyItem.deletedAt),
+      notDeleted(adequacyItem),
     ),
   });
   if (!found) {
@@ -25,7 +24,7 @@ export async function findUnitAdequacyItem(unitId: string, adequacyItemId: strin
 // como o evento adequacyItem.created do legado, mas lazy (itens antigos
 // ganham os requisitos no primeiro acesso). Conta também os excluídos para
 // não ressuscitar requisitos que o consultor removeu.
-export async function ensureItemRequirements(item: { id: string; normId: string }) {
+export async function ensureItemRequirements(db: Db, item: { id: string; normId: string }) {
   const [existing] = await db
     .select({ total: count() })
     .from(adequacyItemRequirement)
@@ -35,7 +34,7 @@ export async function ensureItemRequirements(item: { id: string; normId: string 
   const templates = await db
     .select({ type: normRequirement.type, question: normRequirement.question })
     .from(normRequirement)
-    .where(and(eq(normRequirement.normId, item.normId), isNull(normRequirement.deletedAt)));
+    .where(and(eq(normRequirement.normId, item.normId), notDeleted(normRequirement)));
   if (templates.length === 0) return;
 
   await db.insert(adequacyItemRequirement).values(

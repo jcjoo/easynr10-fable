@@ -1,6 +1,5 @@
-import { asc, isNull } from 'drizzle-orm';
-import { schema } from '@easynr10/db';
-import { db } from '../db';
+import { asc } from 'drizzle-orm';
+import { notDeleted, schema } from '@easynr10/db';
 import { protectedProcedure, router } from '../trpc';
 
 const { defaultDocument } = schema;
@@ -8,8 +7,8 @@ const { defaultDocument } = schema;
 // Catálogo global de nomes de documentos padrão (RF11): alimenta o select
 // do modal de upload — nomes com " - *" pedem complemento.
 export const defaultDocumentsRouter = router({
-  list: protectedProcedure.query(async () => {
-    return db
+  list: protectedProcedure.query(async ({ ctx }) => {
+    return ctx.db
       .select({
         id: defaultDocument.id,
         name: defaultDocument.name,
@@ -17,7 +16,7 @@ export const defaultDocumentsRouter = router({
         isOptional: defaultDocument.isOptional,
       })
       .from(defaultDocument)
-      .where(isNull(defaultDocument.deletedAt))
+      .where(notDeleted(defaultDocument))
       .orderBy(asc(defaultDocument.name));
   }),
 });

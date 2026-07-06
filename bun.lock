@@ -53,6 +53,7 @@
       },
       "devDependencies": {
         "@easynr10/api": "workspace:*",
+        "@types/bun": "^1.3.14",
         "@types/react": "^19.2.0",
         "@types/react-dom": "^19.2.0",
         "@vitejs/plugin-react": "^5.1.0",
@@ -83,6 +84,7 @@
         "zod": "^4.3.5",
       },
       "devDependencies": {
+        "@types/bun": "^1.3.14",
         "typescript": "^6.0.3",
       },
     },

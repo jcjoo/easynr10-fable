@@ -1,6 +1,6 @@
 import { TRPCError } from '@trpc/server';
-import { and, desc, eq, inArray, isNull, max } from 'drizzle-orm';
-import { schema } from '@easynr10/db';
+import { and, desc, eq, inArray, max } from 'drizzle-orm';
+import { notDeleted, schema, type Db } from '@easynr10/db';
 import {
   documentConfirmSchema,
   documentUpdateSchema,
@@ -8,7 +8,6 @@ import {
   uploadRequestSchema,
 } from '@easynr10/shared';
 import { z } from 'zod';
-import { db } from '../db';
 import { router, unitAction } from '../trpc';
 import { buildStorageKey, presignDownload, presignPreview, presignUpload } from '../s3';
 
@@ -16,13 +15,13 @@ const { document, documentVersion, folder, user } = schema;
 
 // Documento da unidade (via pasta) ou 404 — garante o isolamento de tenant
 // mesmo com um documentId de outra unidade.
-async function findUnitDocument(unitId: string, documentId: string) {
+async function findUnitDocument(db: Db, unitId: string, documentId: string) {
   const [row] = await db
     .select({ document })
     .from(document)
     .innerJoin(folder, eq(document.folderId, folder.id))
     .where(
-      and(eq(document.id, documentId), eq(folder.unitId, unitId), isNull(document.deletedAt)),
+      and(eq(document.id, documentId), eq(folder.unitId, unitId), notDeleted(document)),
     );
   if (!row) {
     throw new TRPCError({ code: 'NOT_FOUND', message: 'Documento não encontrado' });
@@ -33,8 +32,8 @@ async function findUnitDocument(unitId: string, documentId: string) {
 export const documentsRouter = router({
   listByFolder: unitAction('pie.ler')
     .input(z.object({ folderId: z.uuid() }))
-    .query(async ({ input }) => {
-      return db
+    .query(async ({ ctx, input }) => {
+      return ctx.db
         .select({
           id: document.id,
           name: document.name,
@@ -55,7 +54,7 @@ export const documentsRouter = router({
           and(
             eq(document.folderId, input.folderId),
             eq(folder.unitId, input.unitId),
-            isNull(document.deletedAt),
+            notDeleted(document),
           ),
         )
         .orderBy(desc(document.updatedAt));
@@ -65,11 +64,11 @@ export const documentsRouter = router({
   // com folderId para a coluna Local. Descendentes calculados da lista flat.
   listBySubtree: unitAction('pie.ler')
     .input(z.object({ folderId: z.uuid().nullable() }))
-    .query(async ({ input }) => {
-      const allFolders = await db
+    .query(async ({ ctx, input }) => {
+      const allFolders = await ctx.db
         .select({ id: folder.id, parentId: folder.parentId })
         .from(folder)
-        .where(and(eq(folder.unitId, input.unitId), isNull(folder.deletedAt)));
+        .where(and(eq(folder.unitId, input.unitId), notDeleted(folder)));
 
       let folderIds = allFolders.map((node) => node.id);
       if (input.folderId != null) {
@@ -86,7 +85,7 @@ export const documentsRouter = router({
       }
       if (folderIds.length === 0) return [];
 
-      return db
+      return ctx.db
         .select({
           id: document.id,
           name: document.name,
@@ -103,7 +102,7 @@ export const documentsRouter = router({
         .from(document)
         .leftJoin(documentVersion, eq(document.currentVersionId, documentVersion.id))
         .leftJoin(user, eq(documentVersion.uploadedBy, user.id))
-        .where(and(inArray(document.folderId, folderIds), isNull(document.deletedAt)))
+        .where(and(inArray(document.folderId, folderIds), notDeleted(document)))
         .orderBy(desc(document.updatedAt));
     }),
 
@@ -116,18 +115,18 @@ export const documentsRouter = router({
 
   // Passo 2: confirma e cria documento + versão 1 (RF09.1).
   confirmUpload: unitAction('pie.documento.enviar').input(documentConfirmSchema).mutation(async ({ ctx, input }) => {
-    const parent = await db.query.folder.findFirst({
+    const parent = await ctx.db.query.folder.findFirst({
       where: and(
         eq(folder.id, input.folderId),
         eq(folder.unitId, input.unitId),
-        isNull(folder.deletedAt),
+        notDeleted(folder),
       ),
     });
     if (!parent) {
       throw new TRPCError({ code: 'NOT_FOUND', message: 'Pasta não encontrada' });
     }
 
-    return db.transaction(async (tx) => {
+    return ctx.db.transaction(async (tx) => {
       const [created] = await tx
         .insert(document)
         .values({
@@ -161,8 +160,8 @@ export const documentsRouter = router({
   confirmNewVersion: unitAction('pie.documento.enviar')
     .input(documentVersionConfirmSchema)
     .mutation(async ({ ctx, input }) => {
-      const doc = await findUnitDocument(input.unitId, input.documentId);
-      return db.transaction(async (tx) => {
+      const doc = await findUnitDocument(ctx.db, input.unitId, input.documentId);
+      return ctx.db.transaction(async (tx) => {
         const [last] = await tx
           .select({ number: max(documentVersion.number) })
           .from(documentVersion)
@@ -191,8 +190,8 @@ export const documentsRouter = router({
   restoreVersion: unitAction('pie.documento.restaurar')
     .input(z.object({ documentId: z.uuid(), versionId: z.uuid() }))
     .mutation(async ({ ctx, input }) => {
-      const doc = await findUnitDocument(input.unitId, input.documentId);
-      const source = await db.query.documentVersion.findFirst({
+      const doc = await findUnitDocument(ctx.db, input.unitId, input.documentId);
+      const source = await ctx.db.query.documentVersion.findFirst({
         where: and(
           eq(documentVersion.id, input.versionId),
           eq(documentVersion.documentId, doc.id),
@@ -201,7 +200,7 @@ export const documentsRouter = router({
       if (!source) {
         throw new TRPCError({ code: 'NOT_FOUND', message: 'Versão não encontrada' });
       }
-      return db.transaction(async (tx) => {
+      return ctx.db.transaction(async (tx) => {
         const [last] = await tx
           .select({ number: max(documentVersion.number) })
           .from(documentVersion)
@@ -226,9 +225,9 @@ export const documentsRouter = router({
     }),
 
   // Nome e validade (RF10).
-  update: unitAction('pie.documento.editar').input(documentUpdateSchema).mutation(async ({ input }) => {
-    const doc = await findUnitDocument(input.unitId, input.documentId);
-    const [updated] = await db
+  update: unitAction('pie.documento.editar').input(documentUpdateSchema).mutation(async ({ ctx, input }) => {
+    const doc = await findUnitDocument(ctx.db, input.unitId, input.documentId);
+    const [updated] = await ctx.db
       .update(document)
       .set({
         ...(input.name !== undefined ? { name: input.name } : {}),
@@ -245,18 +244,18 @@ export const documentsRouter = router({
   // Soft-delete: o prontuário é registro legal — versões e objetos ficam retidos.
   remove: unitAction('pie.documento.excluir')
     .input(z.object({ documentId: z.uuid() }))
-    .mutation(async ({ input }) => {
-      const doc = await findUnitDocument(input.unitId, input.documentId);
-      await db.update(document).set({ deletedAt: new Date() }).where(eq(document.id, doc.id));
+    .mutation(async ({ ctx, input }) => {
+      const doc = await findUnitDocument(ctx.db, input.unitId, input.documentId);
+      await ctx.db.update(document).set({ deletedAt: new Date() }).where(eq(document.id, doc.id));
       return { success: true };
     }),
 
   // Histórico de versões (RF09.2).
   versions: unitAction('pie.ler')
     .input(z.object({ documentId: z.uuid() }))
-    .query(async ({ input }) => {
-      const doc = await findUnitDocument(input.unitId, input.documentId);
-      return db
+    .query(async ({ ctx, input }) => {
+      const doc = await findUnitDocument(ctx.db, input.unitId, input.documentId);
+      return ctx.db
         .select({
           id: documentVersion.id,
           number: documentVersion.number,
@@ -274,13 +273,13 @@ export const documentsRouter = router({
   // Download presigned da versão corrente ou de uma versão específica (RF09.3).
   downloadUrl: unitAction('pie.ler')
     .input(z.object({ documentId: z.uuid(), versionId: z.uuid().optional() }))
-    .mutation(async ({ input }) => {
-      const doc = await findUnitDocument(input.unitId, input.documentId);
+    .mutation(async ({ ctx, input }) => {
+      const doc = await findUnitDocument(ctx.db, input.unitId, input.documentId);
       const versionId = input.versionId ?? doc.currentVersionId;
       if (!versionId) {
         throw new TRPCError({ code: 'NOT_FOUND', message: 'Documento sem conteúdo' });
       }
-      const version = await db.query.documentVersion.findFirst({
+      const version = await ctx.db.query.documentVersion.findFirst({
         where: and(
           eq(documentVersion.id, versionId),
           eq(documentVersion.documentId, doc.id),
@@ -297,13 +296,13 @@ export const documentsRouter = router({
   // o mimeType volta para a UI decidir como renderizar (iframe/img/fallback).
   previewUrl: unitAction('pie.ler')
     .input(z.object({ documentId: z.uuid(), versionId: z.uuid().optional() }))
-    .mutation(async ({ input }) => {
-      const doc = await findUnitDocument(input.unitId, input.documentId);
+    .mutation(async ({ ctx, input }) => {
+      const doc = await findUnitDocument(ctx.db, input.unitId, input.documentId);
       const versionId = input.versionId ?? doc.currentVersionId;
       if (!versionId) {
         throw new TRPCError({ code: 'NOT_FOUND', message: 'Documento sem conteúdo' });
       }
-      const version = await db.query.documentVersion.findFirst({
+      const version = await ctx.db.query.documentVersion.findFirst({
         where: and(
           eq(documentVersion.id, versionId),
           eq(documentVersion.documentId, doc.id),

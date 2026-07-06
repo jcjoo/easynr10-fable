@@ -1,0 +1,3 @@
+# Testes: banco easynr10_test + migrations aplicadas antes de qualquer import.
+[test]
+preload = ["./packages/db/tests/preload.ts"]

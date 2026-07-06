@@ -1,9 +1,8 @@
 import { TRPCError } from '@trpc/server';
 import { and, asc, count, desc, eq, inArray, isNull, or } from 'drizzle-orm';
-import { schema } from '@easynr10/db';
+import { notDeleted, schema, type Db } from '@easynr10/db';
 import { unitActions, userRoles } from '@easynr10/shared';
 import { z } from 'zod';
-import { db } from '../db';
 import { auth } from '../auth';
 import { adminProcedure, router } from '../trpc';
 
@@ -13,8 +12,8 @@ const { appRole, user, membership, unit, company } = schema;
 // de permissões) e liberar/revogar acesso a unidades com um papel (RF03/RF04).
 export const usersRouter = router({
   // Usuários com o resumo dos papéis de unidade (ex.: Gestor ×2, Leitor ×1).
-  list: adminProcedure.query(async () => {
-    const users = await db
+  list: adminProcedure.query(async ({ ctx }) => {
+    const users = await ctx.db
       .select({
         id: user.id,
         name: user.name,
@@ -25,12 +24,12 @@ export const usersRouter = router({
       .from(user)
       .orderBy(asc(user.name));
 
-    const links = await db
+    const links = await ctx.db
       .select({ userId: membership.userId, roleName: appRole.name })
       .from(membership)
       .innerJoin(appRole, eq(membership.roleId, appRole.id))
       .innerJoin(unit, eq(membership.unitId, unit.id))
-      .where(and(isNull(membership.deletedAt), isNull(unit.deletedAt)));
+      .where(and(notDeleted(membership), notDeleted(unit)));
     const byUser = new Map<string, Map<string, number>>();
     for (const link of links) {
       const roles = byUser.get(link.userId) ?? new Map<string, number>();
@@ -50,8 +49,8 @@ export const usersRouter = router({
   // resumo dos papéis naquela empresa — painel de usuários da empresa.
   listByCompany: adminProcedure
     .input(z.object({ companyId: z.uuid() }))
-    .query(async ({ input }) => {
-      const links = await db
+    .query(async ({ ctx, input }) => {
+      const links = await ctx.db
         .select({
           userId: user.id,
           name: user.name,
@@ -67,8 +66,8 @@ export const usersRouter = router({
         .where(
           and(
             eq(unit.companyId, input.companyId),
-            isNull(membership.deletedAt),
-            isNull(unit.deletedAt),
+            notDeleted(membership),
+            notDeleted(unit),
           ),
         );
       const byUser = new Map<
@@ -108,15 +107,15 @@ export const usersRouter = router({
         unitIds: z.array(z.uuid()).min(1),
       }),
     )
-    .mutation(async ({ input }) => {
-      const role = await findActiveRole(input.roleId);
+    .mutation(async ({ ctx, input }) => {
+      const role = await findActiveRole(ctx.db, input.roleId);
       if (role.companyId && role.companyId !== input.companyId) {
         throw new TRPCError({ code: 'BAD_REQUEST', message: 'Papel de outra empresa' });
       }
-      const units = await db
+      const units = await ctx.db
         .select({ id: unit.id, companyId: unit.companyId })
         .from(unit)
-        .where(and(inArray(unit.id, input.unitIds), isNull(unit.deletedAt)));
+        .where(and(inArray(unit.id, input.unitIds), notDeleted(unit)));
       if (units.length !== input.unitIds.length || units.some((row) => row.companyId !== input.companyId)) {
         throw new TRPCError({ code: 'BAD_REQUEST', message: 'Unidade de outra empresa' });
       }
@@ -130,7 +129,7 @@ export const usersRouter = router({
             message: error instanceof Error ? error.message : 'Falha ao criar usuário',
           });
         });
-      await db.insert(membership).values(
+      await ctx.db.insert(membership).values(
         input.unitIds.map((unitId) => ({
           unitId,
           userId: result.user.id,
@@ -150,7 +149,7 @@ export const usersRouter = router({
         role: z.enum(userRoles),
       }),
     )
-    .mutation(async ({ input }) => {
+    .mutation(async ({ ctx, input }) => {
       const result = await auth.api
         .signUpEmail({
           body: { name: input.name, email: input.email, password: input.password },
@@ -162,7 +161,7 @@ export const usersRouter = router({
           });
         });
       if (input.role !== 'client') {
-        await db.update(user).set({ role: input.role }).where(eq(user.id, result.user.id));
+        await ctx.db.update(user).set({ role: input.role }).where(eq(user.id, result.user.id));
       }
       return { id: result.user.id };
     }),
@@ -173,8 +172,8 @@ export const usersRouter = router({
   // imutáveis — presentes em toda empresa) + os customizados da empresa.
   roles: adminProcedure
     .input(z.object({ companyId: z.uuid() }))
-    .query(async ({ input }) => {
-      const rows = await db
+    .query(async ({ ctx, input }) => {
+      const rows = await ctx.db
         .select({
           id: appRole.id,
           name: appRole.name,
@@ -185,16 +184,16 @@ export const usersRouter = router({
         .from(appRole)
         .where(
           and(
-            isNull(appRole.deletedAt),
+            notDeleted(appRole),
             or(isNull(appRole.companyId), eq(appRole.companyId, input.companyId)),
           ),
         )
         .orderBy(desc(appRole.isSystem), asc(appRole.createdAt));
       // Uso: quantos vínculos ativos apontam para cada papel.
-      const usage = await db
+      const usage = await ctx.db
         .select({ roleId: membership.roleId, total: count() })
         .from(membership)
-        .where(isNull(membership.deletedAt))
+        .where(notDeleted(membership))
         .groupBy(membership.roleId);
       const usageById = new Map(usage.map((row) => [row.roleId, row.total]));
       return rows.map((row) => ({ ...row, inUse: usageById.get(row.id) ?? 0 }));
@@ -236,8 +235,8 @@ export const usersRouter = router({
         permissions: z.array(z.enum(unitActions)),
       }),
     )
-    .mutation(async ({ input }) => {
-      const [created] = await db
+    .mutation(async ({ ctx, input }) => {
+      const [created] = await ctx.db
         .insert(appRole)
         .values({
           companyId: input.companyId,
@@ -256,15 +255,15 @@ export const usersRouter = router({
         permissions: z.array(z.enum(unitActions)).optional(),
       }),
     )
-    .mutation(async ({ input }) => {
-      const role = await findActiveRole(input.roleId);
+    .mutation(async ({ ctx, input }) => {
+      const role = await findActiveRole(ctx.db, input.roleId);
       if (role.isSystem) {
         throw new TRPCError({
           code: 'BAD_REQUEST',
           message: 'Papéis do sistema não podem ser alterados — duplique para customizar',
         });
       }
-      await db
+      await ctx.db
         .update(appRole)
         .set({
           ...(input.name ? { name: input.name } : {}),
@@ -276,18 +275,18 @@ export const usersRouter = router({
 
   removeRole: adminProcedure
     .input(z.object({ roleId: z.uuid() }))
-    .mutation(async ({ input }) => {
-      const role = await findActiveRole(input.roleId);
+    .mutation(async ({ ctx, input }) => {
+      const role = await findActiveRole(ctx.db, input.roleId);
       if (role.isSystem) {
         throw new TRPCError({
           code: 'BAD_REQUEST',
           message: 'Papéis do sistema não podem ser excluídos',
         });
       }
-      const [inUse] = await db
+      const [inUse] = await ctx.db
         .select({ unitId: membership.unitId })
         .from(membership)
-        .where(and(eq(membership.roleId, role.id), isNull(membership.deletedAt)))
+        .where(and(eq(membership.roleId, role.id), notDeleted(membership)))
         .limit(1);
       if (inUse) {
         throw new TRPCError({
@@ -295,7 +294,7 @@ export const usersRouter = router({
           message: 'Papel em uso por acessos ativos — troque o papel desses usuários antes',
         });
       }
-      await db.update(appRole).set({ deletedAt: new Date() }).where(eq(appRole.id, role.id));
+      await ctx.db.update(appRole).set({ deletedAt: new Date() }).where(eq(appRole.id, role.id));
       return { success: true };
     }),
 
@@ -304,23 +303,23 @@ export const usersRouter = router({
   // Unidades liberadas para um usuário, com o papel de cada vínculo.
   memberships: adminProcedure
     .input(z.object({ userId: z.string() }))
-    .query(async ({ input }) => {
-      return db
+    .query(async ({ ctx, input }) => {
+      return ctx.db
         .select({ unitId: membership.unitId, roleId: membership.roleId })
         .from(membership)
-        .where(and(eq(membership.userId, input.userId), isNull(membership.deletedAt)));
+        .where(and(eq(membership.userId, input.userId), notDeleted(membership)));
     }),
 
   // Empresas com suas unidades, para montar a matriz de acesso.
-  accessTree: adminProcedure.query(async () => {
-    const companies = await db.query.company.findMany({
-      where: isNull(company.deletedAt),
+  accessTree: adminProcedure.query(async ({ ctx }) => {
+    const companies = await ctx.db.query.company.findMany({
+      where: notDeleted(company),
       orderBy: [asc(company.name)],
     });
-    const units = await db
+    const units = await ctx.db
       .select({ id: unit.id, name: unit.name, companyId: unit.companyId })
       .from(unit)
-      .where(isNull(unit.deletedAt))
+      .where(notDeleted(unit))
       .orderBy(asc(unit.name));
     return companies.map((item) => ({
       id: item.id,
@@ -333,10 +332,10 @@ export const usersRouter = router({
     .input(
       z.object({ userId: z.string(), unitIds: z.array(z.uuid()).min(1), roleId: z.uuid() }),
     )
-    .mutation(async ({ input }) => {
-      const role = await findActiveRole(input.roleId);
+    .mutation(async ({ ctx, input }) => {
+      const role = await findActiveRole(ctx.db, input.roleId);
       if (role.companyId) {
-        const rows = await db
+        const rows = await ctx.db
           .select({ companyId: unit.companyId })
           .from(unit)
           .where(inArray(unit.id, input.unitIds));
@@ -349,7 +348,7 @@ export const usersRouter = router({
       }
       // PK (unit_id, user_id): re-liberar um vínculo soft-deletado o reativa
       // (e atualiza o papel).
-      await db
+      await ctx.db
         .insert(membership)
         .values(
           input.unitIds.map((unitId) => ({
@@ -367,24 +366,24 @@ export const usersRouter = router({
 
   revoke: adminProcedure
     .input(z.object({ userId: z.string(), unitIds: z.array(z.uuid()).min(1) }))
-    .mutation(async ({ input }) => {
-      await db
+    .mutation(async ({ ctx, input }) => {
+      await ctx.db
         .update(membership)
         .set({ deletedAt: new Date() })
         .where(
           and(
             eq(membership.userId, input.userId),
             inArray(membership.unitId, input.unitIds),
-            isNull(membership.deletedAt),
+            notDeleted(membership),
           ),
         );
       return { success: true };
     }),
 });
 
-async function findActiveRole(roleId: string) {
+async function findActiveRole(db: Db, roleId: string) {
   const role = await db.query.appRole.findFirst({
-    where: and(eq(appRole.id, roleId), isNull(appRole.deletedAt)),
+    where: and(eq(appRole.id, roleId), notDeleted(appRole)),
   });
   if (!role) {
     throw new TRPCError({ code: 'NOT_FOUND', message: 'Papel não encontrado' });

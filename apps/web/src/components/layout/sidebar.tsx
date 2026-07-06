@@ -1,12 +1,17 @@
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { Link } from '@tanstack/react-router';
 import { useQuery } from '@tanstack/react-query';
 import {
+  BadgeCheck,
   Building2,
+  Cable,
+  ChartColumn,
   ChevronRight,
   ClipboardList,
+  Database,
   FileClock,
   FolderKanban,
+  Gauge,
   HardHat,
   LayoutGrid,
   ListChecks,
@@ -18,6 +23,7 @@ import {
   UserCog,
   Users,
   Wrench,
+  X,
   Zap,
   type LucideIcon,
 } from 'lucide-react';
@@ -39,10 +45,13 @@ interface NavItemProps {
   label: string;
   icon: LucideIcon;
   exact?: boolean;
-  indent?: boolean;
+  /** Nível de indentação: 1 = filho de seção, 2 = neto (tipos de equipamento). */
+  depth?: 1 | 2;
 }
 
-function NavItem({ to, params, search, label, icon: Icon, exact, indent }: NavItemProps) {
+const navItemPadding = { 1: 'pl-8', 2: 'pl-12' } as const;
+
+function NavItem({ to, params, search, label, icon: Icon, exact, depth }: NavItemProps) {
   return (
     <Link
       to={to}
@@ -52,7 +61,7 @@ function NavItem({ to, params, search, label, icon: Icon, exact, indent }: NavIt
       activeProps={{ className: 'active bg-action-soft text-ink' }}
       className={`group relative flex items-center gap-2.5 rounded-ctl py-1.5 pr-3 font-ui text-sm
         font-medium text-ink-soft hover:bg-line/60 hover:text-ink
-        ${indent ? 'pl-8' : 'pl-3.5'}`}
+        ${depth ? navItemPadding[depth] : 'pl-3.5'}`}
     >
       {/* Indicador ativo: momento de marca (âmbar), como no client-test */}
       <span
@@ -73,11 +82,64 @@ function GroupLabel({ children }: { children: string }) {
   );
 }
 
-function SubLabel({ children }: { children: string }) {
+// Seção recolhível da unidade (mesmo padrão da árvore do PIE): estado por
+// seção persistido em localStorage, aberta por padrão.
+function useCollapsed(id: string) {
+  const key = `easynr10.sidebar.${id}`;
+  const [open, setOpen] = useState(() => localStorage.getItem(key) !== 'fechada');
+  const toggle = () =>
+    setOpen((current) => {
+      localStorage.setItem(key, current ? 'fechada' : 'aberta');
+      return !current;
+    });
+  return { open, toggle };
+}
+
+// Pai recolhível — MESMA linguagem visual em todos os níveis (padrão do item
+// PIE): linha de item com chevron colado no ícone, na grade de recuo única
+// (ícone em 14px no nível 0 / 32px no nível 1; filhos um passo abaixo).
+function Section({
+  id,
+  label,
+  icon: Icon,
+  depth,
+  children,
+}: {
+  id: string;
+  label: string;
+  icon: LucideIcon;
+  depth?: 1;
+  children: ReactNode;
+}) {
+  const { open, toggle } = useCollapsed(id);
   return (
-    <span className="truncate px-3.5 pb-0.5 pt-2 font-ui text-[12px] font-semibold text-muted">
-      {children}
-    </span>
+    <>
+      <button
+        type="button"
+        aria-expanded={open}
+        onClick={toggle}
+        className={`flex cursor-pointer items-center gap-2.5 rounded-ctl py-1.5 pr-3 text-left
+          font-ui text-sm font-medium text-ink-soft hover:bg-line/60 hover:text-ink
+          ${depth ? 'pl-5' : 'mt-1 pl-0.5'}`}
+      >
+        <span className="flex shrink-0 items-center">
+          <ChevronRight
+            aria-hidden
+            className={`size-3 transition-transform ${open ? 'rotate-90' : ''}`}
+          />
+          <Icon aria-hidden className="size-4 shrink-0" />
+        </span>
+        <span className="truncate">{label}</span>
+      </button>
+      {open ? (
+        children
+      ) : (
+        // Recolhida, a seção ainda mostra o item ATIVO (e só ele) — a página
+        // atual nunca some da navegação. Esconde também os toggles filhos
+        // (Equipamentos), cujo próprio recolhido repete a regra.
+        <div className="contents [&_a:not(.active)]:hidden [&_button]:hidden">{children}</div>
+      )}
+    </>
   );
 }
 
@@ -189,38 +251,47 @@ function UnitGroup({ companyId, unitId }: { companyId: string; unitId: string })
         </>
       )}
       {(show('diagnostico.ler') || show('plano.ler')) && (
-        <SubLabel>Avaliação da Conformidade</SubLabel>
-      )}
-      {show('diagnostico.ler') && (
-        <NavItem
-          to="/$companyId/$unitId/diagnosticos"
-          params={params}
-          label="Diagnóstico"
-          icon={ClipboardList}
-          indent
-        />
-      )}
-      {show('plano.ler') && (
-        <NavItem
-          to="/$companyId/$unitId/plano-de-acao"
-          params={params}
-          label="Plano de Ação"
-          icon={ListTodo}
-          indent
-        />
+        <Section id="avaliacao" label="Avaliação da Conformidade" icon={BadgeCheck}>
+          {show('diagnostico.ler') && (
+            <>
+              <NavItem
+                to="/$companyId/$unitId/visao-geral"
+                params={params}
+                label="Visão Geral"
+                icon={Gauge}
+                depth={1}
+              />
+              <NavItem
+                to="/$companyId/$unitId/diagnosticos"
+                params={params}
+                label="Diagnóstico"
+                icon={ClipboardList}
+                depth={1}
+              />
+            </>
+          )}
+          {show('plano.ler') && (
+            <NavItem
+              to="/$companyId/$unitId/plano-de-acao"
+              params={params}
+              label="Plano de Ação"
+              icon={ListTodo}
+              depth={1}
+            />
+          )}
+        </Section>
       )}
       {/* Relatórios e tipos de equipamento são FILHOS aqui — as páginas não
           têm mais navegação interna (?tipo= na URL acende o item). */}
       {show('relatorios.ler') && (
-        <>
-          <SubLabel>Relatórios</SubLabel>
+        <Section id="relatorios" label="Relatórios" icon={ChartColumn}>
           <NavItem
             to="/$companyId/$unitId/relatorios"
             params={params}
             search={{ tipo: 'nao-conformidades' }}
             label="Não Conformidades"
             icon={TriangleAlert}
-            indent
+            depth={1}
           />
           <NavItem
             to="/$companyId/$unitId/relatorios"
@@ -228,7 +299,7 @@ function UnitGroup({ companyId, unitId }: { companyId: string; unitId: string })
             search={{ tipo: 'situacao-documental' }}
             label="Situação Documental"
             icon={FileClock}
-            indent
+            depth={1}
           />
           <NavItem
             to="/$companyId/$unitId/relatorios"
@@ -236,60 +307,60 @@ function UnitGroup({ companyId, unitId }: { companyId: string; unitId: string })
             search={{ tipo: 'plano-de-acao' }}
             label="Plano de Ação"
             icon={ListChecks}
-            indent
+            depth={1}
           />
-        </>
+        </Section>
       )}
       {show('cadastros.ler') && (
-        <>
-          <SubLabel>Cadastros</SubLabel>
+        <Section id="cadastros" label="Cadastros" icon={Database}>
           <NavItem
             to="/$companyId/$unitId/colaboradores"
             params={params}
             label="Colaboradores"
             icon={Users}
-            indent
+            depth={1}
           />
-          <SubLabel>Equipamentos</SubLabel>
-          <NavItem
-            to="/$companyId/$unitId/equipamentos"
-            params={params}
-            search={{ tipo: 'eletrico' }}
-            label="Elétricos"
-            icon={Zap}
-            indent
-          />
-          <NavItem
-            to="/$companyId/$unitId/equipamentos"
-            params={params}
-            search={{ tipo: 'ferramenta' }}
-            label="Ferramentas"
-            icon={Wrench}
-            indent
-          />
-          <NavItem
-            to="/$companyId/$unitId/equipamentos"
-            params={params}
-            search={{ tipo: 'epi' }}
-            label="EPI"
-            icon={HardHat}
-            indent
-          />
-          <NavItem
-            to="/$companyId/$unitId/equipamentos"
-            params={params}
-            search={{ tipo: 'epc' }}
-            label="EPC"
-            icon={TrafficCone}
-            indent
-          />
-        </>
+          <Section id="equipamentos" label="Equipamentos" icon={Cable} depth={1}>
+            <NavItem
+              to="/$companyId/$unitId/equipamentos"
+              params={params}
+              search={{ tipo: 'eletrico' }}
+              label="Elétricos"
+              icon={Zap}
+              depth={2}
+            />
+            <NavItem
+              to="/$companyId/$unitId/equipamentos"
+              params={params}
+              search={{ tipo: 'ferramenta' }}
+              label="Ferramentas"
+              icon={Wrench}
+              depth={2}
+            />
+            <NavItem
+              to="/$companyId/$unitId/equipamentos"
+              params={params}
+              search={{ tipo: 'epi' }}
+              label="EPI"
+              icon={HardHat}
+              depth={2}
+            />
+            <NavItem
+              to="/$companyId/$unitId/equipamentos"
+              params={params}
+              search={{ tipo: 'epc' }}
+              label="EPC"
+              icon={TrafficCone}
+              depth={2}
+            />
+          </Section>
+        </Section>
       )}
     </div>
   );
 }
 
-export function Sidebar() {
+export function Sidebar({ open, onClose }: { open: boolean; onClose: () => void }) {
   const { data: session } = useSession();
   const { companyId, unitId } = useActiveContext();
   const isAdmin = session?.user.role === 'admin';
@@ -302,12 +373,26 @@ export function Sidebar() {
   const showCompanies = isAdmin || !companies.isSuccess || companies.data.length > 1;
 
   return (
-    <aside className="flex h-full w-64 shrink-0 flex-col bg-paper">
-      <div className="flex h-16 items-center px-5">
-        <Link to="/" aria-label="EasyNR10 — início">
+    // Mobile: drawer sobreposto (o AuthedLayout põe o backdrop e fecha ao
+    // navegar). Desktop (lg+): coluna fixa como antes.
+    <aside
+      className={`fixed inset-y-0 left-0 z-50 flex h-full w-64 shrink-0 flex-col bg-paper
+        transition-transform lg:static lg:z-auto lg:translate-x-0
+        ${open ? 'translate-x-0 shadow-[0_8px_24px_rgba(26,35,51,.2)] lg:shadow-none' : '-translate-x-full'}`}
+    >
+      <div className="flex h-16 items-center justify-between px-5">
+        <Link to="/empresas" aria-label="EasyNR10 — início">
           <img src={fullLogo} alt="EasyNR10" className="h-9 dark:hidden" />
           <img src={fullLogoDark} alt="EasyNR10" className="hidden h-9 dark:block" />
         </Link>
+        <button
+          type="button"
+          onClick={onClose}
+          aria-label="Fechar menu"
+          className="cursor-pointer rounded-ctl p-1.5 text-muted hover:bg-line/60 hover:text-ink lg:hidden"
+        >
+          <X aria-hidden className="size-5" />
+        </button>
       </div>
 
       {companyId && unitId && <NewMenu companyId={companyId} unitId={unitId} />}

@@ -1,17 +1,12 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useParams, useSearch } from '@tanstack/react-router';
-import {
-  actionPriorities,
-  compareNormCodes,
-  diagnosticStatusScore,
-  normalizeText,
-} from '@easynr10/shared';
+import { actionPriorities, compareNormCodes, normalizeText } from '@easynr10/shared';
 import { trpc } from '@/lib/trpc';
 import { useUnitPermissions } from '@/lib/use-unit-permissions';
 import { formatDate } from '@/lib/format';
 import { Page } from '@/components/ui/page';
 import { RowMenu } from '@/components/ui/row-menu';
-import { ActionStatusPill, PriorityPill, StatusPill } from '@/components/ui/status-pill';
+import { ActionStatusPill, PriorityPill } from '@/components/ui/status-pill';
 import {
   PlainTh,
   SortableTh,
@@ -55,7 +50,6 @@ export function PlanoDeAcaoPage() {
     norma: (row) => row.normCode,
     acao: (row) => normalizeText(row.recommendedAction ?? row.normDescription),
     prioridade: (row) => actionPriorities.indexOf(row.priority),
-    aderencia: (row) => diagnosticStatusScore[row.adherence],
     responsavel: (row) => (row.responsible ? normalizeText(row.responsible) : null),
     prazo: (row) => row.deadline,
     situacao: (row) => situationRank(row),
@@ -89,7 +83,6 @@ export function PlanoDeAcaoPage() {
                   ['norma', 'Norma'],
                   ['acao', 'Ação recomendada'],
                   ['prioridade', 'Prioridade'],
-                  ['aderencia', 'Aderência'],
                   ['responsavel', 'Responsável'],
                   ['prazo', 'Prazo'],
                   ['situacao', 'Situação'],
@@ -110,7 +103,7 @@ export function PlanoDeAcaoPage() {
           <tbody>
             {actions.data?.length === 0 && (
               <tr>
-                <td colSpan={8} className="px-3.5 py-12 text-center text-muted">
+                <td colSpan={7} className="px-3.5 py-12 text-center text-muted">
                   Nenhuma ação no plano — diagnósticos abaixo de Conforme com prazo geram ações
                   automaticamente.
                 </td>
@@ -132,9 +125,6 @@ export function PlanoDeAcaoPage() {
                   </td>
                   <td className="border-b border-line px-3.5 py-2.5">
                     <PriorityPill priority={action.priority} />
-                  </td>
-                  <td className="border-b border-line px-3.5 py-2.5">
-                    <StatusPill status={action.adherence} />
                   </td>
                   <td className="border-b border-line px-3.5 py-2.5 text-muted">
                     {action.responsible ?? '—'}

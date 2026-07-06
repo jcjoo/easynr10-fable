@@ -60,7 +60,10 @@ export function SidebarFolderTree({
       return (
         <div key={node.id}>
           <div
-            style={{ paddingLeft: `${depth * 14 + 30}px` }}
+            // Grade de recuo da sidebar: ícone em 32px no 1º nível (como os
+            // filhos de seção, pl-8) e passo de 16px por nível — o ícone da
+            // pasta fica em paddingLeft + 16 (caixa do chevron) + 2 (pl-0.5).
+            style={{ paddingLeft: `${depth * 16 + 14}px` }}
             className={`flex items-center rounded-ctl py-1 pr-2 font-ui text-[13px] font-medium ${
               pasta === node.id
                 ? 'bg-action-soft text-ink'

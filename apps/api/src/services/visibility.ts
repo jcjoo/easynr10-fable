@@ -1,6 +1,5 @@
-import { and, asc, eq, isNull, type SQL } from 'drizzle-orm';
-import { schema } from '@easynr10/db';
-import { db } from '../db';
+import { and, asc, eq, type SQL } from 'drizzle-orm';
+import { notDeleted, schema, type Db } from '@easynr10/db';
 
 const { membership, unit } = schema;
 
@@ -15,13 +14,13 @@ export interface Viewer {
 }
 
 // Unidades visíveis ao usuário, opcionalmente restritas a uma empresa.
-export async function visibleUnits(viewer: Viewer, companyId?: string) {
+export async function visibleUnits(db: Db, viewer: Viewer, companyId?: string) {
   const companyFilter: SQL | undefined = companyId ? eq(unit.companyId, companyId) : undefined;
   if (viewer.role === 'admin') {
     return db
       .select({ id: unit.id, name: unit.name, companyId: unit.companyId })
       .from(unit)
-      .where(and(companyFilter, isNull(unit.deletedAt)))
+      .where(and(companyFilter, notDeleted(unit)))
       .orderBy(asc(unit.name));
   }
   return db
@@ -32,15 +31,15 @@ export async function visibleUnits(viewer: Viewer, companyId?: string) {
       and(
         eq(membership.userId, viewer.id),
         companyFilter,
-        isNull(membership.deletedAt),
-        isNull(unit.deletedAt),
+        notDeleted(membership),
+        notDeleted(unit),
       ),
     )
     .orderBy(asc(unit.name));
 }
 
-export async function canAccessCompany(viewer: Viewer, companyId: string) {
+export async function canAccessCompany(db: Db, viewer: Viewer, companyId: string) {
   if (viewer.role === 'admin') return true;
-  const units = await visibleUnits(viewer, companyId);
+  const units = await visibleUnits(db, viewer, companyId);
   return units.length > 0;
 }

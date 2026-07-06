@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { ChevronDown, Filter, X } from 'lucide-react';
+import { daysUntilExpiry } from '@easynr10/shared';
 import { Button } from '@/components/ui/button';
 
 // Filtro de vencimento do PIE, portado do legado (documents/filters.tsx +
@@ -22,17 +23,16 @@ const options: { value: ExpiryPreset; label: string; dot: string }[] = [
 ];
 
 // Mesma regra do legado, mas "A vencer" usa a janela de aviso do próprio
-// documento (warn_days_before) em vez de um valor global.
+// documento (warn_days_before) em vez de um valor global. Os dias vêm da
+// regra única do shared (mesma da API).
 export function filterByExpiry<
   T extends { expiresAt: string | null; warnDaysBefore: number | null },
 >(rows: T[], { venc, de, ate }: ExpiryFilterValue, defaultWarnDays: number): T[] {
   if (!venc) return rows;
-  const daysUntil = (expiresAt: string) =>
-    Math.ceil((new Date(`${expiresAt}T00:00:00`).getTime() - Date.now()) / 86_400_000);
 
   return rows.filter((row) => {
     if (!row.expiresAt) return false;
-    const days = daysUntil(row.expiresAt);
+    const days = daysUntilExpiry(row.expiresAt);
     switch (venc) {
       case 'vencidos':
         return days < 0;

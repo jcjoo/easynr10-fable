@@ -1,9 +1,8 @@
 import { TRPCError } from '@trpc/server';
-import { and, asc, eq, ilike, inArray, isNull } from 'drizzle-orm';
-import { schema } from '@easynr10/db';
+import { and, asc, eq, ilike, inArray } from 'drizzle-orm';
+import { notDeleted, schema } from '@easynr10/db';
 import { requirementCreateSchema } from '@easynr10/shared';
 import { z } from 'zod';
-import { db } from '../../db';
 import { unitAction } from '../../trpc';
 import { ensureItemRequirements, findUnitAdequacyItem } from './shared';
 
@@ -23,10 +22,10 @@ export const requirementProcedures = {
   // Requisitos de evidência do item (copiados do catálogo no primeiro acesso).
   requirements: unitAction('diagnostico.ler')
     .input(z.object({ adequacyItemId: z.uuid() }))
-    .query(async ({ input }) => {
-      const item = await findUnitAdequacyItem(input.unitId, input.adequacyItemId);
-      await ensureItemRequirements(item);
-      return db
+    .query(async ({ ctx, input }) => {
+      const item = await findUnitAdequacyItem(ctx.db, input.unitId, input.adequacyItemId);
+      await ensureItemRequirements(ctx.db, item);
+      return ctx.db
         .select({
           id: adequacyItemRequirement.id,
           type: adequacyItemRequirement.type,
@@ -43,15 +42,15 @@ export const requirementProcedures = {
         .where(
           and(
             eq(adequacyItemRequirement.adequacyItemId, item.id),
-            isNull(adequacyItemRequirement.deletedAt),
+            notDeleted(adequacyItemRequirement),
           ),
         )
         .orderBy(asc(adequacyItemRequirement.createdAt));
     }),
 
-  addRequirement: unitAction('diagnostico.requisitos').input(requirementCreateSchema).mutation(async ({ input }) => {
-    const item = await findUnitAdequacyItem(input.unitId, input.adequacyItemId);
-    const [created] = await db
+  addRequirement: unitAction('diagnostico.requisitos').input(requirementCreateSchema).mutation(async ({ ctx, input }) => {
+    const item = await findUnitAdequacyItem(ctx.db, input.unitId, input.adequacyItemId);
+    const [created] = await ctx.db
       .insert(adequacyItemRequirement)
       .values({
         adequacyItemId: item.id,
@@ -66,8 +65,8 @@ export const requirementProcedures = {
 
   removeRequirement: unitAction('diagnostico.requisitos')
     .input(z.object({ requirementId: z.uuid() }))
-    .mutation(async ({ input }) => {
-      const [row] = await db
+    .mutation(async ({ ctx, input }) => {
+      const [row] = await ctx.db
         .select({ id: adequacyItemRequirement.id })
         .from(adequacyItemRequirement)
         .innerJoin(adequacyItem, eq(adequacyItemRequirement.adequacyItemId, adequacyItem.id))
@@ -75,13 +74,13 @@ export const requirementProcedures = {
           and(
             eq(adequacyItemRequirement.id, input.requirementId),
             eq(adequacyItem.unitId, input.unitId),
-            isNull(adequacyItemRequirement.deletedAt),
+            notDeleted(adequacyItemRequirement),
           ),
         );
       if (!row) {
         throw new TRPCError({ code: 'NOT_FOUND', message: 'Requisito não encontrado' });
       }
-      await db
+      await ctx.db
         .update(adequacyItemRequirement)
         .set({ deletedAt: new Date() })
         .where(eq(adequacyItemRequirement.id, row.id));
@@ -90,15 +89,15 @@ export const requirementProcedures = {
 
   removeAllRequirements: unitAction('diagnostico.requisitos')
     .input(z.object({ adequacyItemId: z.uuid() }))
-    .mutation(async ({ input }) => {
-      const item = await findUnitAdequacyItem(input.unitId, input.adequacyItemId);
-      await db
+    .mutation(async ({ ctx, input }) => {
+      const item = await findUnitAdequacyItem(ctx.db, input.unitId, input.adequacyItemId);
+      await ctx.db
         .update(adequacyItemRequirement)
         .set({ deletedAt: new Date() })
         .where(
           and(
             eq(adequacyItemRequirement.adequacyItemId, item.id),
-            isNull(adequacyItemRequirement.deletedAt),
+            notDeleted(adequacyItemRequirement),
           ),
         );
       return { success: true };
@@ -108,8 +107,8 @@ export const requirementProcedures = {
   // com sugestão de documento pela pasta do item (legado: EvidencyGroupStrategy).
   expandGroupRequirement: unitAction('diagnostico.ler')
     .input(z.object({ requirementId: z.uuid() }))
-    .query(async ({ input }) => {
-      const [requirement] = await db
+    .query(async ({ ctx, input }) => {
+      const [requirement] = await ctx.db
         .select({
           id: adequacyItemRequirement.id,
           question: adequacyItemRequirement.question,
@@ -126,7 +125,7 @@ export const requirementProcedures = {
           and(
             eq(adequacyItemRequirement.id, input.requirementId),
             eq(adequacyItem.unitId, input.unitId),
-            isNull(adequacyItemRequirement.deletedAt),
+            notDeleted(adequacyItemRequirement),
           ),
         );
       if (!requirement?.targetGroup) {
@@ -137,31 +136,31 @@ export const requirementProcedures = {
       const members =
         requirement.targetGroup === 'colaboradores'
           ? (
-              await db
+              await ctx.db
                 .select({ id: employee.id, name: employee.name, folderId: employee.folderId })
                 .from(employee)
-                .where(and(eq(employee.unitId, input.unitId), isNull(employee.deletedAt)))
+                .where(and(eq(employee.unitId, input.unitId), notDeleted(employee)))
                 .orderBy(asc(employee.name))
             ).map((row) => ({ ...row, kind: 'employee' as const }))
           : (
-              await db
+              await ctx.db
                 .select({ id: equipment.id, name: equipment.name, folderId: equipment.folderId })
                 .from(equipment)
                 .where(
                   and(
                     eq(equipment.unitId, input.unitId),
                     eq(equipment.type, requirement.targetGroup),
-                    isNull(equipment.deletedAt),
+                    notDeleted(equipment),
                   ),
                 )
                 .orderBy(asc(equipment.name))
             ).map((row) => ({ ...row, kind: 'equipment' as const }));
 
       // Subárvores de pastas para a busca do documento sugerido.
-      const allFolders = await db
+      const allFolders = await ctx.db
         .select({ id: folder.id, parentId: folder.parentId })
         .from(folder)
-        .where(and(eq(folder.unitId, input.unitId), isNull(folder.deletedAt)));
+        .where(and(eq(folder.unitId, input.unitId), notDeleted(folder)));
       const byParent = new Map<string, string[]>();
       for (const node of allFolders) {
         if (node.parentId) {
@@ -179,14 +178,14 @@ export const requirementProcedures = {
         members.map(async (member) => {
           let suggestion: { id: string; name: string } | null = null;
           if (member.folderId && term) {
-            const [match] = await db
+            const [match] = await ctx.db
               .select({ id: document.id, name: document.name })
               .from(document)
               .where(
                 and(
                   inArray(document.folderId, subtree(member.folderId)),
                   ilike(document.name, `%${term}%`),
-                  isNull(document.deletedAt),
+                  notDeleted(document),
                 ),
               )
               .limit(1);

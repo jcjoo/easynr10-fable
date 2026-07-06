@@ -1,9 +1,8 @@
 import { TRPCError } from '@trpc/server';
-import { and, asc, desc, eq, inArray, isNull } from 'drizzle-orm';
-import { schema } from '@easynr10/db';
+import { and, asc, desc, eq, inArray } from 'drizzle-orm';
+import { notDeleted, schema } from '@easynr10/db';
 import { diagnosticCreateSchema } from '@easynr10/shared';
 import { z } from 'zod';
-import { db } from '../../db';
 import { unitAction } from '../../trpc';
 import { findUnitAdequacyItem } from './shared';
 
@@ -15,9 +14,9 @@ export const diagnosticProcedures = {
   // Histórico de diagnósticos do item.
   history: unitAction('diagnostico.ler')
     .input(z.object({ adequacyItemId: z.uuid() }))
-    .query(async ({ input }) => {
-      const item = await findUnitAdequacyItem(input.unitId, input.adequacyItemId);
-      return db
+    .query(async ({ ctx, input }) => {
+      const item = await findUnitAdequacyItem(ctx.db, input.unitId, input.adequacyItemId);
+      return ctx.db
         .select({
           id: diagnostic.id,
           status: diagnostic.status,
@@ -30,14 +29,14 @@ export const diagnosticProcedures = {
         })
         .from(diagnostic)
         .leftJoin(user, eq(diagnostic.authorId, user.id))
-        .where(and(eq(diagnostic.adequacyItemId, item.id), isNull(diagnostic.deletedAt)))
+        .where(and(eq(diagnostic.adequacyItemId, item.id), notDeleted(diagnostic)))
         .orderBy(desc(diagnostic.createdAt));
     }),
 
   // Novo diagnóstico; aderência abaixo de Plena com prazo gera ação (RF16).
   diagnose: unitAction('diagnostico.avaliar').input(diagnosticCreateSchema).mutation(async ({ ctx, input }) => {
-    const item = await findUnitAdequacyItem(input.unitId, input.adequacyItemId);
-    return db.transaction(async (tx) => {
+    const item = await findUnitAdequacyItem(ctx.db, input.unitId, input.adequacyItemId);
+    return ctx.db.transaction(async (tx) => {
       const [created] = await tx
         .insert(diagnostic)
         .values({
@@ -81,8 +80,8 @@ export const diagnosticProcedures = {
   // Evidências (snapshot) de um diagnóstico do histórico.
   diagnosticEvidences: unitAction('diagnostico.ler')
     .input(z.object({ diagnosticId: z.uuid() }))
-    .query(async ({ input }) => {
-      const [found] = await db
+    .query(async ({ ctx, input }) => {
+      const [found] = await ctx.db
         .select({ id: diagnostic.id })
         .from(diagnostic)
         .innerJoin(adequacyItem, eq(diagnostic.adequacyItemId, adequacyItem.id))
@@ -92,14 +91,14 @@ export const diagnosticProcedures = {
       if (!found) {
         throw new TRPCError({ code: 'NOT_FOUND', message: 'Diagnóstico não encontrado' });
       }
-      const evidences = await db
+      const evidences = await ctx.db
         .select({ id: evidence.id, type: evidence.type, question: evidence.question })
         .from(evidence)
-        .where(and(eq(evidence.diagnosticId, found.id), isNull(evidence.deletedAt)))
+        .where(and(eq(evidence.diagnosticId, found.id), notDeleted(evidence)))
         .orderBy(asc(evidence.createdAt));
       if (evidences.length === 0) return [];
 
-      const items = await db
+      const items = await ctx.db
         .select({
           id: evidenceItem.id,
           evidenceId: evidenceItem.evidenceId,
@@ -116,7 +115,7 @@ export const diagnosticProcedures = {
               evidenceItem.evidenceId,
               evidences.map((row) => row.id),
             ),
-            isNull(evidenceItem.deletedAt),
+            notDeleted(evidenceItem),
           ),
         )
         .orderBy(asc(evidenceItem.createdAt));

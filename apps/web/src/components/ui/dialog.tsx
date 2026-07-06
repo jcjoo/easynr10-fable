@@ -40,9 +40,11 @@ export function Dialog({ open, onClose, title, children, size = 'md' }: DialogPr
         aria-modal="true"
         aria-label={title}
         onClick={(e) => e.stopPropagation()}
-        className={`w-full ${sizeClasses[size]} rounded-card border border-line-strong bg-surface shadow-[0_8px_24px_rgba(26,35,51,.2)]`}
+        // min-w-0: sem isso o item de grid expande até o min-content do
+        // conteúdo e o dialog estoura a viewport no mobile.
+        className={`flex max-h-[calc(100dvh-2rem)] w-full min-w-0 flex-col ${sizeClasses[size]} rounded-card border border-line-strong bg-surface shadow-[0_8px_24px_rgba(26,35,51,.2)]`}
       >
-        <div className="flex items-center justify-between border-b border-line px-5 py-3.5">
+        <div className="flex shrink-0 items-center justify-between border-b border-line px-5 py-3.5">
           <h2 className="font-ui text-base font-semibold">{title}</h2>
           <button
             type="button"
@@ -53,7 +55,7 @@ export function Dialog({ open, onClose, title, children, size = 'md' }: DialogPr
             <X aria-hidden className="size-4" />
           </button>
         </div>
-        <div className="p-5">{children}</div>
+        <div className="overflow-y-auto p-5">{children}</div>
       </div>
     </div>
   );

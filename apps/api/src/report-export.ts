@@ -1,6 +1,6 @@
 import type { Hono } from 'hono';
-import { and, eq, isNull } from 'drizzle-orm';
-import { schema } from '@easynr10/db';
+import { and, eq } from 'drizzle-orm';
+import { notDeleted, schema } from '@easynr10/db';
 import {
   actionPriorityLabels,
   actionStatusLabels,
@@ -40,7 +40,7 @@ const date = (key: string) => (row: Record<string, unknown>) => formatDate(row[k
 const reportDefs = {
   'nao-conformidades': {
     title: 'Relatório de Não Conformidades',
-    fetch: (unitId: string) => nonConformityRows(unitId),
+    fetch: (unitId: string) => nonConformityRows(db, unitId),
     columns: [
       { label: 'Norma', value: text('normCode') },
       { label: 'Exigência', value: text('normDescription') },
@@ -59,7 +59,7 @@ const reportDefs = {
   },
   'situacao-documental': {
     title: 'Situação Documental do PIE',
-    fetch: (unitId: string) => documentSituationRows(unitId),
+    fetch: (unitId: string) => documentSituationRows(db, unitId),
     columns: [
       { label: 'Documento', value: text('name') },
       { label: 'Local', value: text('path') },
@@ -83,7 +83,7 @@ const reportDefs = {
   },
   'plano-de-acao': {
     title: 'Plano de Ação',
-    fetch: (unitId: string) => actionPlanRows(unitId, 'todas'),
+    fetch: (unitId: string) => actionPlanRows(db, unitId, 'todas'),
     columns: [
       { label: 'Norma', value: text('normCode') },
       { label: 'Exigência', value: text('normDescription') },
@@ -249,7 +249,7 @@ export function registerReportExport(app: Hono) {
           and(
             eq(membership.unitId, unitId),
             eq(membership.userId, session.user.id),
-            isNull(membership.deletedAt),
+            notDeleted(membership),
           ),
         );
       if (!member) return c.json({ error: 'Sem acesso a esta unidade' }, 403);
@@ -262,7 +262,7 @@ export function registerReportExport(app: Hono) {
       .select({ unitName: unit.name, companyName: company.name })
       .from(unit)
       .innerJoin(company, eq(unit.companyId, company.id))
-      .where(and(eq(unit.id, unitId), isNull(unit.deletedAt)));
+      .where(and(eq(unit.id, unitId), notDeleted(unit)));
     if (!unitRow) return c.json({ error: 'Unidade não encontrada' }, 404);
 
     const def = reportDefs[type];

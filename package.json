@@ -12,6 +12,7 @@
     "dev:web": "bun run --filter @easynr10/web dev",
     "build": "bun run --filter '*' build",
     "typecheck": "bun run --filter '*' typecheck",
+    "test": "bun test",
     "lint": "oxlint apps packages",
     "db:generate": "bun run --filter @easynr10/db generate",
     "db:migrate": "bun run --filter @easynr10/db migrate",

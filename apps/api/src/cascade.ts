@@ -1,6 +1,6 @@
-import { and, eq, inArray, isNull } from 'drizzle-orm';
-import { schema } from '@easynr10/db';
-import { db } from './db';
+import { and, eq, inArray, or, type SQL } from 'drizzle-orm';
+import type { AnyPgColumn, PgTable } from 'drizzle-orm/pg-core';
+import { notDeleted, schema, type Db } from '@easynr10/db';
 import { purgeUnitObjects } from './s3';
 
 const {
@@ -18,151 +18,152 @@ const {
   folderSchema,
   membership,
   registerDocumentLink,
+  registerTargetSetting,
   unit,
 } = schema;
 
-// Exclusão em cascata de uma unidade: soft delete de TODA a árvore (pastas,
-// documentos, itens de adequação, diagnósticos/evidências, plano de ação,
-// cadastros, vínculos, estruturas, memberships) + purge dos objetos no MinIO.
-// Sem isso, excluir empresa/unidade deixava filhos ativos no banco e os
-// arquivos no bucket (verificado pelo usuário em 03/07/2026).
-export async function cascadeDeleteUnit(unitId: string) {
-  const deletedAt = new Date();
-  const active = { deletedAt };
+// Exclusão em cascata de uma unidade: soft delete de TODA a árvore + purge
+// dos objetos no MinIO. A árvore é DECLARADA em `cascadeSteps` (filhos antes
+// dos pais) — tabela filha nova de unidade é uma linha ali, não um bloco novo
+// de queries. Sem isso, excluir empresa/unidade deixava filhos ativos no
+// banco e os arquivos no bucket (verificado pelo usuário em 03/07/2026).
 
-  const folderIds = (
+// Conjuntos de ids ativos da unidade, coletados antes da transação.
+interface CascadeIds {
+  unitId: string;
+  folderIds: string[];
+  documentIds: string[];
+  adequacyItemIds: string[];
+  diagnosticIds: string[];
+  evidenceIds: string[];
+  employeeIds: string[];
+  equipmentIds: string[];
+}
+
+// Condição do passo; devolver undefined pula o passo (conjunto vazio).
+const byIds = (column: AnyPgColumn, ids: string[]): SQL | undefined =>
+  ids.length > 0 ? inArray(column, ids) : undefined;
+
+type SoftDeletable = PgTable & { deletedAt: AnyPgColumn };
+
+const cascadeSteps: {
+  table: SoftDeletable;
+  where: (ids: CascadeIds) => SQL | undefined;
+}[] = [
+  { table: evidenceItem, where: (c) => byIds(evidenceItem.evidenceId, c.evidenceIds) },
+  { table: evidence, where: (c) => byIds(evidence.id, c.evidenceIds) },
+  { table: actionItem, where: (c) => byIds(actionItem.diagnosticId, c.diagnosticIds) },
+  { table: diagnostic, where: (c) => byIds(diagnostic.id, c.diagnosticIds) },
+  {
+    table: adequacyItemRequirement,
+    where: (c) => byIds(adequacyItemRequirement.adequacyItemId, c.adequacyItemIds),
+  },
+  { table: adequacyItem, where: (c) => byIds(adequacyItem.id, c.adequacyItemIds) },
+  {
+    table: registerDocumentLink,
+    where: (c) => {
+      const targets = [
+        byIds(registerDocumentLink.employeeId, c.employeeIds),
+        byIds(registerDocumentLink.equipmentId, c.equipmentIds),
+      ].filter((cond): cond is SQL => cond !== undefined);
+      return targets.length > 0 ? or(...targets) : undefined;
+    },
+  },
+  { table: employee, where: (c) => byIds(employee.id, c.employeeIds) },
+  { table: equipment, where: (c) => byIds(equipment.id, c.equipmentIds) },
+  { table: document, where: (c) => byIds(document.id, c.documentIds) },
+  { table: folder, where: (c) => byIds(folder.id, c.folderIds) },
+  { table: folderSchema, where: (c) => eq(folderSchema.unitId, c.unitId) },
+  { table: customField, where: (c) => eq(customField.unitId, c.unitId) },
+  { table: registerTargetSetting, where: (c) => eq(registerTargetSetting.unitId, c.unitId) },
+  { table: membership, where: (c) => eq(membership.unitId, c.unitId) },
+  { table: unit, where: (c) => eq(unit.id, c.unitId) },
+];
+
+async function collectIds(db: Db, unitId: string): Promise<CascadeIds> {
+  const idsOf = async (rows: { id: string }[]) => rows.map((row) => row.id);
+
+  const folderIds = await idsOf(
     await db
       .select({ id: folder.id })
       .from(folder)
-      .where(and(eq(folder.unitId, unitId), isNull(folder.deletedAt)))
-  ).map((row) => row.id);
-
+      .where(and(eq(folder.unitId, unitId), notDeleted(folder))),
+  );
   const documentIds =
     folderIds.length > 0
-      ? (
+      ? await idsOf(
           await db
             .select({ id: document.id })
             .from(document)
-            .where(and(inArray(document.folderId, folderIds), isNull(document.deletedAt)))
-        ).map((row) => row.id)
+            .where(and(inArray(document.folderId, folderIds), notDeleted(document))),
+        )
       : [];
-
-  const adequacyItemIds = (
+  const adequacyItemIds = await idsOf(
     await db
       .select({ id: adequacyItem.id })
       .from(adequacyItem)
-      .where(and(eq(adequacyItem.unitId, unitId), isNull(adequacyItem.deletedAt)))
-  ).map((row) => row.id);
-
+      .where(and(eq(adequacyItem.unitId, unitId), notDeleted(adequacyItem))),
+  );
   const diagnosticIds =
     adequacyItemIds.length > 0
-      ? (
+      ? await idsOf(
           await db
             .select({ id: diagnostic.id })
             .from(diagnostic)
             .where(
-              and(inArray(diagnostic.adequacyItemId, adequacyItemIds), isNull(diagnostic.deletedAt)),
-            )
-        ).map((row) => row.id)
+              and(inArray(diagnostic.adequacyItemId, adequacyItemIds), notDeleted(diagnostic)),
+            ),
+        )
       : [];
-
   const evidenceIds =
     diagnosticIds.length > 0
-      ? (
+      ? await idsOf(
           await db
             .select({ id: evidence.id })
             .from(evidence)
-            .where(and(inArray(evidence.diagnosticId, diagnosticIds), isNull(evidence.deletedAt)))
-        ).map((row) => row.id)
+            .where(and(inArray(evidence.diagnosticId, diagnosticIds), notDeleted(evidence))),
+        )
       : [];
-
-  const employeeIds = (
+  const employeeIds = await idsOf(
     await db
       .select({ id: employee.id })
       .from(employee)
-      .where(and(eq(employee.unitId, unitId), isNull(employee.deletedAt)))
-  ).map((row) => row.id);
-
-  const equipmentIds = (
+      .where(and(eq(employee.unitId, unitId), notDeleted(employee))),
+  );
+  const equipmentIds = await idsOf(
     await db
       .select({ id: equipment.id })
       .from(equipment)
-      .where(and(eq(equipment.unitId, unitId), isNull(equipment.deletedAt)))
-  ).map((row) => row.id);
+      .where(and(eq(equipment.unitId, unitId), notDeleted(equipment))),
+  );
+
+  return {
+    unitId,
+    folderIds,
+    documentIds,
+    adequacyItemIds,
+    diagnosticIds,
+    evidenceIds,
+    employeeIds,
+    equipmentIds,
+  };
+}
+
+export async function cascadeDeleteUnit(db: Db, unitId: string) {
+  const ids = await collectIds(db, unitId);
+  const deletedAt = new Date();
 
   await db.transaction(async (tx) => {
-    if (evidenceIds.length > 0) {
+    for (const step of cascadeSteps) {
+      const where = step.where(ids);
+      if (!where) continue;
+      // `set` tipado à mão: a tabela do passo é heterogênea (SoftDeletable),
+      // mas todas têm deleted_at (colunas de auditoria).
       await tx
-        .update(evidenceItem)
-        .set(active)
-        .where(and(inArray(evidenceItem.evidenceId, evidenceIds), isNull(evidenceItem.deletedAt)));
-      await tx.update(evidence).set(active).where(inArray(evidence.id, evidenceIds));
+        .update(step.table)
+        .set({ deletedAt } as Record<string, Date>)
+        .where(and(where, notDeleted(step.table)));
     }
-    if (diagnosticIds.length > 0) {
-      await tx
-        .update(actionItem)
-        .set(active)
-        .where(and(inArray(actionItem.diagnosticId, diagnosticIds), isNull(actionItem.deletedAt)));
-      await tx.update(diagnostic).set(active).where(inArray(diagnostic.id, diagnosticIds));
-    }
-    if (adequacyItemIds.length > 0) {
-      await tx
-        .update(adequacyItemRequirement)
-        .set(active)
-        .where(
-          and(
-            inArray(adequacyItemRequirement.adequacyItemId, adequacyItemIds),
-            isNull(adequacyItemRequirement.deletedAt),
-          ),
-        );
-      await tx.update(adequacyItem).set(active).where(inArray(adequacyItem.id, adequacyItemIds));
-    }
-    if (employeeIds.length > 0) {
-      await tx
-        .update(registerDocumentLink)
-        .set(active)
-        .where(
-          and(
-            inArray(registerDocumentLink.employeeId, employeeIds),
-            isNull(registerDocumentLink.deletedAt),
-          ),
-        );
-      await tx.update(employee).set(active).where(inArray(employee.id, employeeIds));
-    }
-    if (equipmentIds.length > 0) {
-      await tx
-        .update(registerDocumentLink)
-        .set(active)
-        .where(
-          and(
-            inArray(registerDocumentLink.equipmentId, equipmentIds),
-            isNull(registerDocumentLink.deletedAt),
-          ),
-        );
-      await tx.update(equipment).set(active).where(inArray(equipment.id, equipmentIds));
-    }
-    if (documentIds.length > 0) {
-      await tx.update(document).set(active).where(inArray(document.id, documentIds));
-    }
-    if (folderIds.length > 0) {
-      await tx.update(folder).set(active).where(inArray(folder.id, folderIds));
-    }
-    await tx
-      .update(folderSchema)
-      .set(active)
-      .where(and(eq(folderSchema.unitId, unitId), isNull(folderSchema.deletedAt)));
-    await tx
-      .update(customField)
-      .set(active)
-      .where(and(eq(customField.unitId, unitId), isNull(customField.deletedAt)));
-    await tx
-      .update(membership)
-      .set(active)
-      .where(and(eq(membership.unitId, unitId), isNull(membership.deletedAt)));
-    await tx
-      .update(unit)
-      .set(active)
-      .where(and(eq(unit.id, unitId), isNull(unit.deletedAt)));
   });
 
   // Fora da transação: storage não participa do rollback do banco.

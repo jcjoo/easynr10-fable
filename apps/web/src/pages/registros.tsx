@@ -13,11 +13,14 @@ import {
   X,
 } from 'lucide-react';
 import {
+  DEFAULT_WARN_DAYS,
+  daysUntilExpiry,
   defaultRegisterFields,
   equipmentTypeLabels,
   equipmentTypes,
   registerBasePath,
   registerTargetLabels,
+  normalizeText,
   type EquipmentType,
   type RegisterField,
   type RegisterModule,
@@ -25,6 +28,7 @@ import {
 } from '@easynr10/shared';
 import { trpc } from '@/lib/trpc';
 import { useUnitPermissions } from '@/lib/use-unit-permissions';
+import { useDialogMutation, useDialogTarget } from '@/lib/use-dialog-mutation';
 import { Button } from '@/components/ui/button';
 import { Dialog } from '@/components/ui/dialog';
 import { Field } from '@/components/ui/field';
@@ -73,20 +77,11 @@ const rowActionClass = `cursor-pointer rounded-ctl p-1 text-muted opacity-0 tran
 
 function expiryTone(link: DocLink) {
   if (!link.expiresAt) return 'bg-idle-soft text-idle';
-  const days = Math.ceil(
-    (new Date(`${link.expiresAt}T00:00:00`).getTime() - Date.now()) / 86_400_000,
-  );
+  const days = daysUntilExpiry(link.expiresAt);
   if (days < 0) return 'bg-bad-soft text-bad';
-  if (days <= (link.warnDaysBefore ?? 30)) return 'bg-warn-soft text-warn';
+  if (days <= (link.warnDaysBefore ?? DEFAULT_WARN_DAYS)) return 'bg-warn-soft text-warn';
   return 'bg-ok-soft text-ok';
 }
-
-const normalize = (value: string) =>
-  value
-    .toLowerCase()
-    .normalize('NFD')
-    .replace(/[̀-ͯ]/g, '')
-    .replace(/[^a-z0-9]/g, '');
 
 export function RegisterPage({ module }: { module: RegisterModule }) {
   const isEmployees = module === 'colaboradores';
@@ -158,7 +153,8 @@ export function RegisterPage({ module }: { module: RegisterModule }) {
     queryClient.invalidateQueries({ queryKey: trpc.registers.documentLinks.queryKey({ unitId }) });
 
   // — Criar/editar item —
-  const [editing, setEditing] = useState<RegisterRow | 'new' | null>(null);
+  const editor = useDialogTarget<RegisterRow | 'new'>();
+  const editing = editor.target;
   const [name, setName] = useState('');
   const [metadata, setMetadata] = useState<Record<string, string>>({});
   const [folderSchemaId, setFolderSchemaId] = useState('');
@@ -176,7 +172,7 @@ export function RegisterPage({ module }: { module: RegisterModule }) {
   ];
 
   function openEditor(row: RegisterRow | 'new') {
-    setEditing(row);
+    editor.open(row);
     setName(row === 'new' ? '' : row.name);
     setMetadata(row === 'new' ? {} : (row.metadata ?? {}));
     const rowType = row === 'new' ? equipmentTab : (row.type ?? equipmentTab);
@@ -206,21 +202,17 @@ export function RegisterPage({ module }: { module: RegisterModule }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [novo]);
 
-  const upsertEmployee = useMutation(
-    trpc.registers.upsertEmployee.mutationOptions({
-      onSuccess: () => {
-        setEditing(null);
-        invalidate();
-      },
-    }),
+  const closeEditorAndRefresh = () => {
+    editor.close();
+    invalidate();
+  };
+  const upsertEmployee = useDialogMutation(
+    trpc.registers.upsertEmployee.mutationOptions(),
+    closeEditorAndRefresh,
   );
-  const upsertEquipment = useMutation(
-    trpc.registers.upsertEquipment.mutationOptions({
-      onSuccess: () => {
-        setEditing(null);
-        invalidate();
-      },
-    }),
+  const upsertEquipment = useDialogMutation(
+    trpc.registers.upsertEquipment.mutationOptions(),
+    closeEditorAndRefresh,
   );
   const upsert = isEmployees ? upsertEmployee : upsertEquipment;
 
@@ -248,22 +240,18 @@ export function RegisterPage({ module }: { module: RegisterModule }) {
   }
 
   // — Excluir item —
-  const [deleteTarget, setDeleteTarget] = useState<RegisterRow | null>(null);
-  const removeEmployee = useMutation(
-    trpc.registers.removeEmployee.mutationOptions({
-      onSuccess: () => {
-        setDeleteTarget(null);
-        invalidate();
-      },
-    }),
+  const deleteDialog = useDialogTarget<RegisterRow>();
+  const closeDeleteAndRefresh = () => {
+    deleteDialog.close();
+    invalidate();
+  };
+  const removeEmployee = useDialogMutation(
+    trpc.registers.removeEmployee.mutationOptions(),
+    closeDeleteAndRefresh,
   );
-  const removeEquipment = useMutation(
-    trpc.registers.removeEquipment.mutationOptions({
-      onSuccess: () => {
-        setDeleteTarget(null);
-        invalidate();
-      },
-    }),
+  const removeEquipment = useDialogMutation(
+    trpc.registers.removeEquipment.mutationOptions(),
+    closeDeleteAndRefresh,
   );
 
   // — Campos personalizados —
@@ -281,9 +269,14 @@ export function RegisterPage({ module }: { module: RegisterModule }) {
       },
     }),
   );
-  const removeField = useMutation(
-    trpc.registers.removeCustomField.mutationOptions({ onSuccess: invalidateFields }),
-  );
+  // Remoção pede confirmação: a coluna some da tabela/importação, mas os
+  // valores preenchidos ficam no metadata (recriar o campo com o mesmo nome
+  // volta a exibi-los).
+  const removeFieldConfirm = useDialogTarget<{ id: string; name: string }>();
+  const removeField = useDialogMutation(trpc.registers.removeCustomField.mutationOptions(), () => {
+    removeFieldConfirm.close();
+    invalidateFields();
+  });
   const setTargetSetting = useMutation(
     trpc.registers.setTargetSetting.mutationOptions({
       onSuccess: () =>
@@ -294,28 +287,21 @@ export function RegisterPage({ module }: { module: RegisterModule }) {
   );
 
   // — Vincular documento (campos kind=document) —
-  const [linkDialog, setLinkDialog] = useState<{
-    field: RegisterField;
-    preselected?: string;
-  } | null>(null);
+  const linkDialog = useDialogTarget<{ field: RegisterField; preselected?: string }>();
   const [linkDocumentId, setLinkDocumentId] = useState('');
   const [linkDocumentName, setLinkDocumentName] = useState('');
   const [docPickerOpen, setDocPickerOpen] = useState(false);
   const [linkSelection, setLinkSelection] = useState<Set<string>>(new Set());
-  const linkDocument = useMutation(
-    trpc.registers.linkDocument.mutationOptions({
-      onSuccess: () => {
-        setLinkDialog(null);
-        invalidateLinks();
-      },
-    }),
-  );
+  const linkDocument = useDialogMutation(trpc.registers.linkDocument.mutationOptions(), () => {
+    linkDialog.close();
+    invalidateLinks();
+  });
   const unlinkDocument = useMutation(
     trpc.registers.unlinkDocument.mutationOptions({ onSuccess: invalidateLinks }),
   );
 
   function openLinkDialog(field: RegisterField, preselected?: string) {
-    setLinkDialog({ field, preselected });
+    linkDialog.open({ field, preselected });
     setLinkSelection(new Set(preselected ? [preselected] : []));
     const currentLink = preselected
       ? linkByItemField.get(`${preselected}:${field.key}`)
@@ -344,13 +330,13 @@ export function RegisterPage({ module }: { module: RegisterModule }) {
     const value = row.metadata?.[field.key];
     if (field.kind === 'document' && !value) {
       const link = linkByItemField.get(`${row.id}:${field.key}`);
-      return link ? normalize(link.documentName) : null;
+      return link ? normalizeText(link.documentName) : null;
     }
-    return value ? normalize(value) : null;
+    return value ? normalizeText(value) : null;
   };
   const accessors: Record<string, (row: RegisterRow) => SortValue> = {
-    nome: (row) => normalize(row.name),
-    pasta: (row) => (row.folderName ? normalize(row.folderName) : null),
+    nome: (row) => normalizeText(row.name),
+    pasta: (row) => (row.folderName ? normalizeText(row.folderName) : null),
     ...Object.fromEntries(
       allFields.map((field) => [`campo:${field.key}`, fieldAccessor(field)]),
     ),
@@ -541,7 +527,7 @@ export function RegisterPage({ module }: { module: RegisterModule }) {
                           type="button"
                           title="Excluir"
                           aria-label={`Excluir ${row.name}`}
-                          onClick={() => setDeleteTarget(row)}
+                          onClick={() => deleteDialog.open(row)}
                           className={rowActionClass}
                         >
                           <Trash2 aria-hidden className="size-4" />
@@ -558,8 +544,8 @@ export function RegisterPage({ module }: { module: RegisterModule }) {
 
       {/* — Criar/editar — */}
       <Dialog
-        open={Boolean(editing)}
-        onClose={() => setEditing(null)}
+        open={editor.isOpen}
+        onClose={editor.close}
         title={editing === 'new' ? `Novo ${itemLabel}` : `Editar ${itemLabel}`}
       >
         <form onSubmit={save} className="flex max-h-[70vh] flex-col gap-4 overflow-y-auto pr-1">
@@ -625,7 +611,7 @@ export function RegisterPage({ module }: { module: RegisterModule }) {
             </p>
           )}
           <div className="flex justify-end gap-2">
-            <Button type="button" variant="secondary" onClick={() => setEditing(null)}>
+            <Button type="button" variant="secondary" onClick={editor.close}>
               Cancelar
             </Button>
             <Button type="submit" disabled={!name.trim() || upsert.isPending}>
@@ -637,9 +623,9 @@ export function RegisterPage({ module }: { module: RegisterModule }) {
 
       {/* — Vincular documento a N itens — */}
       <Dialog
-        open={Boolean(linkDialog)}
-        onClose={() => setLinkDialog(null)}
-        title={`Vincular ${linkDialog?.field.label ?? ''} — ${registerTargetLabels[target]}`}
+        open={linkDialog.isOpen}
+        onClose={linkDialog.close}
+        title={`Vincular ${linkDialog.target?.field.label ?? ''} — ${registerTargetLabels[target]}`}
       >
         <div className="flex max-h-[70vh] flex-col gap-4 overflow-y-auto pr-1">
           <p className="text-sm text-muted">
@@ -683,8 +669,8 @@ export function RegisterPage({ module }: { module: RegisterModule }) {
                 <li className="px-1 py-2 text-sm text-muted">Nenhum item cadastrado.</li>
               )}
               {rows.map((row) => {
-                const current = linkDialog
-                  ? linkByItemField.get(`${row.id}:${linkDialog.field.key}`)
+                const current = linkDialog.target
+                  ? linkByItemField.get(`${row.id}:${linkDialog.target.field.key}`)
                   : undefined;
                 return (
                   <li key={row.id}>
@@ -721,17 +707,17 @@ export function RegisterPage({ module }: { module: RegisterModule }) {
             </p>
           )}
           <div className="flex justify-end gap-2">
-            <Button type="button" variant="secondary" onClick={() => setLinkDialog(null)}>
+            <Button type="button" variant="secondary" onClick={linkDialog.close}>
               Cancelar
             </Button>
             <Button
               type="button"
               disabled={!linkDocumentId || linkSelection.size === 0 || linkDocument.isPending}
               onClick={() =>
-                linkDialog &&
+                linkDialog.target &&
                 linkDocument.mutate({
                   unitId,
-                  fieldKey: linkDialog.field.key,
+                  fieldKey: linkDialog.target.field.key,
                   documentId: linkDocumentId,
                   employeeIds: isEmployees ? [...linkSelection] : [],
                   equipmentIds: isEmployees ? [] : [...linkSelection],
@@ -771,17 +757,17 @@ export function RegisterPage({ module }: { module: RegisterModule }) {
 
       {/* — Excluir — */}
       <Dialog
-        open={Boolean(deleteTarget)}
-        onClose={() => setDeleteTarget(null)}
+        open={deleteDialog.isOpen}
+        onClose={deleteDialog.close}
         title={`Excluir ${itemLabel}`}
       >
         <div className="flex flex-col gap-4">
           <p className="text-sm">
-            Excluir <strong>{deleteTarget?.name}</strong>? A pasta no PIE e os documentos não
+            Excluir <strong>{deleteDialog.target?.name}</strong>? A pasta no PIE e os documentos não
             são afetados.
           </p>
           <div className="flex justify-end gap-2">
-            <Button type="button" variant="secondary" onClick={() => setDeleteTarget(null)}>
+            <Button type="button" variant="secondary" onClick={deleteDialog.close}>
               Cancelar
             </Button>
             <Button
@@ -789,9 +775,9 @@ export function RegisterPage({ module }: { module: RegisterModule }) {
               variant="danger"
               disabled={removeEmployee.isPending || removeEquipment.isPending}
               onClick={() => {
-                if (!deleteTarget) return;
-                if (isEmployees) removeEmployee.mutate({ unitId, employeeId: deleteTarget.id });
-                else removeEquipment.mutate({ unitId, equipmentId: deleteTarget.id });
+                if (!deleteDialog.target) return;
+                if (isEmployees) removeEmployee.mutate({ unitId, employeeId: deleteDialog.target.id });
+                else removeEquipment.mutate({ unitId, equipmentId: deleteDialog.target.id });
               }}
             >
               Excluir
@@ -846,7 +832,7 @@ export function RegisterPage({ module }: { module: RegisterModule }) {
                   type="button"
                   title="Remover campo"
                   aria-label={`Remover campo ${field.name}`}
-                  onClick={() => removeField.mutate({ unitId, customFieldId: field.id })}
+                  onClick={() => removeFieldConfirm.open({ id: field.id, name: field.name })}
                   className="cursor-pointer rounded-ctl p-1 text-muted opacity-0 transition-opacity hover:bg-bad-soft hover:text-bad group-hover:opacity-100"
                 >
                   <Trash2 aria-hidden className="size-4" />
@@ -886,6 +872,45 @@ export function RegisterPage({ module }: { module: RegisterModule }) {
           </div>
         </div>
       </Dialog>
+
+      {/* Confirmação da remoção de campo personalizado (abre sobre o dialog
+          de configuração — irmão depois no DOM fica por cima). */}
+      {removeFieldConfirm.target && (
+        <Dialog
+          open={removeFieldConfirm.isOpen}
+          onClose={removeFieldConfirm.close}
+          title="Remover campo personalizado"
+        >
+          <div className="flex flex-col gap-4">
+            <p className="text-sm">
+              Remover a coluna <strong>{removeFieldConfirm.target.name}</strong> de{' '}
+              {registerTargetLabels[target].toLowerCase()}? Ela deixa de aparecer na tabela, no
+              editor e na importação. Os valores já preenchidos ficam guardados e voltam se um
+              campo com o mesmo nome for criado novamente.
+            </p>
+            {removeField.error && (
+              <p role="alert" className="text-sm text-bad">
+                {removeField.error.message}
+              </p>
+            )}
+            <div className="flex justify-end gap-2">
+              <Button type="button" variant="secondary" onClick={removeFieldConfirm.close}>
+                Cancelar
+              </Button>
+              <Button
+                type="button"
+                variant="danger"
+                disabled={removeField.isPending}
+                onClick={() =>
+                  removeField.mutate({ unitId, customFieldId: removeFieldConfirm.target!.id })
+                }
+              >
+                {removeField.isPending ? 'Removendo…' : 'Remover campo'}
+              </Button>
+            </div>
+          </div>
+        </Dialog>
+      )}
     </Page>
   );
 }

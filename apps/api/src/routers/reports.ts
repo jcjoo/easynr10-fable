@@ -1,8 +1,7 @@
-import { and, desc, eq, inArray, isNull } from 'drizzle-orm';
-import { schema } from '@easynr10/db';
+import { and, desc, eq, inArray } from 'drizzle-orm';
+import { notDeleted, schema } from '@easynr10/db';
 import { timelineIntervals, type DiagnosticStatus } from '@easynr10/shared';
 import { z } from 'zod';
-import { db } from '../db';
 import {
   actionPlanRows,
   documentSituationRows,
@@ -20,17 +19,17 @@ const { adequacyItem, diagnostic, norm } = schema;
 // serviço (services/reports.ts), compartilhada com a exportação HTTP.
 
 export const reportsRouter = router({
-  overview: unitAction('painel.ler').query(({ input }) => unitOverview(input.unitId)),
+  overview: unitAction('painel.ler').query(({ ctx, input }) => unitOverview(ctx.db, input.unitId)),
 
   // Painel da empresa (RF19): aderência agregada por unidade visível ao
   // usuário (admin: todas; cliente: onde é membro — regra de units.listByCompany).
   companyOverview: protectedProcedure
     .input(z.object({ companyId: z.uuid() }))
     .query(async ({ ctx, input }) => {
-      const units = await visibleUnits(ctx.session.user, input.companyId);
+      const units = await visibleUnits(ctx.db, ctx.session.user, input.companyId);
       if (units.length === 0) return [];
 
-      const items = await db
+      const items = await ctx.db
         .select({
           id: adequacyItem.id,
           unitId: adequacyItem.unitId,
@@ -45,13 +44,13 @@ export const reportsRouter = router({
               units.map((row) => row.id),
             ),
             eq(adequacyItem.isActive, true),
-            isNull(adequacyItem.deletedAt),
+            notDeleted(adequacyItem),
           ),
         );
 
       const latest = new Map<string, DiagnosticStatus>();
       if (items.length > 0) {
-        const rows = await db
+        const rows = await ctx.db
           .select({ adequacyItemId: diagnostic.adequacyItemId, status: diagnostic.status })
           .from(diagnostic)
           .where(
@@ -60,7 +59,7 @@ export const reportsRouter = router({
                 diagnostic.adequacyItemId,
                 items.map((item) => item.id),
               ),
-              isNull(diagnostic.deletedAt),
+              notDeleted(diagnostic),
             ),
           )
           .orderBy(desc(diagnostic.createdAt));
@@ -94,13 +93,13 @@ export const reportsRouter = router({
         interval: z.enum(timelineIntervals).default('weekly'),
       }),
     )
-    .query(({ input }) => timelineSeries(input.unitId, input.from, input.to, input.interval)),
+    .query(({ ctx, input }) => timelineSeries(ctx.db, input.unitId, input.from, input.to, input.interval)),
 
-  nonConformities: unitAction('relatorios.ler').query(({ input }) => nonConformityRows(input.unitId)),
+  nonConformities: unitAction('relatorios.ler').query(({ ctx, input }) => nonConformityRows(ctx.db, input.unitId)),
 
-  documentsSituation: unitAction('relatorios.ler').query(({ input }) => documentSituationRows(input.unitId)),
+  documentsSituation: unitAction('relatorios.ler').query(({ ctx, input }) => documentSituationRows(ctx.db, input.unitId)),
 
   actionPlan: unitAction('relatorios.ler')
     .input(z.object({ scope: z.enum(['pendencias', 'todas']).default('pendencias') }))
-    .query(({ input }) => actionPlanRows(input.unitId, input.scope)),
+    .query(({ ctx, input }) => actionPlanRows(ctx.db, input.unitId, input.scope)),
 });

@@ -1,5 +1,6 @@
 import { useParams, useRouterState } from '@tanstack/react-router';
 import { useQuery } from '@tanstack/react-query';
+import { Menu } from 'lucide-react';
 import { trpc } from '@/lib/trpc';
 import { Crumbs, type Crumb } from '@/components/ui/crumbs';
 import { GlobalSearch } from '@/components/layout/global-search';
@@ -9,6 +10,7 @@ import { ThemeToggle } from '@/components/layout/theme-toggle';
 const sectionLabels: Record<string, string> = {
   unidades: 'Unidades',
   pie: 'PIE',
+  'visao-geral': 'Visão Geral',
   diagnosticos: 'Diagnóstico',
   'plano-de-acao': 'Plano de Ação',
   relatorios: 'Relatórios',
@@ -16,7 +18,7 @@ const sectionLabels: Record<string, string> = {
   colaboradores: 'Colaboradores',
 };
 
-export function Header() {
+export function Header({ onMenuClick }: { onMenuClick: () => void }) {
   const params = useParams({ strict: false }) as { companyId?: string; unitId?: string };
   const pathname = useRouterState({ select: (state) => state.location.pathname });
 
@@ -56,9 +58,19 @@ export function Header() {
   }
 
   return (
-    <header className="flex items-center justify-between gap-4 px-6 py-2.5">
-      <Crumbs items={crumbs} />
-      <div className="flex flex-1 items-center justify-end gap-4">
+    <header className="flex items-center justify-between gap-2 px-3 py-2.5 sm:gap-4 sm:px-6">
+      <button
+        type="button"
+        onClick={onMenuClick}
+        aria-label="Abrir menu"
+        className="shrink-0 cursor-pointer rounded-ctl p-1.5 text-ink-soft hover:bg-line/60 hover:text-ink lg:hidden"
+      >
+        <Menu aria-hidden className="size-5" />
+      </button>
+      <div className="min-w-0">
+        <Crumbs items={crumbs} />
+      </div>
+      <div className="flex flex-1 items-center justify-end gap-2 sm:gap-4">
         <GlobalSearch />
         <ThemeToggle />
       </div>

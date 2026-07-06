@@ -1,8 +1,7 @@
 import { TRPCError } from '@trpc/server';
-import { and, asc, eq, isNull } from 'drizzle-orm';
-import { schema } from '@easynr10/db';
+import { and, asc, eq } from 'drizzle-orm';
+import { notDeleted, schema } from '@easynr10/db';
 import { actionItemStatusSchema, actionPriority } from '@easynr10/shared';
-import { db } from '../../db';
 import { unitAction } from '../../trpc';
 
 const { actionItem, adequacyItem, diagnostic, norm } = schema;
@@ -10,8 +9,8 @@ const { actionItem, adequacyItem, diagnostic, norm } = schema;
 // Plano de ação (RF16/RF17): ações geradas pelos diagnósticos.
 
 export const actionProcedures = {
-  actionItems: unitAction('plano.ler').query(async ({ input }) => {
-    const rows = await db
+  actionItems: unitAction('plano.ler').query(async ({ ctx, input }) => {
+    const rows = await ctx.db
       .select({
         id: actionItem.id,
         status: actionItem.status,
@@ -29,7 +28,7 @@ export const actionProcedures = {
       .innerJoin(diagnostic, eq(actionItem.diagnosticId, diagnostic.id))
       .innerJoin(adequacyItem, eq(diagnostic.adequacyItemId, adequacyItem.id))
       .innerJoin(norm, eq(adequacyItem.normId, norm.id))
-      .where(and(eq(adequacyItem.unitId, input.unitId), isNull(actionItem.deletedAt)))
+      .where(and(eq(adequacyItem.unitId, input.unitId), notDeleted(actionItem)))
       .orderBy(asc(actionItem.deadline));
     // O peso fica no servidor — o front recebe só a prioridade derivada.
     return rows.map(({ importanceWeight, ...row }) => ({
@@ -38,8 +37,8 @@ export const actionProcedures = {
     }));
   }),
 
-  setActionStatus: unitAction('plano.status').input(actionItemStatusSchema).mutation(async ({ input }) => {
-    const [row] = await db
+  setActionStatus: unitAction('plano.status').input(actionItemStatusSchema).mutation(async ({ ctx, input }) => {
+    const [row] = await ctx.db
       .select({ id: actionItem.id })
       .from(actionItem)
       .innerJoin(diagnostic, eq(actionItem.diagnosticId, diagnostic.id))
@@ -48,13 +47,13 @@ export const actionProcedures = {
         and(
           eq(actionItem.id, input.actionItemId),
           eq(adequacyItem.unitId, input.unitId),
-          isNull(actionItem.deletedAt),
+          notDeleted(actionItem),
         ),
       );
     if (!row) {
       throw new TRPCError({ code: 'NOT_FOUND', message: 'Ação não encontrada' });
     }
-    await db
+    await ctx.db
       .update(actionItem)
       .set({
         status: input.status,

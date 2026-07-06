@@ -1,16 +1,18 @@
-import { and, asc, desc, eq, inArray, isNull, lte } from 'drizzle-orm';
-import { schema } from '@easynr10/db';
+import { and, asc, desc, eq, inArray, lte } from 'drizzle-orm';
+import { notDeleted, schema, type Db } from '@easynr10/db';
 import {
   actionPriority,
   compareNormCodes,
   diagnosticStatusScore,
   documentGroups,
+  documentSituation,
+  localDateString,
   timelineIntervals,
+  weightedAdherencePercent,
   type ActionStatus,
   type DiagnosticStatus,
   type DocumentSituation,
 } from '@easynr10/shared';
-import { db } from '../db';
 
 const { actionItem, adequacyItem, diagnostic, document, folder, norm } = schema;
 
@@ -18,13 +20,9 @@ const { actionItem, adequacyItem, diagnostic, document, folder, norm } = schema;
 // router tRPC (telas) E pela rota HTTP de exportação; nenhum dos dois conhece
 // SQL, só este serviço.
 
-function todayDateString() {
-  return new Date().toISOString().slice(0, 10);
-}
-
 // Itens de adequação ATIVOS da unidade com a norma e o último diagnóstico —
 // base do dashboard, do relatório de não conformidades e da aderência geral.
-export async function adequacySnapshot(unitId: string) {
+export async function adequacySnapshot(db: Db, unitId: string) {
   const items = await db
     .select({
       id: adequacyItem.id,
@@ -39,7 +37,7 @@ export async function adequacySnapshot(unitId: string) {
       and(
         eq(adequacyItem.unitId, unitId),
         eq(adequacyItem.isActive, true),
-        isNull(adequacyItem.deletedAt),
+        notDeleted(adequacyItem),
       ),
     );
   items.sort((a, b) => compareNormCodes(a.normCode, b.normCode));
@@ -61,7 +59,7 @@ export async function adequacySnapshot(unitId: string) {
           diagnostic.adequacyItemId,
           items.map((item) => item.id),
         ),
-        isNull(diagnostic.deletedAt),
+        notDeleted(diagnostic),
       ),
     )
     .orderBy(desc(diagnostic.createdAt));
@@ -85,51 +83,31 @@ export async function adequacySnapshot(unitId: string) {
 }
 
 // Aderência agregada (mesma regra do topo do Diagnóstico): média dos scores
-// ponderada pelo peso da norma, só dos itens avaliados.
-export function weightedPercent(
-  rows: { importanceWeight: number; status: DiagnosticStatus | null }[],
-) {
-  const evaluated = rows.filter((row) => row.status !== null);
-  const weightSum = evaluated.reduce((sum, row) => sum + row.importanceWeight, 0);
-  if (weightSum === 0) return null;
-  const scoreSum = evaluated.reduce(
-    (sum, row) => sum + row.importanceWeight * diagnosticStatusScore[row.status!],
-    0,
-  );
-  return Math.round((scoreSum / weightSum) * 100);
-}
+// ponderada pelo peso da norma, só dos itens avaliados — regra única no
+// shared (weightedAdherencePercent), compartilhada com a Visão Geral do front.
+export const weightedPercent = weightedAdherencePercent;
 
 // Relatório de Não Conformidades (RF21): itens ativos abaixo de Plena,
 // incluindo os sem avaliação (não conformidade presumida até avaliar).
 // O peso da norma fica no servidor (só alimenta as médias ponderadas).
-export async function nonConformityRows(unitId: string) {
-  const snapshot = await adequacySnapshot(unitId);
+export async function nonConformityRows(db: Db, unitId: string) {
+  const snapshot = await adequacySnapshot(db, unitId);
   return snapshot
     .filter((row) => row.status !== 'plena')
     .map(({ importanceWeight: _importanceWeight, ...row }) => row);
 }
 
-export function documentSituation(
-  expiresAt: string | null,
-  warnDaysBefore: number | null,
-  today: string,
-): { situation: DocumentSituation; daysToExpiry: number | null } {
-  if (!expiresAt) return { situation: 'sem_validade', daysToExpiry: null };
-  const days = Math.round(
-    (Date.parse(`${expiresAt}T00:00:00Z`) - Date.parse(`${today}T00:00:00Z`)) / 86_400_000,
-  );
-  if (days < 0) return { situation: 'vencido', daysToExpiry: days };
-  if (days <= (warnDaysBefore ?? 30)) return { situation: 'a_vencer', daysToExpiry: days };
-  return { situation: 'em_dia', daysToExpiry: days };
-}
+// Regra única de vencimento no shared (mesma do front) — re-exportada para
+// os consumidores da camada de relatórios.
+export { documentSituation } from '@easynr10/shared';
 
 // Situação documental do PIE (RF21): todos os documentos da unidade com o
 // caminho da pasta e a situação de validade.
-export async function documentSituationRows(unitId: string) {
+export async function documentSituationRows(db: Db, unitId: string) {
   const folders = await db
     .select({ id: folder.id, parentId: folder.parentId, name: folder.name })
     .from(folder)
-    .where(and(eq(folder.unitId, unitId), isNull(folder.deletedAt)));
+    .where(and(eq(folder.unitId, unitId), notDeleted(folder)));
   const byId = new Map(folders.map((node) => [node.id, node]));
   const pathOf = (folderId: string) => {
     const names: string[] = [];
@@ -161,12 +139,12 @@ export async function documentSituationRows(unitId: string) {
           document.folderId,
           folders.map((node) => node.id),
         ),
-        isNull(document.deletedAt),
+        notDeleted(document),
       ),
     )
     .orderBy(asc(document.name));
 
-  const today = todayDateString();
+  const today = localDateString();
   return docs.map((doc) => ({
     ...doc,
     path: pathOf(doc.folderId),
@@ -175,7 +153,7 @@ export async function documentSituationRows(unitId: string) {
 }
 
 // Pendências do plano de ação (RF21). scope 'todas' inclui concluídas/canceladas.
-export async function actionPlanRows(unitId: string, scope: 'pendencias' | 'todas') {
+export async function actionPlanRows(db: Db, unitId: string, scope: 'pendencias' | 'todas') {
   const rows = await db
     .select({
       id: actionItem.id,
@@ -194,10 +172,10 @@ export async function actionPlanRows(unitId: string, scope: 'pendencias' | 'toda
     .innerJoin(diagnostic, eq(actionItem.diagnosticId, diagnostic.id))
     .innerJoin(adequacyItem, eq(diagnostic.adequacyItemId, adequacyItem.id))
     .innerJoin(norm, eq(adequacyItem.normId, norm.id))
-    .where(and(eq(adequacyItem.unitId, unitId), isNull(actionItem.deletedAt)))
+    .where(and(eq(adequacyItem.unitId, unitId), notDeleted(actionItem)))
     .orderBy(asc(actionItem.deadline));
 
-  const today = todayDateString();
+  const today = localDateString();
   const isPending = (status: ActionStatus) => status === 'pendente' || status === 'em_andamento';
   return rows
     .filter((row) => scope === 'todas' || isPending(row.status))
@@ -210,11 +188,11 @@ export async function actionPlanRows(unitId: string, scope: 'pendencias' | 'toda
 
 // Dashboard da unidade (RF19): aderência, distribuição, grupos documentais,
 // plano de ação e situação documental num payload só.
-export async function unitOverview(unitId: string) {
+export async function unitOverview(db: Db, unitId: string) {
   const [snapshot, actions, documents] = await Promise.all([
-    adequacySnapshot(unitId),
-    actionPlanRows(unitId, 'todas'),
-    documentSituationRows(unitId),
+    adequacySnapshot(db, unitId),
+    actionPlanRows(db, unitId, 'todas'),
+    documentSituationRows(db, unitId),
   ]);
 
   const distribution: Record<DiagnosticStatus | 'sem_avaliacao', number> = {
@@ -273,6 +251,7 @@ export async function unitOverview(unitId: string) {
 // diagnósticos por ponto — em cada data vale o último diagnóstico até ali.
 // Itens ainda sem avaliação na data não entram na média (regra da v2).
 export async function timelineSeries(
+  db: Db,
   unitId: string,
   from: string,
   to: string,
@@ -286,7 +265,7 @@ export async function timelineSeries(
       and(
         eq(adequacyItem.unitId, unitId),
         eq(adequacyItem.isActive, true),
-        isNull(adequacyItem.deletedAt),
+        notDeleted(adequacyItem),
       ),
     );
 
@@ -319,7 +298,7 @@ export async function timelineSeries(
           items.map((item) => item.id),
         ),
         lte(diagnostic.createdAt, new Date(`${to}T23:59:59.999Z`)),
-        isNull(diagnostic.deletedAt),
+        notDeleted(diagnostic),
       ),
     )
     .orderBy(asc(diagnostic.createdAt));

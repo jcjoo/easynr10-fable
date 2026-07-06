@@ -1,16 +1,15 @@
 import { TRPCError } from '@trpc/server';
-import { and, asc, count, eq, inArray, isNull } from 'drizzle-orm';
-import { schema } from '@easynr10/db';
+import { and, asc, count, eq, inArray } from 'drizzle-orm';
+import { notDeleted, schema, type Db } from '@easynr10/db';
 import { folderCreateSchema, folderRenameSchema } from '@easynr10/shared';
 import { z } from 'zod';
-import { db } from '../db';
 import { router, unitAction } from '../trpc';
 
 const { folder, document } = schema;
 
-async function findUnitFolder(unitId: string, folderId: string) {
+async function findUnitFolder(db: Db, unitId: string, folderId: string) {
   const found = await db.query.folder.findFirst({
-    where: and(eq(folder.id, folderId), eq(folder.unitId, unitId), isNull(folder.deletedAt)),
+    where: and(eq(folder.id, folderId), eq(folder.unitId, unitId), notDeleted(folder)),
   });
   if (!found) {
     throw new TRPCError({ code: 'NOT_FOUND', message: 'Pasta não encontrada' });
@@ -20,8 +19,8 @@ async function findUnitFolder(unitId: string, folderId: string) {
 
 export const foldersRouter = router({
   // Todas as pastas da unidade (flat); a árvore é montada no cliente.
-  list: unitAction('pie.ler').query(async ({ input }) => {
-    return db
+  list: unitAction('pie.ler').query(async ({ ctx, input }) => {
+    return ctx.db
       .select({
         id: folder.id,
         name: folder.name,
@@ -29,33 +28,33 @@ export const foldersRouter = router({
         createdAt: folder.createdAt,
       })
       .from(folder)
-      .where(and(eq(folder.unitId, input.unitId), isNull(folder.deletedAt)))
+      .where(and(eq(folder.unitId, input.unitId), notDeleted(folder)))
       .orderBy(asc(folder.name));
   }),
 
-  create: unitAction('pie.pasta.criar').input(folderCreateSchema).mutation(async ({ input }) => {
+  create: unitAction('pie.pasta.criar').input(folderCreateSchema).mutation(async ({ ctx, input }) => {
     if (input.parentId) {
-      const parent = await db.query.folder.findFirst({
+      const parent = await ctx.db.query.folder.findFirst({
         where: and(
           eq(folder.id, input.parentId),
           eq(folder.unitId, input.unitId),
-          isNull(folder.deletedAt),
+          notDeleted(folder),
         ),
       });
       if (!parent) {
         throw new TRPCError({ code: 'NOT_FOUND', message: 'Pasta pai não encontrada' });
       }
     }
-    const [created] = await db
+    const [created] = await ctx.db
       .insert(folder)
       .values({ unitId: input.unitId, parentId: input.parentId, name: input.name })
       .returning();
     return created;
   }),
 
-  rename: unitAction('pie.pasta.renomear').input(folderRenameSchema).mutation(async ({ input }) => {
-    const found = await findUnitFolder(input.unitId, input.folderId);
-    const [updated] = await db
+  rename: unitAction('pie.pasta.renomear').input(folderRenameSchema).mutation(async ({ ctx, input }) => {
+    const found = await findUnitFolder(ctx.db, input.unitId, input.folderId);
+    const [updated] = await ctx.db
       .update(folder)
       .set({ name: input.name })
       .where(eq(folder.id, found.id))
@@ -68,13 +67,13 @@ export const foldersRouter = router({
   remove: unitAction('pie.pasta.excluir')
     .input(z.object({ folderId: z.uuid() }))
     .mutation(async ({ ctx, input }) => {
-      const found = await findUnitFolder(input.unitId, input.folderId);
+      const found = await findUnitFolder(ctx.db, input.unitId, input.folderId);
 
       // Subárvore a partir da lista flat da unidade.
-      const all = await db
+      const all = await ctx.db
         .select({ id: folder.id, parentId: folder.parentId })
         .from(folder)
-        .where(and(eq(folder.unitId, input.unitId), isNull(folder.deletedAt)));
+        .where(and(eq(folder.unitId, input.unitId), notDeleted(folder)));
       const byParent = new Map<string, string[]>();
       for (const node of all) {
         if (node.parentId) {
@@ -86,10 +85,10 @@ export const foldersRouter = router({
         folderIds.push(...(byParent.get(folderIds[i]!) ?? []));
       }
 
-      const [docs] = await db
+      const [docs] = await ctx.db
         .select({ total: count() })
         .from(document)
-        .where(and(inArray(document.folderId, folderIds), isNull(document.deletedAt)));
+        .where(and(inArray(document.folderId, folderIds), notDeleted(document)));
       const docCount = docs?.total ?? 0;
 
       const isEmpty = folderIds.length === 1 && docCount === 0;
@@ -102,12 +101,12 @@ export const foldersRouter = router({
 
       const deletedAt = new Date();
       if (docCount > 0) {
-        await db
+        await ctx.db
           .update(document)
           .set({ deletedAt })
-          .where(and(inArray(document.folderId, folderIds), isNull(document.deletedAt)));
+          .where(and(inArray(document.folderId, folderIds), notDeleted(document)));
       }
-      await db.update(folder).set({ deletedAt }).where(inArray(folder.id, folderIds));
+      await ctx.db.update(folder).set({ deletedAt }).where(inArray(folder.id, folderIds));
       return { success: true, folders: folderIds.length, documents: docCount };
     }),
 });

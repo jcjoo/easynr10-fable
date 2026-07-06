@@ -1,18 +1,21 @@
 import { TRPCError, initTRPC } from '@trpc/server';
-import { and, eq, isNull } from 'drizzle-orm';
-import { schema } from '@easynr10/db';
+import { and, eq } from 'drizzle-orm';
+import { notDeleted, schema, type Db } from '@easynr10/db';
 import { unitActions, type UnitAction } from '@easynr10/shared';
 import { z } from 'zod';
 import { db } from './db';
 import { auth } from './auth';
 
+// O banco entra pelo contexto (DIP): procedures e services recebem `ctx.db`
+// em vez de importar o singleton — testes podem injetar outra instância.
 export interface Context {
   session: Awaited<ReturnType<typeof auth.api.getSession>>;
+  db: Db;
 }
 
 export async function createContext(headers: Headers): Promise<Context> {
   const session = await auth.api.getSession({ headers });
-  return { session };
+  return { session, db };
 }
 
 // "Decorators" de permissão: cada endpoint é construído a partir do builder
@@ -29,6 +32,8 @@ export interface Meta {
 const t = initTRPC.context<Context>().meta<Meta>().create();
 
 export const router = t.router;
+// Chamadas diretas de procedures com um Context construído à mão (testes).
+export const createCallerFactory = t.createCallerFactory;
 export const publicProcedure = t.procedure.meta({ permission: 'publica' });
 
 export const protectedProcedure = t.procedure
@@ -61,7 +66,7 @@ export const unitProcedure = protectedProcedure
     if (ctx.session.user.role === 'admin') {
       return next({ ctx: { ...ctx, unitPermissions: new Set<string>(unitActions) } });
     }
-    const [member] = await db
+    const [member] = await ctx.db
       .select({ permissions: schema.appRole.permissions })
       .from(schema.membership)
       .leftJoin(schema.appRole, eq(schema.membership.roleId, schema.appRole.id))
@@ -69,7 +74,7 @@ export const unitProcedure = protectedProcedure
         and(
           eq(schema.membership.unitId, input.unitId),
           eq(schema.membership.userId, ctx.session.user.id),
-          isNull(schema.membership.deletedAt),
+          notDeleted(schema.membership),
         ),
       );
     if (!member) {
