@@ -11,6 +11,11 @@ const envSchema = z.object({
   GOOGLE_CLIENT_ID: z.string().optional(),
   GOOGLE_CLIENT_SECRET: z.string().optional(),
 
+  // Admin criado no boot quando o banco não tem NENHUM usuário (primeira
+  // subida). Troque a senha padrão em qualquer ambiente exposto.
+  ADMIN_EMAIL: z.string().default('admin@pso.dev'),
+  ADMIN_PASSWORD: z.string().min(8).default('admin12345'),
+
   // Conversor HTML→PDF (exportação de relatórios, RF22).
   GOTENBERG_URL: z.string().default('http://localhost:3010'),
 

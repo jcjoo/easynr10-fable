@@ -7,6 +7,7 @@ import { auth } from './auth';
 import { appRouter } from './routers';
 import { createContext } from './trpc';
 import { registerReportExport } from './report-export';
+import { bootstrapAdmin } from './bootstrap-admin';
 
 // Hono fetch-native no Bun.serve: better-auth e tRPC já falam Request/Response
 // web-standard, então as rotas repassam o request cru — sem adaptadores.
@@ -32,6 +33,8 @@ app.on(['GET', 'POST'], '/api/trpc/*', (c) =>
 registerReportExport(app);
 
 app.get('/health', (c) => c.json({ status: 'ok' }));
+
+await bootstrapAdmin();
 
 Bun.serve({ port: env.PORT, hostname: '0.0.0.0', fetch: app.fetch });
 console.log(`API ouvindo em :${env.PORT}`);

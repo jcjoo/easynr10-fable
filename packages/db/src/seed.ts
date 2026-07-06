@@ -1,6 +1,7 @@
-// Seed de desenvolvimento: empresa/unidade de exemplo + catálogo de
-// documentos padrão (portado do sistema legado).
-// O usuário admin é criado via better-auth na primeira execução da API (ver apps/api).
+// Seed idempotente: empresa/unidade de exemplo + catálogos (documentos
+// padrão, esquema de pastas, normas NR-10). Roda no boot do container da
+// API (Dockerfile) ou manualmente via `bun run db:seed`.
+// O usuário admin é criado pela API no primeiro boot (apps/api/src/bootstrap-admin.ts).
 import { createDb } from './index';
 import {
   company,

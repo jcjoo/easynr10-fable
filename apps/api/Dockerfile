@@ -16,5 +16,6 @@ COPY --from=deps /app /app
 COPY packages packages
 COPY apps/api apps/api
 EXPOSE 3000
-# Aplica migrations e sobe a API.
-CMD ["sh", "-c", "bun packages/db/src/migrate.ts && bun apps/api/src/main.ts"]
+# Migrations + seed (idempotente: catálogos e empresa exemplo) + API.
+# O admin inicial é criado pela própria API no boot (bootstrap-admin.ts).
+CMD ["sh", "-c", "bun packages/db/src/migrate.ts && bun packages/db/src/seed.ts && bun apps/api/src/main.ts"]

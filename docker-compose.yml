@@ -29,6 +29,9 @@ services:
       EXTRA_TRUSTED_ORIGINS: ${EXTRA_TRUSTED_ORIGINS:-}
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
       GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
+      # Admin criado no primeiro boot (banco sem usuários).
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@pso.dev}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-admin12345}
       S3_ENDPOINT: http://minio:9000
       # Presigned URLs são usadas pelo browser — assinadas com o endpoint público.
       S3_PUBLIC_ENDPOINT: http://localhost:${MINIO_PORT:-9100}

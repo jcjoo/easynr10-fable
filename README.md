@@ -2,6 +2,7 @@
 
 Reescrita do EasyNR10 — gestão de conformidade NR-10. Documentos do projeto:
 
+- [`ANALISE-EASYNR10.md`](./ANALISE-EASYNR10.md) — diagnóstico do sistema legado e justificativa da stack
 - [`projeto.md`](./projeto.md) — requisitos, modelo de domínio, dicionário de dados e diagramas
 - [`PERMISSOES.md`](./PERMISSOES.md) — matriz de permissões da API (gerada por `bun run permissions`)
 
@@ -23,7 +24,7 @@ docker compose up -d --build
 # Aplicação: http://localhost:8081  (nginx serve o SPA e faz proxy de /api para a API)
 ```
 
-O primeiro usuário é criado via `/api/auth/sign-up/email` e promovido a admin no banco (ver seção abaixo, trocando a porta para 8081 e o container para `easynr10-database-1`).
+Na primeira subida (banco vazio), o container da API roda o seed (catálogos + empresa exemplo) e cria o usuário admin automaticamente — login `admin@pso.dev` / `admin12345` (configurável via `ADMIN_EMAIL`/`ADMIN_PASSWORD` no `.env`; troque a senha em ambiente exposto). Bancos já populados não são alterados.
 
 Para expor via túnel (ngrok etc.), adicione a URL pública em `EXTRA_TRUSTED_ORIGINS` no `.env` e recrie os containers — sem isso o better-auth rejeita o login vindo dessa origem.
 
@@ -42,16 +43,7 @@ bun run dev:api               # http://localhost:3000
 bun run dev:web               # http://localhost:5173 (proxy /api → 3000)
 ```
 
-Ainda não há tela de cadastro — em dev, crie o primeiro usuário via API e promova a admin:
-
-```bash
-curl -X POST http://localhost:3000/api/auth/sign-up/email \
-  -H 'Content-Type: application/json' -H 'Origin: http://localhost:5173' \
-  -d '{"name":"Admin","email":"admin@pso.dev","password":"sua-senha-dev"}'
-
-docker exec easynr10-dev-database-1 \
-  psql -U easynr10 -d easynr10 -c "UPDATE \"user\" SET role='admin' WHERE email='admin@pso.dev';"
-```
+Se o banco não tiver nenhum usuário, a API cria o admin no boot (`admin@pso.dev` / `admin12345`, configurável via `ADMIN_EMAIL`/`ADMIN_PASSWORD`). Usuários adicionais são criados pela própria aplicação (telas de Usuários).
 
 ## Comandos
 
