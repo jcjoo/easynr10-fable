@@ -144,7 +144,7 @@ export function UploadDocumentDialog({
           />
         )}
 
-        <label className="flex cursor-pointer items-center gap-2 font-ui text-[13px] font-medium">
+        <label className="flex cursor-pointer items-center gap-2 font-ui text-caption font-medium">
           <input
             type="checkbox"
             checked={withoutReference}
@@ -187,7 +187,7 @@ export function UploadDocumentDialog({
 
         {/* Dropzone */}
         <div className="flex flex-col gap-1.5">
-          <span className="font-ui text-[13px] font-semibold">Arquivo</span>
+          <span className="font-ui text-caption font-semibold">Arquivo</span>
           <div
             onDragOver={(e) => {
               e.preventDefault();

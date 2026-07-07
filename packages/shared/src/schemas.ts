@@ -17,6 +17,8 @@ export type CompanyCreateInput = z.infer<typeof companyCreateSchema>;
 
 export const companyUpdateSchema = companyCreateSchema.partial().extend({
   id: z.uuid(),
+  // Key do objeto no S3 (retornada pelo logoUploadUrl); null remove o logo.
+  logoKey: z.string().max(512).nullable().optional(),
 });
 export type CompanyUpdateInput = z.infer<typeof companyUpdateSchema>;
 
@@ -29,6 +31,7 @@ export type UnitCreateInput = z.infer<typeof unitCreateSchema>;
 export const unitUpdateSchema = z.object({
   id: z.uuid(),
   name: z.string().trim().min(2).max(255).optional(),
+  logoKey: z.string().max(512).nullable().optional(),
 });
 export type UnitUpdateInput = z.infer<typeof unitUpdateSchema>;
 

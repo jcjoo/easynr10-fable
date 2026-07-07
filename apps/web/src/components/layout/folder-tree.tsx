@@ -6,7 +6,7 @@ import { trpc } from '@/lib/trpc';
 import { useUnitPermissions } from '@/lib/use-unit-permissions';
 import { FolderIcon } from '@/components/ui/icons';
 
-// Árvore de pastas do PIE na sidebar (navegação lateral estilo Drive).
+// Árvore de pastas do P.I.E na sidebar (navegação lateral estilo Drive).
 // Ancestrais da pasta ativa (?pasta= na URL) abrem sozinhos; o chevron
 // permite abrir/fechar manualmente por cima disso.
 
@@ -23,7 +23,7 @@ export function SidebarFolderTree({
   companyId: string;
   unitId: string;
 }) {
-  // Só consulta o PIE quando o papel comprovadamente tem leitura (senão o
+  // Só consulta o P.I.E quando o papel comprovadamente tem leitura (senão o
   // FORBIDDEN derrubaria a página inteira para 403).
   const { can, loaded } = useUnitPermissions(unitId);
   const folders = useQuery({
@@ -64,7 +64,7 @@ export function SidebarFolderTree({
             // filhos de seção, pl-8) e passo de 16px por nível — o ícone da
             // pasta fica em paddingLeft + 16 (caixa do chevron) + 2 (pl-0.5).
             style={{ paddingLeft: `${depth * 16 + 14}px` }}
-            className={`flex items-center rounded-ctl py-1 pr-2 font-ui text-[13px] font-medium ${
+            className={`flex items-center rounded-ctl py-1 pr-2 font-ui text-caption font-medium ${
               pasta === node.id
                 ? 'bg-action-soft text-ink'
                 : 'text-ink-soft hover:bg-line/60 hover:text-ink'
@@ -100,7 +100,7 @@ export function SidebarFolderTree({
     });
 
   return (
-    <div role="tree" aria-label="Pastas do PIE" className="flex flex-col gap-px">
+    <div role="tree" aria-label="Pastas do P.I.E" className="flex flex-col gap-px">
       {renderNodes(roots, 0)}
     </div>
   );

@@ -1,37 +1,35 @@
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useParams } from '@tanstack/react-router';
 import { Check, Copy, Pencil, Plus, ShieldCheck, Trash2 } from 'lucide-react';
 import { unitActionCatalog, unitActionGroups, type UnitAction } from '@easynr10/shared';
 import { trpc } from '@/lib/trpc';
 import { useSession } from '@/lib/auth-client';
 import { Button } from '@/components/ui/button';
 import { Field } from '@/components/ui/field';
-import { Page } from '@/components/ui/page';
 import { Pill } from '@/components/ui/pill';
 
-// Papéis da EMPRESA (RF03.1): padrões do sistema (Gestor/Leitor — imutáveis,
-// presentes em toda empresa) + papéis customizados da empresa. O mapeamento é
-// 1:1 com o servidor: cada ação lista os endpoints reais que destrava
-// (users.permissionCatalog, derivado dos metadados do router).
+// Gestão de papéis (RF03.1) — usada nas Configurações da EMPRESA (padrões do
+// sistema + papéis da empresa) e da UNIDADE (herda esses e soma papéis
+// próprios da unidade). Herdados são somente-leitura no escopo da unidade;
+// "Duplicar" cria uma cópia editável no escopo atual.
 
 type RoleRow = {
   id: string;
   name: string;
   isSystem: boolean;
   companyId: string | null;
+  unitId: string | null;
   permissions: string[];
   inUse: number;
 };
 
-export function PapeisPage() {
-  const { companyId } = useParams({ from: '/_authed/$companyId/papeis' });
+export function RolesManager({ companyId, unitId }: { companyId: string; unitId?: string }) {
   const { data: session } = useSession();
   const isAdmin = session?.user.role === 'admin';
   const queryClient = useQueryClient();
 
   const roles = useQuery({
-    ...trpc.users.roles.queryOptions({ companyId }),
+    ...trpc.users.roles.queryOptions({ companyId, unitId }),
     enabled: isAdmin,
   });
   const catalog = useQuery({
@@ -43,8 +41,17 @@ export function PapeisPage() {
   const selected: RoleRow | null =
     roles.data?.find((role) => role.id === selectedId) ?? roles.data?.[0] ?? null;
 
+  // No escopo da unidade, só papéis PRÓPRIOS dela são editáveis; os demais
+  // (sistema/empresa) são herdados. No da empresa, só os não-sistema.
+  const canEdit = (role: RoleRow) =>
+    unitId ? role.unitId === unitId : !role.isSystem && role.unitId === null;
+  const inheritedLabel = (role: RoleRow) =>
+    role.isSystem ? 'Padrão do sistema' : role.unitId ? null : unitId ? 'Herdado da empresa' : null;
+
   const invalidate = () =>
-    queryClient.invalidateQueries({ queryKey: trpc.users.roles.queryKey({ companyId }) });
+    queryClient.invalidateQueries({
+      queryKey: trpc.users.roles.queryKey({ companyId, unitId }),
+    });
   const createRole = useMutation(
     trpc.users.createRole.mutationOptions({
       onSuccess: (created) => {
@@ -77,7 +84,7 @@ export function PapeisPage() {
     updateRole.mutate({ roleId: role.id, permissions: [...next] });
   };
 
-  // Marcar/desmarcar um grupo inteiro (ex.: todo o PIE) de uma vez.
+  // Marcar/desmarcar um grupo inteiro (ex.: todo o P.I.E) de uma vez.
   const toggleGroup = (role: RoleRow, group: string, enable: boolean) => {
     const groupActions = unitActionCatalog
       .filter((entry) => entry.group === group)
@@ -93,33 +100,16 @@ export function PapeisPage() {
   const duplicate = (role: RoleRow) =>
     createRole.mutate({
       companyId,
+      unitId,
       name: `${role.name} (cópia)`,
       permissions: role.permissions as UnitAction[],
     });
 
   const error = createRole.error ?? updateRole.error ?? removeRole.error;
 
-  if (session && !isAdmin) {
-    return (
-      <Page>
-        <h1 className="text-[28px] font-bold tracking-tight">Papéis</h1>
-        <p className="text-sm text-muted">Somente consultores PSO têm acesso a esta área.</p>
-      </Page>
-    );
-  }
-
   return (
-    <Page>
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <p className="text-sm text-muted">Empresa</p>
-          <h1 className="text-[28px] font-bold tracking-tight">Papéis e permissões</h1>
-          <p className="mt-1 text-sm text-muted">
-            O papel define o que um membro pode <strong>alterar</strong> nas unidades desta
-            empresa — a leitura é liberada a qualquer membro. Padrões do sistema valem para
-            todas as empresas; duplique um para customizar.
-          </p>
-        </div>
+    <>
+      <div className="flex justify-end">
         <Button onClick={() => setCreating(true)}>
           <Plus aria-hidden className="size-4" /> Novo papel
         </Button>
@@ -155,8 +145,10 @@ export function PapeisPage() {
               <span className="flex-1 truncate font-ui text-sm font-semibold">{role.name}</span>
               {role.isSystem ? (
                 <Pill label="Padrão" className="bg-idle-soft text-idle" />
+              ) : unitId && role.unitId === null ? (
+                <Pill label="Empresa" className="bg-suf-soft text-suf" />
               ) : (
-                <span className="font-mono text-[11px] text-muted">
+                <span className="font-mono text-micro text-muted">
                   {role.permissions.length}/{unitActionCatalog.length}
                 </span>
               )}
@@ -168,12 +160,17 @@ export function PapeisPage() {
               onSubmit={(e) => {
                 e.preventDefault();
                 if (newName.trim())
-                  createRole.mutate({ companyId, name: newName.trim(), permissions: [] });
+                  createRole.mutate({
+                    companyId,
+                    unitId,
+                    name: newName.trim(),
+                    permissions: [],
+                  });
               }}
               className="flex flex-col gap-2 rounded-card border border-dashed border-line-strong p-3"
             >
               <Field
-                label="Nome do papel"
+                label={unitId ? 'Nome do papel (próprio da unidade)' : 'Nome do papel'}
                 value={newName}
                 onChange={(e) => setNewName(e.target.value)}
                 placeholder="Ex.: Técnico de segurança"
@@ -218,16 +215,21 @@ export function PapeisPage() {
                   </Button>
                 </form>
               ) : (
-                <h2 className="font-ui text-lg font-bold tracking-tight">{selected.name}</h2>
+                <h3 className="font-ui text-lg font-bold tracking-tight">{selected.name}</h3>
               )}
-              {selected.isSystem && <Pill label="Padrão do sistema" className="bg-idle-soft text-idle" />}
-              <span className="text-[13px] text-muted">
+              {inheritedLabel(selected) && (
+                <Pill label={inheritedLabel(selected)!} className="bg-idle-soft text-idle" />
+              )}
+              {unitId && selected.unitId === unitId && (
+                <Pill label="Próprio da unidade" className="bg-action-soft text-action" />
+              )}
+              <span className="text-caption text-muted">
                 {selected.inUse > 0
                   ? `em uso por ${selected.inUse} acesso(s)`
                   : 'sem acessos usando'}
               </span>
               <div className="ml-auto flex gap-1.5">
-                {!selected.isSystem && !renaming && (
+                {canEdit(selected) && !renaming && (
                   <Button
                     type="button"
                     variant="secondary"
@@ -242,7 +244,7 @@ export function PapeisPage() {
                 <Button type="button" variant="secondary" onClick={() => duplicate(selected)}>
                   <Copy aria-hidden className="size-4" /> Duplicar
                 </Button>
-                {!selected.isSystem && (
+                {canEdit(selected) && (
                   <Button
                     type="button"
                     variant="danger"
@@ -255,10 +257,11 @@ export function PapeisPage() {
               </div>
             </div>
 
-            {selected.isSystem && (
-              <p className="mt-2 text-[13px] text-muted">
-                Papéis padrão não mudam — clique em <strong>Duplicar</strong> para criar uma
-                versão customizável para esta empresa.
+            {!canEdit(selected) && (
+              <p className="mt-2 text-caption text-muted">
+                {selected.isSystem
+                  ? 'Papéis padrão não mudam — clique em Duplicar para criar uma versão customizável.'
+                  : 'Papel herdado da empresa — edite nas Configurações da empresa ou duplique para criar uma versão própria da unidade.'}
               </p>
             )}
 
@@ -270,6 +273,7 @@ export function PapeisPage() {
                   selected.permissions.includes(entry.action),
                 ).length;
                 const allEnabled = enabledCount === entries.length;
+                const readOnly = !canEdit(selected) || updateRole.isPending;
                 return (
                   <section key={group} className="rounded-card border border-line">
                     <header className="flex items-center gap-2.5 border-b border-line bg-paper/60 px-3 py-2">
@@ -280,12 +284,12 @@ export function PapeisPage() {
                         ref={(el) => {
                           if (el) el.indeterminate = enabledCount > 0 && !allEnabled;
                         }}
-                        disabled={selected.isSystem || updateRole.isPending}
+                        disabled={readOnly}
                         onChange={() => toggleGroup(selected, group, !allEnabled)}
                         className="size-4 accent-[var(--color-action)]"
                       />
                       <span className="font-ui text-sm font-bold">{group}</span>
-                      <span className="font-mono text-[11px] text-muted">
+                      <span className="font-mono text-micro text-muted">
                         {enabledCount}/{entries.length}
                       </span>
                     </header>
@@ -301,14 +305,12 @@ export function PapeisPage() {
                             className={`px-3 py-2.5 ${enabled ? 'bg-action-soft/20' : ''}`}
                           >
                             <label
-                              className={`flex items-start gap-2.5 ${
-                                selected.isSystem ? '' : 'cursor-pointer'
-                              }`}
+                              className={`flex items-start gap-2.5 ${readOnly ? '' : 'cursor-pointer'}`}
                             >
                               <input
                                 type="checkbox"
                                 checked={enabled}
-                                disabled={selected.isSystem || updateRole.isPending}
+                                disabled={readOnly}
                                 onChange={() => togglePermission(selected, entry.action)}
                                 className="mt-0.5 size-4 accent-[var(--color-action)]"
                               />
@@ -317,18 +319,18 @@ export function PapeisPage() {
                                   <span className="font-ui text-sm font-semibold">
                                     {entry.label}
                                   </span>
-                                  <code className="rounded-ctl bg-paper px-1.5 py-0.5 font-mono text-[11px] text-muted">
+                                  <code className="rounded-ctl bg-paper px-1.5 py-0.5 font-mono text-micro text-muted">
                                     {entry.action}
                                   </code>
                                 </span>
-                                <span className="mt-0.5 block text-[13px] text-ink-soft">
+                                <span className="mt-0.5 block text-caption text-ink-soft">
                                   {entry.description}
                                 </span>
                                 <span className="mt-1.5 flex flex-wrap gap-1.5">
                                   {procedures.map((path) => (
                                     <code
                                       key={path}
-                                      className={`rounded-ctl px-1.5 py-0.5 font-mono text-[11px] ${
+                                      className={`rounded-ctl px-1.5 py-0.5 font-mono text-micro ${
                                         enabled
                                           ? 'bg-action-soft text-action'
                                           : 'bg-paper text-muted'
@@ -360,7 +362,7 @@ export function PapeisPage() {
                   {catalog.data?.memberReads.map((path) => (
                     <code
                       key={path}
-                      className="rounded-ctl bg-surface px-1.5 py-0.5 font-mono text-[11px] text-muted"
+                      className="rounded-ctl bg-surface px-1.5 py-0.5 font-mono text-micro text-muted"
                     >
                       {path}
                     </code>
@@ -371,6 +373,6 @@ export function PapeisPage() {
           </div>
         )}
       </div>
-    </Page>
+    </>
   );
 }

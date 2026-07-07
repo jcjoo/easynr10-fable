@@ -21,9 +21,11 @@ import { CompanyPanelPage } from '@/pages/company-panel';
 import { UnitsPage } from '@/pages/units';
 import { UnitHomePage, dashboardPeriods, type DashboardPeriod } from '@/pages/unit-home';
 import { PiePage } from '@/pages/pie';
-import { UsuariosPage } from '@/pages/usuarios';
-import { PapeisPage } from '@/pages/papeis';
-import { UsuariosEmpresaPage } from '@/pages/usuarios-empresa';
+import { SettingsLayout } from '@/pages/configuracoes';
+import { PerfilPage } from '@/pages/configuracoes/perfil';
+import { AdmPage } from '@/pages/configuracoes/adm';
+import { EmpresaPage, empresaTabs, type EmpresaTab } from '@/pages/configuracoes/empresa';
+import { UnidadePage } from '@/pages/configuracoes/unidade';
 import { DiagnosticoItemPage } from '@/pages/diagnostico-item';
 import { DiagnosticosPage } from '@/pages/diagnosticos';
 import { VisaoGeralPage } from '@/pages/visao-geral';
@@ -74,19 +76,25 @@ const authedRoute = createRoute({
 
 function AuthedLayout() {
   // Sincroniza o contexto ativo (sidebar) com os params da rota atual:
-  // chegar por link direto já seleciona empresa/unidade.
+  // chegar por link direto já seleciona empresa/unidade; rota global (/,
+  // /empresas, /configuracoes) LIMPA o contexto — manter a última empresa/
+  // unidade na sidebar confundia ("por que ainda estou vendo essa unidade?").
   const params = useParams({ strict: false }) as { companyId?: string; unitId?: string };
   const setCompany = useActiveContext((s) => s.setCompany);
   const setUnit = useActiveContext((s) => s.setUnit);
+  const clear = useActiveContext((s) => s.clear);
+  const pathname = useRouterState({ select: (state) => state.location.pathname });
 
+  // Configurações vive FORA deste layout, então não passa por aqui — entrar
+  // e voltar de lá preserva o contexto ativo naturalmente.
   useEffect(() => {
     if (params.companyId && params.unitId) setUnit(params.companyId, params.unitId);
     else if (params.companyId) setCompany(params.companyId);
-  }, [params.companyId, params.unitId, setCompany, setUnit]);
+    else clear();
+  }, [params.companyId, params.unitId, setCompany, setUnit, clear]);
 
   // No mobile a sidebar vira drawer (hambúrguer no header); navegar fecha.
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const pathname = useRouterState({ select: (state) => state.location.pathname });
   useEffect(() => setSidebarOpen(false), [pathname]);
 
   return (
@@ -175,21 +183,30 @@ const unitsRoute = createRoute({
   component: UnitsPage,
 });
 
-// Usuários da empresa (admin): só quem tem vínculo em unidades dela.
+// Usuários e Papéis da empresa moveram para Configurações — os links
+// antigos redirecionam já com a empresa selecionada (?empresa=).
 const usuariosEmpresaRoute = createRoute({
   getParentRoute: () => authedRoute,
   path: '/$companyId/usuarios',
-  beforeLoad: ({ params }) => requireUuidParams(params),
-  validateSearch: sortSearch,
-  component: UsuariosEmpresaPage,
+  beforeLoad: ({ params }) => {
+    requireUuidParams(params);
+    throw redirect({
+      to: '/configuracoes/empresa',
+      search: { empresa: params.companyId, aba: 'usuarios' },
+    });
+  },
 });
 
-// Papéis por empresa (admin): mapeamento 1:1 com as permissões do servidor.
 const papeisRoute = createRoute({
   getParentRoute: () => authedRoute,
   path: '/$companyId/papeis',
-  beforeLoad: ({ params }) => requireUuidParams(params),
-  component: PapeisPage,
+  beforeLoad: ({ params }) => {
+    requireUuidParams(params);
+    throw redirect({
+      to: '/configuracoes/empresa',
+      search: { empresa: params.companyId, aba: 'papeis' },
+    });
+  },
 });
 
 // Entrar na unidade cai na primeira seção que o papel permite ler, na ordem
@@ -240,12 +257,111 @@ const unitSection = (path: string, component: () => JSX.Element) =>
     component,
   });
 
-// Painel de usuários (admin): liberar acesso a empresas/unidades.
-const usuariosRoute = createRoute({
+// Configurações: página INDEPENDENTE do shell autenticado (layout próprio,
+// sem a sidebar principal) — mesma guarda de sessão, árvore separada.
+const settingsAuthRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  id: '_settings',
+  beforeLoad: async ({ location }) => {
+    if (!(await getSession())) {
+      sessionCheck = null;
+      throw redirect({ to: '/login', search: { redirect: location.href } });
+    }
+  },
+});
+
+const configuracoesRoute = createRoute({
+  getParentRoute: () => settingsAuthRoute,
+  path: '/configuracoes',
+  component: SettingsLayout,
+});
+
+const configIndexRoute = createRoute({
+  getParentRoute: () => configuracoesRoute,
+  path: '/',
+  beforeLoad: () => {
+    throw redirect({ to: '/configuracoes/perfil' });
+  },
+});
+
+const configPerfilRoute = createRoute({
+  getParentRoute: () => configuracoesRoute,
+  path: '/perfil',
+  component: PerfilPage,
+});
+
+const empresaSearch = (search: Record<string, unknown>): { empresa?: string } => ({
+  empresa: typeof search.empresa === 'string' ? search.empresa : undefined,
+});
+const unidadeSearch = (search: Record<string, unknown>): { unidade?: string } => ({
+  unidade: typeof search.unidade === 'string' ? search.unidade : undefined,
+});
+// Default no parse (mesma regra do ?tipo dos relatórios): os filhos da
+// sidebar das Configurações acendem mesmo com a URL sem ?aba.
+const abaSearch = (search: Record<string, unknown>): { aba: EmpresaTab } => ({
+  aba: empresaTabs.includes(search.aba as EmpresaTab) ? (search.aba as EmpresaTab) : 'usuarios',
+});
+
+const configAdmRoute = createRoute({
+  getParentRoute: () => configuracoesRoute,
+  path: '/adm',
+  validateSearch: (search: Record<string, unknown>) => ({
+    ...empresaSearch(search),
+    ...unidadeSearch(search),
+  }),
+  component: AdmPage,
+});
+
+const configEmpresaRoute = createRoute({
+  getParentRoute: () => configuracoesRoute,
+  path: '/empresa',
+  validateSearch: (search: Record<string, unknown>) => ({
+    ...empresaSearch(search),
+    ...abaSearch(search),
+  }),
+  component: EmpresaPage,
+});
+
+const configUnidadeRoute = createRoute({
+  getParentRoute: () => configuracoesRoute,
+  path: '/unidade',
+  validateSearch: (search: Record<string, unknown>) => ({
+    ...empresaSearch(search),
+    ...unidadeSearch(search),
+    ...abaSearch(search),
+  }),
+  component: UnidadePage,
+});
+
+// Seções antigas das Configurações — reorganizadas nas 4 atuais.
+const settingsRedirect = (path: string, to: string, aba?: EmpresaTab) =>
+  createRoute({
+    getParentRoute: () => configuracoesRoute,
+    path,
+    beforeLoad: () => {
+      throw redirect({ to, search: aba ? { aba } : {} });
+    },
+  });
+const configUsuariosRedirect = settingsRedirect('/usuarios', '/configuracoes/adm');
+const configUsuariosEmpresaRedirect = settingsRedirect(
+  '/usuarios-empresa',
+  '/configuracoes/empresa',
+  'usuarios',
+);
+const configUsuariosUnidadeRedirect = settingsRedirect(
+  '/usuarios-unidade',
+  '/configuracoes/unidade',
+  'usuarios',
+);
+const configPapeisRedirect = settingsRedirect('/papeis', '/configuracoes/empresa', 'papeis');
+
+// Rota antiga da gestão de usuários — movida para Configurações.
+const usuariosRedirectRoute = createRoute({
   getParentRoute: () => authedRoute,
   path: '/usuarios',
-  validateSearch: sortSearch,
-  component: UsuariosPage,
+  beforeLoad: () => {
+    throw redirect({ to: '/configuracoes/adm' });
+  },
 });
 
 // Pasta atual, modo de visualização e filtro de vencimento do prontuário
@@ -360,10 +476,23 @@ const colaboradoresRoute = unitSection('colaboradores', ColaboradoresPage);
 
 const routeTree = rootRoute.addChildren([
   loginRoute,
+  settingsAuthRoute.addChildren([
+    configuracoesRoute.addChildren([
+      configIndexRoute,
+      configPerfilRoute,
+      configAdmRoute,
+      configEmpresaRoute,
+      configUnidadeRoute,
+      configUsuariosRedirect,
+      configUsuariosEmpresaRedirect,
+      configUsuariosUnidadeRedirect,
+      configPapeisRedirect,
+    ]),
+  ]),
   authedRoute.addChildren([
     dashboardRoute,
     companiesRoute,
-    usuariosRoute,
+    usuariosRedirectRoute,
     companyPanelRoute,
     unitsRoute,
     papeisRoute,

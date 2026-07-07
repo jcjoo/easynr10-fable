@@ -17,7 +17,7 @@ interface FilterChipsProps {
 }
 
 const chipClass = (active: boolean) =>
-  `inline-flex items-center gap-1.5 rounded-full border px-3 py-1 font-ui text-[13px]
+  `inline-flex items-center gap-1.5 rounded-full border px-3 py-1 font-ui text-caption
    font-semibold cursor-pointer ${
      active
        ? 'border-ink bg-ink text-paper'
@@ -41,7 +41,7 @@ export function FilterChips({ label, options, isActive, onSelect }: FilterChipsP
             {option.label}
             {option.count !== undefined && (
               <span
-                className={`tabular rounded-full px-1.5 font-mono text-[11px] ${
+                className={`tabular rounded-full px-1.5 font-mono text-micro ${
                   active ? 'bg-paper/20' : 'bg-paper text-muted'
                 }`}
               >

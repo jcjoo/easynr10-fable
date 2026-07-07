@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useNavigate, useParams, useSearch } from '@tanstack/react-router';
+import { Td } from '@/components/ui/table';
 import {
   FileSpreadsheet,
   Link2,
@@ -33,7 +34,7 @@ import { Button } from '@/components/ui/button';
 import { Dialog } from '@/components/ui/dialog';
 import { Field } from '@/components/ui/field';
 import { FolderIcon } from '@/components/ui/icons';
-import { Page } from '@/components/ui/page';
+import { Page, PageTitle } from '@/components/ui/page';
 import { SelectField } from '@/components/ui/select';
 import { DocumentPickerDialog } from '@/components/pie/document-picker';
 import { ImportDialog } from '@/components/registros/import-dialog';
@@ -47,10 +48,10 @@ import {
 } from '@/components/ui/sortable';
 
 // Cadastros da unidade (RF18): Colaboradores e Equipamentos (abas por tipo).
-// Estrutura de pastas FIXA no PIE (criada sob demanda ao cadastrar):
+// Estrutura de pastas FIXA no P.I.E (criada sob demanda ao cadastrar):
 //   Colaboradores/Lista de Colaboradores/[nome]/[estrutura opcional]
 //   Equipamentos/<Tipo>/Lista de <Tipo>/[nome]/[estrutura opcional]
-// Campos kind=document (ex.: CA do EPI) são vinculados a documentos do PIE —
+// Campos kind=document (ex.: CA do EPI) são vinculados a documentos do P.I.E —
 // um documento pode cobrir N itens (base das automações de vencimento).
 
 interface RegisterRow {
@@ -314,7 +315,7 @@ export function RegisterPage({ module }: { module: RegisterModule }) {
   const [importOpen, setImportOpen] = useState(false);
 
   // Todos os campos têm valor texto no metadata — nos kind=document esse valor
-  // é o código cadastrado (ex.: nº do CA); o documento do PIE é vinculado à parte.
+  // é o código cadastrado (ex.: nº do CA); o documento do P.I.E é vinculado à parte.
   const allFields: RegisterField[] = [
     ...defaults,
     ...(customFields.data ?? []).map((field) => ({ key: field.name, label: field.name })),
@@ -358,9 +359,9 @@ export function RegisterPage({ module }: { module: RegisterModule }) {
         <div>
           <p className="text-sm text-muted">Cadastros</p>
           {/* Sem as abas, o h1 diz qual tipo está ativo (ex.: "Ferramentas"). */}
-          <h1 className="text-[28px] font-bold tracking-tight">
+          <PageTitle>
             {isEmployees ? title : registerTargetLabels[equipmentTab]}
-          </h1>
+          </PageTitle>
         </div>
         <div className="flex flex-wrap gap-2">
           {canImport && (
@@ -401,7 +402,7 @@ export function RegisterPage({ module }: { module: RegisterModule }) {
               {[
                 ['nome', 'Nome'] as const,
                 ...allFields.map((field) => [`campo:${field.key}`, field.label] as const),
-                ['pasta', 'Pasta no PIE'] as const,
+                ['pasta', 'Pasta no P.I.E'] as const,
               ].map(([key, label]) => (
                 <SortableTh
                   key={key}
@@ -426,22 +427,22 @@ export function RegisterPage({ module }: { module: RegisterModule }) {
             )}
             {sorted.map((row) => (
               <tr key={row.id} className="group hover:bg-paper">
-                <td className="border-b border-line px-3.5 py-2.5 font-medium">{row.name}</td>
+                <Td className="font-medium">{row.name}</Td>
                 {allFields.map((field) => {
                   if (field.kind === 'document') {
                     const link = linkByItemField.get(`${row.id}:${field.key}`);
                     const code = row.metadata?.[field.key];
                     return (
-                      <td key={field.key} className="border-b border-line px-3.5 py-2.5">
+                      <Td key={field.key}>
                         <div className="flex items-center gap-2">
                           {code && (
-                            <span className="tabular whitespace-nowrap font-mono text-[13px]">
+                            <span className="tabular whitespace-nowrap font-mono text-caption">
                               {code}
                             </span>
                           )}
                           {link ? (
                             <span
-                              className={`inline-flex max-w-56 items-center gap-1 rounded-full py-0.5 pl-2.5 ${canLink ? 'pr-1' : 'pr-2.5'} font-ui text-[12.5px] font-semibold ${expiryTone(link)}`}
+                              className={`inline-flex max-w-56 items-center gap-1 rounded-full py-0.5 pl-2.5 ${canLink ? 'pr-1' : 'pr-2.5'} font-ui text-label font-semibold ${expiryTone(link)}`}
                             >
                               {canLink ? (
                                 <button
@@ -478,7 +479,7 @@ export function RegisterPage({ module }: { module: RegisterModule }) {
                             <button
                               type="button"
                               onClick={() => openLinkDialog(field, row.id)}
-                              className="cursor-pointer rounded-full border border-dashed border-line-strong px-2.5 py-0.5 font-ui text-[12.5px] font-medium text-muted hover:border-action hover:text-action"
+                              className="cursor-pointer rounded-full border border-dashed border-line-strong px-2.5 py-0.5 font-ui text-label font-medium text-muted hover:border-action hover:text-action"
                             >
                               Vincular…
                             </button>
@@ -486,22 +487,22 @@ export function RegisterPage({ module }: { module: RegisterModule }) {
                             !code && <span className="text-muted">—</span>
                           )}
                         </div>
-                      </td>
+                      </Td>
                     );
                   }
                   return (
-                    <td key={field.key} className="border-b border-line px-3.5 py-2.5 text-ink-soft">
+                    <Td key={field.key} className="text-ink-soft">
                       {row.metadata?.[field.key] || '—'}
-                    </td>
+                    </Td>
                   );
                 })}
-                <td className="border-b border-line px-3.5 py-2.5">
+                <Td>
                   {row.folderId ? (
                     <Link
                       to="/$companyId/$unitId/pie"
                       params={{ companyId, unitId }}
                       search={{ pasta: row.folderId }}
-                      className="flex max-w-52 items-center gap-1.5 text-[13px] text-muted hover:text-action hover:underline"
+                      className="flex max-w-52 items-center gap-1.5 text-caption text-muted hover:text-action hover:underline"
                     >
                       <FolderIcon aria-hidden className="size-3.5 shrink-0" />
                       <span className="truncate">{row.folderName}</span>
@@ -509,8 +510,8 @@ export function RegisterPage({ module }: { module: RegisterModule }) {
                   ) : (
                     <span className="text-muted">—</span>
                   )}
-                </td>
-                <td className="border-b border-line px-3.5 py-2.5">
+                </Td>
+                <Td>
                   <div className="flex items-center justify-end gap-0.5">
                     {canManageItems && (
                       <>
@@ -535,7 +536,7 @@ export function RegisterPage({ module }: { module: RegisterModule }) {
                       </>
                     )}
                   </div>
-                </td>
+                </Td>
               </tr>
             ))}
           </tbody>
@@ -573,14 +574,14 @@ export function RegisterPage({ module }: { module: RegisterModule }) {
               }
               hint={
                 field.kind === 'document'
-                  ? 'Código cadastrado; o documento do PIE é vinculado pelo botão "Vincular" na lista'
+                  ? 'Código cadastrado; o documento do P.I.E é vinculado pelo botão "Vincular" na lista'
                   : undefined
               }
             />
           ))}
           {editing === 'new' && (
             <div className="rounded-card border border-line bg-paper p-3">
-              <p className="text-[13px] text-ink-soft">
+              <p className="text-caption text-ink-soft">
                 A pasta <strong>{name.trim() || `do ${itemLabel}`}</strong> será criada
                 automaticamente em{' '}
                 <strong>{registerBasePath[editorTarget].join(' / ')}</strong>.
@@ -629,11 +630,11 @@ export function RegisterPage({ module }: { module: RegisterModule }) {
       >
         <div className="flex max-h-[70vh] flex-col gap-4 overflow-y-auto pr-1">
           <p className="text-sm text-muted">
-            Escolha o documento do PIE e marque os itens cobertos por ele — o vencimento do
+            Escolha o documento do P.I.E e marque os itens cobertos por ele — o vencimento do
             documento passa a valer para todos (alertas e diagnóstico de vencidos).
           </p>
           <div className="flex flex-col gap-1.5">
-            <span className="font-ui text-[13px] font-semibold">Documento do PIE</span>
+            <span className="font-ui text-caption font-semibold">Documento do P.I.E</span>
             <button
               type="button"
               onClick={() => setDocPickerOpen(true)}
@@ -647,7 +648,7 @@ export function RegisterPage({ module }: { module: RegisterModule }) {
 
           <div className="rounded-card border border-line">
             <div className="flex items-center justify-between border-b border-line px-3 py-2">
-              <span className="font-ui text-[13px] font-semibold">
+              <span className="font-ui text-caption font-semibold">
                 Itens ({linkSelection.size} selecionado{linkSelection.size === 1 ? '' : 's'})
               </span>
               <button
@@ -659,7 +660,7 @@ export function RegisterPage({ module }: { module: RegisterModule }) {
                       : new Set(rows.map((row) => row.id)),
                   )
                 }
-                className="cursor-pointer font-ui text-[12.5px] font-medium text-action hover:underline"
+                className="cursor-pointer font-ui text-label font-medium text-action hover:underline"
               >
                 {linkSelection.size === rows.length ? 'Desmarcar todos' : 'Selecionar todos'}
               </button>
@@ -690,7 +691,7 @@ export function RegisterPage({ module }: { module: RegisterModule }) {
                       />
                       <span className="flex-1">{row.name}</span>
                       {current && (
-                        <span className="truncate text-[12px] text-muted">
+                        <span className="truncate text-label text-muted">
                           atual: {current.documentName}
                         </span>
                       )}
@@ -763,7 +764,7 @@ export function RegisterPage({ module }: { module: RegisterModule }) {
       >
         <div className="flex flex-col gap-4">
           <p className="text-sm">
-            Excluir <strong>{deleteDialog.target?.name}</strong>? A pasta no PIE e os documentos não
+            Excluir <strong>{deleteDialog.target?.name}</strong>? A pasta no P.I.E e os documentos não
             são afetados.
           </p>
           <div className="flex justify-end gap-2">

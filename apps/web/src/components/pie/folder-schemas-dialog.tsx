@@ -114,7 +114,7 @@ interface FolderSchemasDialogProps {
   open: boolean;
   onClose: () => void;
   unitId: string;
-  /** Pasta atual do PIE — a estrutura é gerada a partir daqui. */
+  /** Pasta atual do P.I.E — a estrutura é gerada a partir daqui. */
   currentFolderId: string | null;
   currentFolderName: string;
 }
@@ -311,7 +311,7 @@ export function FolderSchemasDialog({
             autoFocus
           />
           <div className="flex flex-col gap-2">
-            <span className="font-ui text-[13px] font-semibold">Pastas</span>
+            <span className="font-ui text-caption font-semibold">Pastas</span>
             <TreeEditor nodes={draftNodes} onChange={setDraftNodes} />
             <Button
               type="button"

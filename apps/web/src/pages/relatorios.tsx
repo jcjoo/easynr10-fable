@@ -1,3 +1,4 @@
+import { Td } from '@/components/ui/table';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate, useParams, useSearch } from '@tanstack/react-router';
 import { Download, Search, X } from 'lucide-react';
@@ -16,7 +17,7 @@ import {
 } from '@easynr10/shared';
 import { trpc } from '@/lib/trpc';
 import { formatDate } from '@/lib/format';
-import { Page } from '@/components/ui/page';
+import { Page, PageTitle } from '@/components/ui/page';
 import { FilterChips, type FilterChipOption } from '@/components/ui/filter-chips';
 import {
   ActionStatusPill,
@@ -59,14 +60,13 @@ const tabLabels: Record<ReportTab, string> = {
 const tabDescriptions: Record<ReportTab, string> = {
   'nao-conformidades':
     'Itens de adequação ativos com aderência abaixo de Plena, incluindo os ainda sem avaliação.',
-  'situacao-documental': 'Todos os documentos do PIE com local, validade e situação.',
+  'situacao-documental': 'Todos os documentos do P.I.E com local, validade e situação.',
   'plano-de-acao': 'Ações geradas pelos diagnósticos, com prazo e responsável.',
 };
 
 // Chips de status das não conformidades (Plena não aparece — está fora do relatório).
 const ncStatuses = ['sem_avaliacao', 'inexistente', 'inadequada', 'parcial', 'suficiente'] as const;
 
-const td = 'border-b border-line px-3.5 py-2.5 align-top';
 
 export function RelatoriosPage() {
   const { companyId, unitId } = useParams({ from: '/_authed/$companyId/$unitId/relatorios' });
@@ -297,7 +297,7 @@ export function RelatoriosPage() {
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <p className="text-sm text-muted">Relatórios</p>
-          <h1 className="text-[28px] font-bold tracking-tight">{tabLabels[tab]}</h1>
+          <PageTitle>{tabLabels[tab]}</PageTitle>
         </div>
         <div className="flex gap-2">
           <a href={exportUrl('csv')} download className={exportButton}>
@@ -357,7 +357,7 @@ export function RelatoriosPage() {
           <button
             type="button"
             onClick={() => setSearch({ tipo: tab, ord: search.ord, dir: search.dir })}
-            className="flex cursor-pointer items-center gap-1 font-ui text-[12.5px] font-medium text-muted hover:text-ink"
+            className="flex cursor-pointer items-center gap-1 font-ui text-label font-medium text-muted hover:text-ink"
           >
             <X aria-hidden className="size-3.5" /> Limpar filtros
           </button>
@@ -367,7 +367,7 @@ export function RelatoriosPage() {
       <p className="text-sm text-muted">
         {tabDescriptions[tab]}
         {loaded && (
-          <span className="font-mono text-[12px]">
+          <span className="font-mono text-label">
             {' '}
             · {total} de {loaded.length} registro{loaded.length === 1 ? '' : 's'}
           </span>
@@ -412,22 +412,22 @@ export function RelatoriosPage() {
               )}
               {ncSorted.map((row) => (
                 <tr key={row.id} className="hover:bg-paper">
-                  <td className={td}>
-                    <span className="rounded-ctl bg-action-soft px-1.5 py-0.5 font-mono text-[12.5px] text-action">
+                  <Td className="align-top">
+                    <span className="rounded-ctl bg-action-soft px-1.5 py-0.5 font-mono text-label text-action">
                       {row.normCode}
                     </span>
-                  </td>
-                  <td className={`${td} w-full`}>
+                  </Td>
+                  <Td className="align-top w-full">
                     <span className="line-clamp-2">{row.normDescription}</span>
-                  </td>
-                  <td className={td}>
+                  </Td>
+                  <Td className="align-top">
                     <StatusPill status={row.status ?? 'sem_avaliacao'} />
-                  </td>
-                  <td className={`${td} tabular font-mono text-[13px]`}>{formatDate(row.deadline)}</td>
-                  <td className={td}>{row.responsible ?? '—'}</td>
-                  <td className={`${td} tabular font-mono text-[13px]`}>
+                  </Td>
+                  <Td className="align-top tabular font-mono text-caption">{formatDate(row.deadline)}</Td>
+                  <Td className="align-top">{row.responsible ?? '—'}</Td>
+                  <Td className="align-top tabular font-mono text-caption">
                     {row.lastDiagnosticAt ? formatDate(new Date(row.lastDiagnosticAt)) : '—'}
-                  </td>
+                  </Td>
                 </tr>
               ))}
             </tbody>
@@ -464,29 +464,29 @@ export function RelatoriosPage() {
                 <tr>
                   <td colSpan={6} className="px-3.5 py-10 text-center text-muted">
                     {docBase.length === 0 && !qNorm && !search.grupo
-                      ? 'Nenhum documento no PIE desta unidade.'
+                      ? 'Nenhum documento no P.I.E desta unidade.'
                       : 'Nenhum documento com esses filtros.'}
                   </td>
                 </tr>
               )}
               {docSorted.map((row) => (
                 <tr key={row.id} className="hover:bg-paper">
-                  <td className={`${td} font-medium`}>{row.name}</td>
-                  <td className={`${td} max-w-80`}>
+                  <Td className="align-top font-medium">{row.name}</Td>
+                  <Td className="align-top max-w-80">
                     <span className="line-clamp-1 text-muted" title={row.path}>
                       {row.path}
                     </span>
-                  </td>
-                  <td className={td}>
+                  </Td>
+                  <Td className="align-top">
                     {row.documentGroup ? documentGroupLabels[row.documentGroup] : '—'}
-                  </td>
-                  <td className={td}>
+                  </Td>
+                  <Td className="align-top">
                     <SituationPill situation={row.situation} />
-                  </td>
-                  <td className={`${td} tabular font-mono text-[13px]`}>{formatDate(row.expiresAt)}</td>
-                  <td className={`${td} tabular font-mono text-[13px]`}>
+                  </Td>
+                  <Td className="align-top tabular font-mono text-caption">{formatDate(row.expiresAt)}</Td>
+                  <Td className="align-top tabular font-mono text-caption">
                     {row.daysToExpiry == null ? '—' : row.daysToExpiry}
-                  </td>
+                  </Td>
                 </tr>
               ))}
             </tbody>
@@ -531,25 +531,25 @@ export function RelatoriosPage() {
               )}
               {planSorted.map((row) => (
                 <tr key={row.id} className="hover:bg-paper">
-                  <td className={td}>
-                    <span className="rounded-ctl bg-action-soft px-1.5 py-0.5 font-mono text-[12.5px] text-action">
+                  <Td className="align-top">
+                    <span className="rounded-ctl bg-action-soft px-1.5 py-0.5 font-mono text-label text-action">
                       {row.normCode}
                     </span>
-                  </td>
-                  <td className={`${td} w-full`}>
+                  </Td>
+                  <Td className="align-top w-full">
                     <span className="line-clamp-2">{row.normDescription}</span>
-                  </td>
-                  <td className={td}>
+                  </Td>
+                  <Td className="align-top">
                     <PriorityPill priority={row.priority} />
-                  </td>
-                  <td className={td}>
+                  </Td>
+                  <Td className="align-top">
                     <StatusPill status={row.adherence} />
-                  </td>
-                  <td className={td}>
+                  </Td>
+                  <Td className="align-top">
                     <ActionStatusPill status={row.status} overdue={row.overdue} />
-                  </td>
-                  <td className={`${td} tabular font-mono text-[13px]`}>{formatDate(row.deadline)}</td>
-                  <td className={td}>{row.responsible ?? '—'}</td>
+                  </Td>
+                  <Td className="align-top tabular font-mono text-caption">{formatDate(row.deadline)}</Td>
+                  <Td className="align-top">{row.responsible ?? '—'}</Td>
                 </tr>
               ))}
             </tbody>

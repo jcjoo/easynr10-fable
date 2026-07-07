@@ -71,7 +71,7 @@ export function AssessmentDialog({
     trpc.adequacy.requirements.queryOptions({ unitId, adequacyItemId: target.id }),
   );
   const needsDocuments = requirements.data?.some((req) => req.type !== 'opinion') ?? false;
-  // Sem leitura do PIE no papel, não consulta documentos (evita 403 global).
+  // Sem leitura do P.I.E no papel, não consulta documentos (evita 403 global).
   const { can: canUnit, loaded: permissionsLoaded } = useUnitPermissions(unitId);
   const canReadPie = permissionsLoaded && canUnit('pie.ler');
   // Sem "diagnostico.avaliar", o dialog é somente leitura: descrição e
@@ -235,7 +235,7 @@ export function AssessmentDialog({
             {/* — Evidências dos requisitos do item (§7.6) — */}
             {(requirements.data?.length ?? 0) > 0 && (
               <div className="flex flex-col gap-3 rounded-card border border-line bg-paper p-3">
-                <p className="font-ui text-[13px] font-semibold">
+                <p className="font-ui text-caption font-semibold">
                   Evidências{' '}
                   <span className="font-normal text-muted">
                     ({requirements.data!.length} requisito
@@ -254,7 +254,7 @@ export function AssessmentDialog({
                           docDrafts[req.id] ? '' : 'text-muted'
                         }`}
                       >
-                        {documentName(docDrafts[req.id]) ?? 'Vincular documento do PIE…'}
+                        {documentName(docDrafts[req.id]) ?? 'Vincular documento do P.I.E…'}
                       </button>
                     )}
                     {req.type === 'opinion' && (
@@ -271,8 +271,8 @@ export function AssessmentDialog({
                     )}
                     {req.type === 'group' && (
                       <div className="mt-2 flex flex-col gap-2">
-                        <div className="flex flex-wrap items-center gap-2 text-[13px] text-muted">
-                          <span className="rounded-full bg-idle-soft px-2 py-0.5 text-[11px] text-idle">
+                        <div className="flex flex-wrap items-center gap-2 text-caption text-muted">
+                          <span className="rounded-full bg-idle-soft px-2 py-0.5 text-micro text-idle">
                             {req.targetGroup ? registerTargetLabels[req.targetGroup] : 'grupo'}
                           </span>
                           <Button
@@ -289,21 +289,21 @@ export function AssessmentDialog({
                           </Button>
                         </div>
                         {groupDrafts[req.id]?.length === 0 && (
-                          <p className="text-[13px] text-muted">O grupo não tem itens.</p>
+                          <p className="text-caption text-muted">O grupo não tem itens.</p>
                         )}
                         {groupDrafts[req.id]?.map((draft, index) => (
                           <div
                             key={draft.employeeId ?? draft.equipmentId ?? index}
                             className="flex flex-wrap items-center gap-2"
                           >
-                            <span className="min-w-40 flex-1 text-[13px]">{draft.label}</span>
+                            <span className="min-w-40 flex-1 text-caption">{draft.label}</span>
                             <button
                               type="button"
                               aria-label={`Documento para ${draft.label}`}
                               onClick={() =>
                                 setDocPicker({ requirementId: req.id, groupIndex: index })
                               }
-                              className={`w-64 max-w-full cursor-pointer truncate rounded-ctl border border-line-strong bg-surface px-2 py-1 text-left text-[13px] hover:border-action ${
+                              className={`w-64 max-w-full cursor-pointer truncate rounded-ctl border border-line-strong bg-surface px-2 py-1 text-left text-caption hover:border-action ${
                                 draft.documentId ? '' : 'text-muted'
                               }`}
                             >
@@ -333,7 +333,7 @@ export function AssessmentDialog({
               />
             </div>
             <div className="flex flex-col gap-1.5">
-              <label htmlFor="parecer" className="font-ui text-[13px] font-semibold">
+              <label htmlFor="parecer" className="font-ui text-caption font-semibold">
                 Parecer técnico
               </label>
               <textarea
@@ -380,7 +380,7 @@ export function AssessmentDialog({
                           current === entry.id ? null : entry.id,
                         )
                       }
-                      className="ml-auto flex cursor-pointer items-center gap-1 font-ui text-[12.5px] font-medium text-muted hover:text-action"
+                      className="ml-auto flex cursor-pointer items-center gap-1 font-ui text-label font-medium text-muted hover:text-action"
                     >
                       <ChevronRight
                         aria-hidden
@@ -397,19 +397,19 @@ export function AssessmentDialog({
                   {expandedDiagnosticId === entry.id && (
                     <div className="mt-1 flex flex-col gap-2 rounded-card bg-paper p-3">
                       {pastEvidences.isLoading && (
-                        <p className="text-[13px] text-muted">Carregando…</p>
+                        <p className="text-caption text-muted">Carregando…</p>
                       )}
                       {pastEvidences.data?.length === 0 && (
-                        <p className="text-[13px] text-muted">
+                        <p className="text-caption text-muted">
                           Diagnóstico registrado sem evidências.
                         </p>
                       )}
                       {pastEvidences.data?.map((ev) => (
                         <div key={ev.id}>
-                          <p className="text-[13px] font-medium">{ev.question}</p>
+                          <p className="text-caption font-medium">{ev.question}</p>
                           <ul className="mt-0.5 flex flex-col gap-0.5">
                             {ev.items.map((item) => (
-                              <li key={item.id} className="text-[13px] text-ink-soft">
+                              <li key={item.id} className="text-caption text-ink-soft">
                                 {item.label}
                                 {item.answer ? ` — ${item.answer}` : ''}
                                 {item.documentName ? (

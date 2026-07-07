@@ -73,17 +73,17 @@ export function DocumentVersionsDialog({
               className="flex items-center justify-between gap-3 border-b border-line py-2.5 last:border-b-0"
             >
               <div className="flex items-baseline gap-3">
-                <span className="tabular font-mono text-[13px] font-semibold">
+                <span className="tabular font-mono text-caption font-semibold">
                   v{version.number}
                 </span>
-                <span className="tabular font-mono text-[12px] text-muted">
+                <span className="tabular font-mono text-label text-muted">
                   {formatBytes(version.sizeBytes)}
                 </span>
-                <span className="text-[13px] text-muted">
+                <span className="text-caption text-muted">
                   {version.uploadedBy ?? '—'} · {formatDateTime(version.createdAt)}
                 </span>
                 {index === 0 && (
-                  <span className="rounded-full bg-action-soft px-2 py-0.5 font-ui text-[11px] font-semibold text-action">
+                  <span className="rounded-full bg-action-soft px-2 py-0.5 font-ui text-micro font-semibold text-action">
                     atual
                   </span>
                 )}
@@ -92,14 +92,14 @@ export function DocumentVersionsDialog({
                 <button
                   type="button"
                   onClick={() => onPreview(version.id)}
-                  className="cursor-pointer font-ui text-[13px] font-semibold text-action hover:underline"
+                  className="cursor-pointer font-ui text-caption font-semibold text-action hover:underline"
                 >
                   Visualizar
                 </button>
                 <button
                   type="button"
                   onClick={() => onDownload(version.id)}
-                  className="cursor-pointer font-ui text-[13px] font-semibold text-action hover:underline"
+                  className="cursor-pointer font-ui text-caption font-semibold text-action hover:underline"
                 >
                   Baixar
                 </button>
@@ -115,7 +115,7 @@ export function DocumentVersionsDialog({
                         versionId: version.id,
                       })
                     }
-                    className="cursor-pointer font-ui text-[13px] font-semibold text-ink-soft hover:underline disabled:opacity-50"
+                    className="cursor-pointer font-ui text-caption font-semibold text-ink-soft hover:underline disabled:opacity-50"
                   >
                     Restaurar
                   </button>

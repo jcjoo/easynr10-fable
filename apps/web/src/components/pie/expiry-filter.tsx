@@ -3,7 +3,7 @@ import { ChevronDown, Filter, X } from 'lucide-react';
 import { daysUntilExpiry } from '@easynr10/shared';
 import { Button } from '@/components/ui/button';
 
-// Filtro de vencimento do PIE, portado do legado (documents/filters.tsx +
+// Filtro de vencimento do P.I.E, portado do legado (documents/filters.tsx +
 // hooks/documents/documentsFilters.ts). Presets e período personalizado;
 // clicar na opção ativa limpa o filtro. O valor vive na URL (?venc=&de=&ate=).
 
@@ -76,7 +76,7 @@ export function ExpiryFilter({
     <div className="relative">
       {/* Chip ativo com ✕ para limpar (estilo Drive: label | ✕) */}
       <div
-        className={`flex items-stretch rounded-ctl border font-ui text-[13px] font-semibold ${
+        className={`flex items-stretch rounded-ctl border font-ui text-caption font-semibold ${
           current
             ? 'border-action bg-action-soft text-action'
             : 'border-line-strong text-ink-soft hover:border-ink-soft'
@@ -118,8 +118,8 @@ export function ExpiryFilter({
       {open && (
         <>
           <div aria-hidden className="fixed inset-0 z-10" onClick={() => setOpen(false)} />
-          <div className="absolute right-0 top-full z-20 mt-1 w-60 rounded-card border border-line-strong bg-surface p-1.5 shadow-[0_8px_24px_rgba(26,35,51,.18)]">
-            <p className="px-2 pb-1 pt-0.5 font-mono text-[11px] font-medium uppercase tracking-[.12em] text-muted">
+          <div className="absolute right-0 top-full z-20 mt-1 w-60 rounded-card border border-line-strong bg-surface p-1.5 shadow-pop">
+            <p className="px-2 pb-1 pt-0.5 font-mono text-micro font-medium uppercase tracking-[.12em] text-muted">
               Filtrar por vencimento
             </p>
             {options.map((opt) => (
@@ -128,7 +128,7 @@ export function ExpiryFilter({
                 type="button"
                 onClick={() => select(opt.value)}
                 className={`flex w-full cursor-pointer items-center gap-2.5 rounded-ctl px-2 py-1.5 text-left
-                  font-ui text-[13.5px] font-medium ${
+                  font-ui text-caption font-medium ${
                     value.venc === opt.value ? 'bg-action-soft text-action' : 'hover:bg-paper'
                   }`}
               >
@@ -145,7 +145,7 @@ export function ExpiryFilter({
                     type="date"
                     value={de}
                     onChange={(e) => setDe(e.target.value)}
-                    className="rounded-ctl border border-line-strong bg-surface px-2 py-1.5 text-[13px] text-ink"
+                    className="rounded-ctl border border-line-strong bg-surface px-2 py-1.5 text-caption text-ink"
                   />
                 </label>
                 <label className="flex flex-col gap-1 font-ui text-xs font-medium text-muted">
@@ -154,7 +154,7 @@ export function ExpiryFilter({
                     type="date"
                     value={ate}
                     onChange={(e) => setAte(e.target.value)}
-                    className="rounded-ctl border border-line-strong bg-surface px-2 py-1.5 text-[13px] text-ink"
+                    className="rounded-ctl border border-line-strong bg-surface px-2 py-1.5 text-caption text-ink"
                   />
                 </label>
                 <Button

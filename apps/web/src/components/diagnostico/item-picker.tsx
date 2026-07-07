@@ -70,7 +70,7 @@ export function ItemPickerDialog({
               }}
               className="flex w-full cursor-pointer items-center gap-3 rounded-ctl px-2.5 py-2 text-left text-sm hover:bg-paper"
             >
-              <span className="shrink-0 rounded-ctl bg-action-soft px-1.5 py-0.5 font-mono text-[12.5px] text-action">
+              <span className="shrink-0 rounded-ctl bg-action-soft px-1.5 py-0.5 font-mono text-label text-action">
                 {row.normCode}
               </span>
               <span className="line-clamp-1 flex-1">{row.normDescription}</span>

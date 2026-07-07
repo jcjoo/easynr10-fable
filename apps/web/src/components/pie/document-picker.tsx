@@ -7,7 +7,7 @@ import { useUnitPermissions } from '@/lib/use-unit-permissions';
 import { Dialog } from '@/components/ui/dialog';
 import { FileTypeIcon, FolderIcon } from '@/components/ui/icons';
 
-// Seletor de documento do PIE com navegação de pastas (padrão de todo lugar
+// Seletor de documento do P.I.E com navegação de pastas (padrão de todo lugar
 // que vincula documento — avaliação, CA de cadastro etc.). `startPath` abre a
 // navegação já na pasta do grupo (por NOMES a partir da raiz, ex.:
 // ['Equipamentos', 'EPI']); se o caminho não existir, para no ancestral mais
@@ -54,9 +54,9 @@ export function DocumentPickerDialog({
   onSelect,
   startPath,
   selectedId,
-  title = 'Escolher documento do PIE',
+  title = 'Escolher documento do P.I.E',
 }: DocumentPickerDialogProps) {
-  // Sem leitura do PIE no papel, o seletor não consulta nada (evita 403).
+  // Sem leitura do P.I.E no papel, o seletor não consulta nada (evita 403).
   const { can, loaded } = useUnitPermissions(unitId);
   const canRead = loaded && can('pie.ler');
   const folders = useQuery({
@@ -137,13 +137,13 @@ export function DocumentPickerDialog({
       <div className="flex flex-col gap-3">
         {/* Caminho + busca */}
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <nav aria-label="Caminho" className="flex flex-wrap items-center gap-1 text-[13px]">
+          <nav aria-label="Caminho" className="flex flex-wrap items-center gap-1 text-caption">
             <button
               type="button"
               onClick={() => setCurrent(null)}
               className={`cursor-pointer hover:text-action hover:underline ${current === null ? 'font-semibold' : 'text-muted'}`}
             >
-              PIE
+              P.I.E
             </button>
             {crumbs.map((node, index) => (
               <span key={node.id} className="flex items-center gap-1">
@@ -179,7 +179,7 @@ export function DocumentPickerDialog({
         <div className="h-[46vh] overflow-y-auto rounded-card border border-line p-1.5">
           {loaded && !canRead && (
             <p className="px-2.5 py-6 text-center text-sm text-muted">
-              Seu papel nesta unidade não tem leitura do PIE.
+              Seu papel nesta unidade não tem leitura do P.I.E.
             </p>
           )}
           {canRead && (folders.isLoading || documents.isLoading) && (
@@ -216,7 +216,7 @@ export function DocumentPickerDialog({
               />
               <span className="flex-1 truncate">{doc.name}</span>
               {qNorm && doc.folderId && (
-                <span className="max-w-40 truncate text-[12px] text-muted">
+                <span className="max-w-40 truncate text-label text-muted">
                   {folderById.get(doc.folderId)?.name}
                 </span>
               )}

@@ -68,6 +68,81 @@ describe('unitProcedure (isolamento de tenant)', () => {
     await adminCaller.users.revoke({ userId: user.id, unitIds: [unit.id] });
     await expectTRPCError(caller.units.myPermissions({ unitId: unit.id }), 'FORBIDDEN');
   });
+
+  test('papel de unidade: herdado na listagem, atribuível só na própria unidade', async () => {
+    const { adminCaller, company, unit } = await setupUnit();
+    const sibling = (await adminCaller.units.create({
+      companyId: company.id,
+      name: uniqueName('Filial'),
+    }))!;
+
+    const companyRole = (await adminCaller.users.createRole({
+      companyId: company.id,
+      name: uniqueName('Da Empresa'),
+      permissions: [],
+    }))!;
+    const unitRole = (await adminCaller.users.createRole({
+      companyId: company.id,
+      unitId: unit.id,
+      name: uniqueName('Da Unidade'),
+      permissions: [],
+    }))!;
+
+    // A unidade herda sistema + empresa e soma o próprio.
+    const unitRoles = await adminCaller.users.roles({ companyId: company.id, unitId: unit.id });
+    const ids = new Set(unitRoles.map((role) => role.id));
+    expect(ids.has(companyRole.id)).toBe(true);
+    expect(ids.has(unitRole.id)).toBe(true);
+    expect(unitRoles.some((role) => role.isSystem)).toBe(true);
+
+    // Fora da unidade o papel próprio não aparece nem pode ser atribuído.
+    const companyRoles = await adminCaller.users.roles({ companyId: company.id });
+    expect(companyRoles.some((role) => role.id === unitRole.id)).toBe(false);
+    const siblingRoles = await adminCaller.users.roles({
+      companyId: company.id,
+      unitId: sibling.id,
+    });
+    expect(siblingRoles.some((role) => role.id === unitRole.id)).toBe(false);
+
+    const someone = await createUser('client');
+    await adminCaller.users.grant({
+      userId: someone.id,
+      unitIds: [unit.id],
+      roleId: unitRole.id,
+    });
+    await expectTRPCError(
+      adminCaller.users.grant({ userId: someone.id, unitIds: [sibling.id], roleId: unitRole.id }),
+      'BAD_REQUEST',
+    );
+
+    // Papel de unidade de OUTRA empresa não pode ser criado.
+    const { unit: foreignUnit } = await setupUnit();
+    await expectTRPCError(
+      adminCaller.users.createRole({
+        companyId: company.id,
+        unitId: foreignUnit.id,
+        name: uniqueName('Inválido'),
+        permissions: [],
+      }),
+      'BAD_REQUEST',
+    );
+  });
+
+  test('listByUnit traz só os membros da unidade, com o papel do vínculo', async () => {
+    const { adminCaller, unit } = await setupUnit();
+    const { user: reader } = await memberCaller(adminCaller, unit.id, 'Leitor');
+    // Membro de OUTRA unidade não aparece.
+    const { unit: otherUnit } = await setupUnit();
+    await memberCaller(adminCaller, otherUnit.id, 'Gestor');
+
+    const rows = await adminCaller.users.listByUnit({ unitId: unit.id });
+    expect(rows.map((row) => row.id)).toEqual([reader.id]);
+    expect(rows[0]?.roleName).toBe('Leitor');
+
+    // Revogado sai da lista.
+    await adminCaller.users.revoke({ userId: reader.id, unitIds: [unit.id] });
+    expect(await adminCaller.users.listByUnit({ unitId: unit.id })).toHaveLength(0);
+  });
 });
 
 describe('unitAction (papel granular)', () => {

@@ -84,7 +84,7 @@ function CompanyAccess({
                     value={currentRole}
                     disabled={pending}
                     onChange={(e) => onGrant([unit.id], e.target.value)}
-                    className="rounded-ctl border border-line-strong bg-surface px-2 py-1 text-[13px]"
+                    className="rounded-ctl border border-line-strong bg-surface px-2 py-1 text-caption"
                   >
                     {roles.data?.map((role) => (
                       <option key={role.id} value={role.id}>

@@ -26,7 +26,7 @@ export function SegmentedTabs<T extends string>({
           role="tab"
           aria-selected={value === option.value}
           onClick={() => onChange(option.value)}
-          className={`rounded-[3px] px-3 py-1.5 font-ui text-[13px] font-semibold ${
+          className={`rounded-[3px] px-3 py-1.5 font-ui text-caption font-semibold ${
             value === option.value
               ? 'bg-surface text-action shadow-sm'
               : 'cursor-pointer text-muted hover:text-ink'

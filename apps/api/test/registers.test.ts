@@ -191,6 +191,39 @@ describe('registers', () => {
     expect(links.some((row) => row.equipmentId === epi.id)).toBe(false);
   });
 
+  test('excluir a pasta do item limpa o vínculo do cadastro e dos documentos', async () => {
+    const { adminCaller, unit } = await setupUnit();
+    const maria = (await adminCaller.registers.upsertEmployee({
+      unitId: unit.id,
+      name: uniqueName('Maria'),
+      metadata: {},
+    }))!;
+    expect(maria.folderId).not.toBeNull();
+
+    // Documento na pasta do item, vinculado a um campo do colaborador.
+    const doc = await seedDocument(adminCaller, unit.id, maria.folderId!, { name: 'ASO' });
+    await adminCaller.registers.linkDocument({
+      unitId: unit.id,
+      fieldKey: 'aso',
+      documentId: doc.id,
+      employeeIds: [maria.id],
+      equipmentIds: [],
+    });
+
+    // Admin exclui a pasta do item com conteúdo (cascata).
+    await adminCaller.folders.remove({ unitId: unit.id, folderId: maria.folderId! });
+
+    // Sem vínculo fantasma: colaborador segue listado, mas sem pasta.
+    const rows = await adminCaller.registers.listEmployees({ unitId: unit.id });
+    const row = rows.find((entry) => entry.id === maria.id);
+    expect(row?.folderId).toBeNull();
+    expect(row?.folderName).toBeNull();
+
+    // E o vínculo campo→documento morreu junto com o documento.
+    const links = await adminCaller.registers.documentLinks({ unitId: unit.id });
+    expect(links.some((link) => link.employeeId === maria.id)).toBe(false);
+  });
+
   test('estrutura padrão do grupo: setTargetSetting aplica esquema na pasta do item', async () => {
     const { adminCaller, unit } = await setupUnit();
     const schema = (await adminCaller.folderSchemas.create({

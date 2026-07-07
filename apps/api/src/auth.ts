@@ -48,6 +48,11 @@ export const auth = betterAuth({
         input: false,
       },
     },
+    // Configurações → perfil: trocar o próprio e-mail (sem verificação por
+    // ora — o envio de e-mail entra com o RNF de notificações).
+    changeEmail: {
+      enabled: true,
+    },
   },
 });
 

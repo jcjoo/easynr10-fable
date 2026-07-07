@@ -74,6 +74,26 @@ export function buildStorageKey(unitId: string, fileName: string) {
   return `units/${unitId}/${crypto.randomUUID()}/${safeName}`;
 }
 
+// Logos: só raster (SVG inline pode executar script no preview).
+export const imageMimes = ['image/png', 'image/jpeg', 'image/webp'] as const;
+export type ImageMime = (typeof imageMimes)[number];
+const imageExtension: Record<ImageMime, string> = {
+  'image/png': 'png',
+  'image/jpeg': 'jpg',
+  'image/webp': 'webp',
+};
+
+export function buildLogoKey(prefix: string, mimeType: ImageMime) {
+  return `${prefix}/${crypto.randomUUID()}/logo.${imageExtension[mimeType]}`;
+}
+
+// Content-type do preview derivado da extensão da key (o upload é validado
+// contra imageMimes, então a extensão é confiável).
+export function imageMimeFromKey(storageKey: string) {
+  const match = Object.entries(imageExtension).find(([, ext]) => storageKey.endsWith(`.${ext}`));
+  return match?.[0] ?? 'image/png';
+}
+
 export function presignUpload(storageKey: string, mimeType: string) {
   return getSignedUrl(
     signer,

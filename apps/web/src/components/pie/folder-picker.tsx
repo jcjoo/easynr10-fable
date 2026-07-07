@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Dialog } from '@/components/ui/dialog';
 import { FolderIcon } from '@/components/ui/icons';
 
-// Seletor de PASTA do PIE com navegação (botão "Novo" da sidebar): o usuário
+// Seletor de PASTA do P.I.E com navegação (botão "Novo" da sidebar): o usuário
 // navega até onde quer criar o documento/pasta e confirma a pasta atual.
 
 export interface PickedFolder {
@@ -70,19 +70,19 @@ export function FolderPickerDialog({
     .filter((node) => node.parentId === current)
     .sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'));
 
-  const currentName = current ? (folderById.get(current)?.name ?? '') : 'Raiz do PIE';
+  const currentName = current ? (folderById.get(current)?.name ?? '') : 'Raiz do P.I.E';
   const canConfirm = allowRoot || current !== null;
 
   return (
     <Dialog open={open} onClose={onClose} title={title} size="lg">
       <div className="flex flex-col gap-3">
-        <nav aria-label="Caminho" className="flex flex-wrap items-center gap-1 text-[13px]">
+        <nav aria-label="Caminho" className="flex flex-wrap items-center gap-1 text-caption">
           <button
             type="button"
             onClick={() => setCurrent(null)}
             className={`cursor-pointer hover:text-action hover:underline ${current === null ? 'font-semibold' : 'text-muted'}`}
           >
-            PIE
+            P.I.E
           </button>
           {crumbs.map((node, index) => (
             <span key={node.id} className="flex items-center gap-1">
@@ -122,7 +122,7 @@ export function FolderPickerDialog({
         </div>
 
         <div className="flex items-center justify-between gap-3">
-          <span className="truncate text-[13px] text-muted">
+          <span className="truncate text-caption text-muted">
             Destino: <strong className="text-ink">{currentName}</strong>
           </span>
           <div className="flex gap-2">

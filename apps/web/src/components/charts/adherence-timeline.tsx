@@ -245,7 +245,7 @@ export function AdherenceTimeline({
           <p className="font-ui text-sm font-bold tabular-nums">
             {hovered.percent === null ? 'Sem avaliação' : `${hovered.percent}%`}
           </p>
-          <p className="font-mono text-[11px] text-muted">
+          <p className="font-mono text-micro text-muted">
             {formatFull(hovered.date)} · {hovered.evaluated} ite
             {hovered.evaluated === 1 ? 'm avaliado' : 'ns avaliados'}
           </p>

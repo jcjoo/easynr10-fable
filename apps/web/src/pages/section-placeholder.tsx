@@ -1,7 +1,7 @@
 // Placeholder genérico de seção (sem uso no momento — última seção real
 // entregue na F4; mantido para fases futuras).
 
-import { Page } from '@/components/ui/page';
+import { Page, PageTitle } from '@/components/ui/page';
 
 export function SectionPlaceholder({
   title,
@@ -14,7 +14,7 @@ export function SectionPlaceholder({
 }) {
   return (
     <Page>
-      <h1 className="text-[28px] font-bold tracking-tight">{title}</h1>
+      <PageTitle>{title}</PageTitle>
       <div className="flex flex-col items-center justify-center gap-1.5 rounded-card border border-dashed border-line-strong py-20 text-center">
         <h2 className="font-ui text-base font-semibold">Em construção</h2>
         <p className="max-w-[46ch] text-sm text-muted">{description}</p>

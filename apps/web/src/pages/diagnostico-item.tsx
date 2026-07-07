@@ -9,7 +9,7 @@ import { useUnitPermissions } from '@/lib/use-unit-permissions';
 import { Button } from '@/components/ui/button';
 import { Dialog } from '@/components/ui/dialog';
 import { Field } from '@/components/ui/field';
-import { Page } from '@/components/ui/page';
+import { Page, PageTitle } from '@/components/ui/page';
 import { SelectField } from '@/components/ui/select';
 
 // Configuração de um item de adequação (RF13.1), porte do itemDetail do
@@ -125,9 +125,9 @@ export function DiagnosticoItemPage() {
 
       <div>
         <p className="text-sm text-muted">Configuração do item</p>
-        <h1 className="text-[28px] font-bold tracking-tight">
+        <PageTitle>
           NR-10 §{item.data?.normCode ?? '…'}
-        </h1>
+        </PageTitle>
       </div>
 
       <div className="space-y-2 text-sm">
@@ -140,7 +140,7 @@ export function DiagnosticoItemPage() {
       <div className="flex items-center justify-between gap-4 rounded-card border border-line p-4">
         <div>
           <p className="font-ui text-sm font-semibold">Item ativo na avaliação</p>
-          <p className="text-[13px] text-muted">
+          <p className="text-caption text-muted">
             Desative para tirar a norma do escopo desta unidade.
           </p>
         </div>
@@ -157,7 +157,7 @@ export function DiagnosticoItemPage() {
       </div>
 
       <div className="flex flex-col gap-1.5">
-        <label htmlFor="orientacao" className="font-ui text-[13px] font-semibold">
+        <label htmlFor="orientacao" className="font-ui text-caption font-semibold">
           Orientação da unidade
         </label>
         <textarea
@@ -176,7 +176,7 @@ export function DiagnosticoItemPage() {
         <div className="flex items-center justify-between gap-3">
           <h2 className="font-ui text-base font-semibold">
             Requisitos de evidência
-            <span className="ml-2 rounded-full bg-idle-soft px-2 py-0.5 font-mono text-[11px] text-idle">
+            <span className="ml-2 rounded-full bg-idle-soft px-2 py-0.5 font-mono text-micro text-idle">
               {requirements.data?.length ?? 0}
             </span>
           </h2>
@@ -202,19 +202,19 @@ export function DiagnosticoItemPage() {
                 className="group flex items-center justify-between gap-3 rounded-card border border-line p-3"
               >
                 <div className="min-w-0">
-                  <p className="flex items-center gap-1.5 font-mono text-[11px] font-medium uppercase tracking-[.08em] text-muted">
+                  <p className="flex items-center gap-1.5 font-mono text-micro font-medium uppercase tracking-[.08em] text-muted">
                     <Icon aria-hidden className="size-3.5" /> {typeLabels[req.type]}
                   </p>
                   <p className="mt-0.5 text-sm font-medium">{req.question}</p>
                   {req.type === 'group' && (
                     <div className="mt-1 flex flex-wrap gap-1.5">
                       {req.targetGroup && (
-                        <span className="rounded-full bg-idle-soft px-2 py-0.5 text-[11px] text-idle">
+                        <span className="rounded-full bg-idle-soft px-2 py-0.5 text-micro text-idle">
                           {registerTargetLabels[req.targetGroup]}
                         </span>
                       )}
                       {req.defaultDocumentName && (
-                        <span className="rounded-full bg-idle-soft px-2 py-0.5 text-[11px] text-idle">
+                        <span className="rounded-full bg-idle-soft px-2 py-0.5 text-micro text-idle">
                           busca: {req.defaultDocumentName}
                         </span>
                       )}

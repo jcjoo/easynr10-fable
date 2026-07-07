@@ -117,7 +117,7 @@ export function CompanyUserCreateDialog({
         </div>
 
         <div className="rounded-card border border-line p-3">
-          <p className="font-ui text-[13px] font-semibold">
+          <p className="font-ui text-caption font-semibold">
             Unidades liberadas{' '}
             <span className="font-normal text-muted">(pelo menos uma)</span>
           </p>

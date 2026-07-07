@@ -10,7 +10,7 @@ export function SelectField({ label, hint, className = '', children, ...select }
   const id = useId();
   return (
     <div className={`flex flex-col gap-1.5 ${className}`}>
-      <label htmlFor={id} className="font-ui text-[13px] font-semibold">
+      <label htmlFor={id} className="font-ui text-caption font-semibold">
         {label}
       </label>
       <select

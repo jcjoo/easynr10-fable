@@ -6,7 +6,7 @@ import { useSession } from '@/lib/auth-client';
 import { Button } from '@/components/ui/button';
 import { Dialog } from '@/components/ui/dialog';
 import { RowMenu } from '@/components/ui/row-menu';
-import { Page } from '@/components/ui/page';
+import { Page, PageTitle } from '@/components/ui/page';
 
 export function UnitsPage() {
   const { companyId } = useParams({ from: '/_authed/$companyId/unidades' });
@@ -45,7 +45,7 @@ export function UnitsPage() {
     <Page>
       <div>
         <p className="text-sm text-muted">{company.data?.name ?? '…'}</p>
-        <h1 className="text-[28px] font-bold tracking-tight">Unidades</h1>
+        <PageTitle>Unidades</PageTitle>
       </div>
 
       {isAdmin && (
@@ -77,7 +77,7 @@ export function UnitsPage() {
           <div className="font-ui text-base font-semibold">Nenhuma unidade nesta empresa</div>
           <p className="mx-auto mt-1 max-w-[44ch] text-sm text-muted">
             {isAdmin
-              ? 'Crie a primeira unidade para montar o PIE e iniciar a avaliação de conformidade.'
+              ? 'Crie a primeira unidade para montar o P.I.E e iniciar a avaliação de conformidade.'
               : 'Você ainda não tem acesso a nenhuma unidade desta empresa.'}
           </p>
         </div>
@@ -92,7 +92,7 @@ export function UnitsPage() {
               className="block rounded-card bg-paper p-4 transition-colors hover:bg-line/60"
             >
               <span className="font-ui font-semibold">{unit.name}</span>
-              <div className="mt-0.5 text-[13px] text-muted">Abrir painel da unidade →</div>
+              <div className="mt-0.5 text-caption text-muted">Abrir painel da unidade →</div>
             </Link>
             {isAdmin && (
               <div className="absolute right-2 top-2">

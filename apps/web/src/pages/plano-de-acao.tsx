@@ -4,9 +4,10 @@ import { actionPriorities, compareNormCodes, normalizeText } from '@easynr10/sha
 import { trpc } from '@/lib/trpc';
 import { useUnitPermissions } from '@/lib/use-unit-permissions';
 import { formatDate } from '@/lib/format';
-import { Page } from '@/components/ui/page';
+import { Page, PageTitle } from '@/components/ui/page';
 import { RowMenu } from '@/components/ui/row-menu';
 import { ActionStatusPill, PriorityPill } from '@/components/ui/status-pill';
+import { Td } from '@/components/ui/table';
 import {
   PlainTh,
   SortableTh,
@@ -71,7 +72,7 @@ export function PlanoDeAcaoPage() {
     <Page>
       <div>
         <p className="text-sm text-muted">Avaliação da Conformidade</p>
-        <h1 className="text-[28px] font-bold tracking-tight">Plano de Ação</h1>
+        <PageTitle>Plano de Ação</PageTitle>
       </div>
 
       <div className="overflow-x-auto">
@@ -113,29 +114,29 @@ export function PlanoDeAcaoPage() {
               const overdue = isOverdue(action.deadline);
               return (
                 <tr key={action.id} className="hover:bg-paper">
-                  <td className="border-b border-line px-3.5 py-2.5">
-                    <span className="rounded-ctl bg-action-soft px-1.5 py-0.5 font-mono text-[12.5px] text-action">
+                  <Td>
+                    <span className="rounded-ctl bg-action-soft px-1.5 py-0.5 font-mono text-label text-action">
                       {action.normCode}
                     </span>
-                  </td>
-                  <td className="w-full border-b border-line px-3.5 py-2.5">
+                  </Td>
+                  <Td className="w-full">
                     <span className="line-clamp-2">
                       {action.recommendedAction ?? action.normDescription}
                     </span>
-                  </td>
-                  <td className="border-b border-line px-3.5 py-2.5">
+                  </Td>
+                  <Td>
                     <PriorityPill priority={action.priority} />
-                  </td>
-                  <td className="border-b border-line px-3.5 py-2.5 text-muted">
+                  </Td>
+                  <Td className="text-muted">
                     {action.responsible ?? '—'}
-                  </td>
-                  <td className="tabular border-b border-line px-3.5 py-2.5 font-mono text-[13px]">
+                  </Td>
+                  <Td className="tabular font-mono text-caption">
                     {formatDate(action.deadline)}
-                  </td>
-                  <td className="border-b border-line px-3.5 py-2.5">
+                  </Td>
+                  <Td>
                     <ActionStatusPill status={action.status} overdue={overdue} />
-                  </td>
-                  <td className="border-b border-line px-3.5 py-2.5">
+                  </Td>
+                  <Td>
                     <div className="flex justify-end">
                       {canSetStatus && (
                       <RowMenu
@@ -173,7 +174,7 @@ export function PlanoDeAcaoPage() {
                       />
                       )}
                     </div>
-                  </td>
+                  </Td>
                 </tr>
               );
             })}

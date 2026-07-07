@@ -52,7 +52,7 @@ export function Menu({
       <div
         role="menu"
         style={{ top: position.top, left: position.left, right: position.right }}
-        className="fixed z-50 min-w-44 overflow-hidden rounded-card border border-line-strong bg-surface py-1 shadow-[0_8px_24px_rgba(26,35,51,.18)]"
+        className="fixed z-50 min-w-44 overflow-hidden rounded-card border border-line-strong bg-surface py-1 shadow-pop"
       >
         {items.map((item) => (
           <button
@@ -64,7 +64,7 @@ export function Menu({
               onClose();
               item.onSelect();
             }}
-            className={`block w-full cursor-pointer px-3.5 py-2 text-left font-ui text-[13.5px] font-medium hover:bg-paper ${
+            className={`block w-full cursor-pointer px-3.5 py-2 text-left font-ui text-caption font-medium hover:bg-paper ${
               item.danger ? 'text-bad' : 'text-ink'
             }`}
           >

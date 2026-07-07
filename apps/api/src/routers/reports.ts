@@ -5,6 +5,7 @@ import { z } from 'zod';
 import {
   actionPlanRows,
   documentSituationRows,
+  globalOverview,
   nonConformityRows,
   timelineSeries,
   unitOverview,
@@ -20,6 +21,12 @@ const { adequacyItem, diagnostic, norm } = schema;
 
 export const reportsRouter = router({
   overview: unitAction('painel.ler').query(({ ctx, input }) => unitOverview(ctx.db, input.unitId)),
+
+  // Painel geral (rota /): pendências de todas as unidades visíveis ao
+  // usuário — mesma regra de visibilidade do companyOverview.
+  globalOverview: protectedProcedure.query(({ ctx }) =>
+    globalOverview(ctx.db, ctx.session.user),
+  ),
 
   // Painel da empresa (RF19): aderência agregada por unidade visível ao
   // usuário (admin: todas; cliente: onde é membro — regra de units.listByCompany).

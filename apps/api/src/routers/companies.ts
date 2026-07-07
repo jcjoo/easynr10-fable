@@ -6,6 +6,7 @@ import { z } from 'zod';
 import { adminProcedure, protectedProcedure, router } from '../trpc';
 import { cascadeDeleteUnit } from '../cascade';
 import { canAccessCompany, visibleUnits } from '../services/visibility';
+import { buildLogoKey, imageMimeFromKey, imageMimes, presignPreview, presignUpload } from '../s3';
 
 const { company, unit } = schema;
 
@@ -49,11 +50,41 @@ export const companiesRouter = router({
   update: adminProcedure.input(companyUpdateSchema).mutation(async ({ ctx, input }) => {
     const [updated] = await ctx.db
       .update(company)
-      .set({ name: input.name })
+      .set({
+        ...(input.name !== undefined ? { name: input.name } : {}),
+        ...(input.logoKey !== undefined ? { logoKey: input.logoKey } : {}),
+      })
       .where(and(eq(company.id, input.id), notDeleted(company)))
       .returning();
     return updated;
   }),
+
+  // Upload do logo: presigned PUT no S3; o cliente confirma gravando a key
+  // via update({ logoKey }).
+  logoUploadUrl: adminProcedure
+    .input(z.object({ companyId: z.uuid(), mimeType: z.enum(imageMimes) }))
+    .mutation(async ({ ctx, input }) => {
+      const found = await ctx.db.query.company.findFirst({
+        where: and(eq(company.id, input.companyId), notDeleted(company)),
+      });
+      if (!found) throw new TRPCError({ code: 'NOT_FOUND', message: 'Empresa não encontrada' });
+      const storageKey = buildLogoKey(`companies/${input.companyId}`, input.mimeType);
+      return { storageKey, uploadUrl: await presignUpload(storageKey, input.mimeType) };
+    }),
+
+  // URL temporária do logo (null sem logo) — visível a quem vê a empresa.
+  logoUrl: protectedProcedure
+    .input(z.object({ companyId: z.uuid() }))
+    .query(async ({ ctx, input }) => {
+      if (!(await canAccessCompany(ctx.db, ctx.session.user, input.companyId))) {
+        throw new TRPCError({ code: 'FORBIDDEN', message: 'Sem acesso a esta empresa' });
+      }
+      const found = await ctx.db.query.company.findFirst({
+        where: and(eq(company.id, input.companyId), notDeleted(company)),
+      });
+      if (!found?.logoKey) return null;
+      return presignPreview(found.logoKey, 'logo', imageMimeFromKey(found.logoKey));
+    }),
 
   // Cascata: cada unidade ativa é excluída com toda a árvore (+ MinIO),
   // depois a empresa.

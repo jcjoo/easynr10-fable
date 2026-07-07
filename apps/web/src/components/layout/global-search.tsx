@@ -32,7 +32,7 @@ export function GlobalSearch() {
     ...trpc.units.listByCompany.queryOptions({ companyId: companyId ?? '' }),
     enabled: Boolean(companyId),
   });
-  // Pastas e documentos do PIE da unidade ativa.
+  // Pastas e documentos do P.I.E da unidade ativa.
   const { can } = useUnitPermissions(unitId);
   const folders = useQuery({
     ...trpc.folders.list.queryOptions({ unitId: unitId ?? '' }),
@@ -175,13 +175,13 @@ export function GlobalSearch() {
           {/* Atalho de teclado: irrelevante em touch, só aparece com espaço. */}
           <kbd
             aria-hidden
-            className="pointer-events-none absolute right-2 top-1/2 hidden -translate-y-1/2 rounded border border-line bg-paper px-1.5 py-0.5 font-mono text-[10.5px] text-muted sm:block"
+            className="pointer-events-none absolute right-2 top-1/2 hidden -translate-y-1/2 rounded border border-line bg-paper px-1.5 py-0.5 font-mono text-micro text-muted sm:block"
           >
             Ctrl K
           </kbd>
 
           {open && term.trim() && (
-            <div className="absolute left-0 right-0 top-full z-20 mt-1 overflow-hidden rounded-card border border-line bg-surface shadow-[0_8px_24px_rgba(26,35,51,.14)]">
+            <div className="absolute left-0 right-0 top-full z-20 mt-1 overflow-hidden rounded-card border border-line bg-surface shadow-pop">
               {results.length === 0 ? (
                 <p className="px-3 py-2.5 text-sm text-muted">
                   Nada encontrado para "{term.trim()}".
@@ -197,7 +197,7 @@ export function GlobalSearch() {
                         className="flex w-full cursor-pointer items-center justify-between gap-3 px-3 py-2 text-left text-sm hover:bg-action-soft"
                       >
                         <span className="truncate font-medium">{result.name}</span>
-                        <span className="shrink-0 font-mono text-[11px] uppercase tracking-wide text-muted">
+                        <span className="shrink-0 font-mono text-micro uppercase tracking-wide text-muted">
                           {result.kind}
                         </span>
                       </button>

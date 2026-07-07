@@ -12,7 +12,7 @@ export function Crumbs({ items }: { items: Crumb[] }) {
   return (
     // min-w-0 + truncate: em telas estreitas cada nível encolhe em vez de
     // empurrar a busca/tema para fora do header.
-    <nav aria-label="Contexto" className="flex min-w-0 items-center gap-2 font-ui text-[13px]">
+    <nav aria-label="Contexto" className="flex min-w-0 items-center gap-2 font-ui text-caption">
       {items.map((item, index) => {
         const last = index === items.length - 1;
         return (

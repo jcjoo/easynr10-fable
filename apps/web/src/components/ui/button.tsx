@@ -10,7 +10,7 @@ const variants: Record<Variant, string> = {
   primary: 'bg-action text-white hover:bg-action-hover',
   secondary: 'bg-surface text-ink border border-line-strong hover:bg-paper',
   ghost: 'bg-transparent text-action hover:bg-action-soft',
-  danger: 'bg-bad text-white hover:bg-[#a32b2b]',
+  danger: 'bg-bad text-white hover:bg-bad-hover',
 };
 
 interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {

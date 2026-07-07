@@ -9,7 +9,7 @@ import { ThemeToggle } from '@/components/layout/theme-toggle';
 // Rótulo da seção a partir do último segmento da URL.
 const sectionLabels: Record<string, string> = {
   unidades: 'Unidades',
-  pie: 'PIE',
+  pie: 'P.I.E',
   'visao-geral': 'Visão Geral',
   diagnosticos: 'Diagnóstico',
   'plano-de-acao': 'Plano de Ação',

@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useParams, useSearch } from '@tanstack/react-router';
 import { ChevronRight } from 'lucide-react';
+import { Td } from '@/components/ui/table';
 import {
   adherenceBand,
   diagnosticStatuses,
@@ -14,7 +15,7 @@ import {
 } from '@easynr10/shared';
 import { trpc } from '@/lib/trpc';
 import { formatDate } from '@/lib/format';
-import { Page } from '@/components/ui/page';
+import { Page, PageTitle } from '@/components/ui/page';
 import { StatusFilter, type DiagnosticFilter } from '@/components/ui/status-filter';
 import { StatusPill } from '@/components/ui/status-pill';
 import { AssessmentDialog } from '@/components/diagnostico/assessment-dialog';
@@ -105,12 +106,12 @@ export function VisaoGeralPage() {
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <p className="text-sm text-muted">Avaliação da Conformidade</p>
-          <h1 className="text-[28px] font-bold tracking-tight">Visão Geral</h1>
+          <PageTitle>Visão Geral</PageTitle>
         </div>
         {overall !== null && (
           <div className="text-right">
             <p className="font-mono text-2xl font-semibold tabular-nums">{overall}%</p>
-            <p className="text-[13px] text-muted">
+            <p className="text-caption text-muted">
               Aderência geral · {adherenceBand(overall).label}
             </p>
           </div>
@@ -155,7 +156,7 @@ export function VisaoGeralPage() {
                   aria-hidden
                   className={`size-4 shrink-0 text-muted transition-transform ${expanded ? 'rotate-90' : ''}`}
                 />
-                <span className="shrink-0 rounded-ctl bg-action-soft px-1.5 py-0.5 font-mono text-[12.5px] text-action">
+                <span className="shrink-0 rounded-ctl bg-action-soft px-1.5 py-0.5 font-mono text-label text-action">
                   {summary.group.requirement}
                 </span>
                 {/* basis-40 + flex-wrap: em telas estreitas os pills descem
@@ -164,7 +165,7 @@ export function VisaoGeralPage() {
                   <span className="line-clamp-2 text-sm font-semibold">
                     {summary.group.title}
                   </span>
-                  <span className="block text-[12px] text-muted">
+                  <span className="block text-label text-muted">
                     Grupo {summary.group.letter} · {summary.evaluated} de {summary.total}{' '}
                     {summary.total === 1 ? 'item avaliado' : 'itens avaliados'}
                   </span>
@@ -201,29 +202,29 @@ export function VisaoGeralPage() {
                           className={`cursor-pointer hover:bg-paper ${row.isActive ? '' : 'opacity-50'}`}
                         >
                           <td className="whitespace-nowrap border-b border-line py-2.5 pl-11 pr-3.5">
-                            <span className="font-mono text-[12.5px] text-muted">
+                            <span className="font-mono text-label text-muted">
                               {row.normCode}
                             </span>
                           </td>
-                          <td className="w-full border-b border-line px-3.5 py-2.5">
+                          <Td className="w-full">
                             <span className="line-clamp-2">{row.normDescription}</span>
-                          </td>
-                          <td className="border-b border-line px-3.5 py-2.5">
+                          </Td>
+                          <Td>
                             {row.isActive ? (
                               <StatusPill status={row.status ?? 'sem_avaliacao'} />
                             ) : (
-                              <span className="whitespace-nowrap text-[12px] text-muted">
+                              <span className="whitespace-nowrap text-label text-muted">
                                 Fora de escopo
                               </span>
                             )}
-                          </td>
-                          <td className="tabular whitespace-nowrap border-b border-line px-3.5 py-2.5 font-mono text-[13px]">
+                          </Td>
+                          <Td className="tabular whitespace-nowrap font-mono text-caption">
                             {row.lastDiagnosticAt ? (
                               formatDate(new Date(row.lastDiagnosticAt))
                             ) : (
                               <span className="font-ui text-muted">—</span>
                             )}
-                          </td>
+                          </Td>
                         </tr>
                       ))}
                     </tbody>

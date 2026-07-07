@@ -10,13 +10,13 @@ import {
   type DocumentSituation,
 } from '@easynr10/shared';
 import { trpc } from '@/lib/trpc';
-import { Page } from '@/components/ui/page';
+import { Page, PageTitle } from '@/components/ui/page';
 import { statusPillLabel } from '@/components/ui/status-pill';
 import { SegmentedTabs } from '@/components/ui/tabs';
 import { AdherenceTimeline } from '@/components/charts/adherence-timeline';
 
 // Painel da unidade (RF19): aderência geral, distribuição da avaliação,
-// grupos documentais, evolução no tempo, plano de ação e situação do PIE.
+// grupos documentais, evolução no tempo, plano de ação e situação do P.I.E.
 
 export const dashboardPeriods = ['30d', '90d', '12m'] as const;
 export type DashboardPeriod = (typeof dashboardPeriods)[number];
@@ -89,7 +89,7 @@ function SectionCard({
 function StatTile({ label, value, token }: { label: string; value: number; token?: string }) {
   return (
     <div className="flex flex-col gap-0.5 rounded-card border border-line bg-surface px-3 py-2.5">
-      <span className="flex items-center gap-1.5 text-[13px] text-muted">
+      <span className="flex items-center gap-1.5 text-caption text-muted">
         {token && (
           <span
             aria-hidden
@@ -138,7 +138,7 @@ export function UnitHomePage() {
       to={to}
       params={{ companyId, unitId }}
       search={search}
-      className="font-ui text-[12.5px] font-medium text-action hover:underline"
+      className="font-ui text-label font-medium text-action hover:underline"
     >
       {label} →
     </Link>
@@ -148,7 +148,7 @@ export function UnitHomePage() {
     <Page>
       <div>
         <p className="text-sm text-muted">{company.data?.name ?? '…'}</p>
-        <h1 className="text-[28px] font-bold tracking-tight">{unit.data?.name ?? 'Unidade'}</h1>
+        <PageTitle>{unit.data?.name ?? 'Unidade'}</PageTitle>
       </div>
 
       {data && distributionTotal === 0 && (
@@ -188,7 +188,7 @@ export function UnitHomePage() {
                 </p>
               </div>
             </div>
-            <span className="ml-auto font-mono text-[12px] text-muted">
+            <span className="ml-auto font-mono text-label text-muted">
               {data.adherence.evaluated} de {data.adherence.activeTotal} itens ativos avaliados
             </span>
           </div>
@@ -225,7 +225,7 @@ export function UnitHomePage() {
                       to="/$companyId/$unitId/diagnosticos"
                       params={{ companyId, unitId }}
                       search={{ status }}
-                      className="flex items-center gap-1.5 font-ui text-[13px] text-ink-soft hover:text-ink"
+                      className="flex items-center gap-1.5 font-ui text-caption text-ink-soft hover:text-ink"
                     >
                       <span
                         aria-hidden
@@ -233,7 +233,7 @@ export function UnitHomePage() {
                         style={{ background: `var(--color-${statusToken[status]})` }}
                       />
                       {statusPillLabel(status)}
-                      <span className="tabular rounded-full bg-surface px-1.5 font-mono text-[11px] text-muted">
+                      <span className="tabular rounded-full bg-surface px-1.5 font-mono text-micro text-muted">
                         {data.adherence.distribution[status]}
                       </span>
                     </Link>
@@ -249,7 +249,7 @@ export function UnitHomePage() {
                   const token = groupBand ? statusToken[groupBand.status] : 'idle';
                   return (
                     <li key={group.group} className="flex items-center gap-3">
-                      <span className="w-44 shrink-0 truncate text-[13px]">
+                      <span className="w-44 shrink-0 truncate text-caption">
                         {documentGroupLabels[group.group]}
                       </span>
                       <div
@@ -270,10 +270,10 @@ export function UnitHomePage() {
                           />
                         )}
                       </div>
-                      <span className="w-12 shrink-0 text-right font-ui text-[13px] font-semibold">
+                      <span className="w-12 shrink-0 text-right font-ui text-caption font-semibold">
                         {group.percent !== null ? `${group.percent}%` : '—'}
                       </span>
-                      <span className="w-24 shrink-0 text-right font-mono text-[11px] text-muted">
+                      <span className="w-24 shrink-0 text-right font-mono text-micro text-muted">
                         {group.evaluated}/{group.count} aval.
                       </span>
                     </li>
@@ -319,7 +319,7 @@ export function UnitHomePage() {
             </SectionCard>
 
             <SectionCard
-              title="Documentos do PIE"
+              title="Documentos do P.I.E"
               action={sectionLink('Situação documental', '/$companyId/$unitId/relatorios', {
                 tipo: 'situacao-documental',
               })}

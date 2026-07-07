@@ -44,7 +44,7 @@ export function StatusPill({ status }: { status: AdherenceStatus }) {
   return <Pill label={statusPillLabel(status)} className={adherenceColors[status]} />;
 }
 
-// Situação de validade de documento do PIE.
+// Situação de validade de documento do P.I.E.
 const situationColors: Record<DocumentSituation, string> = {
   vencido: 'text-bad bg-bad-soft',
   a_vencer: 'text-warn bg-warn-soft',

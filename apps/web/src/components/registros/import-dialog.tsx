@@ -134,7 +134,7 @@ export function ImportDialog({
             const file = e.target.files?.[0];
             if (file) loadSheet(file);
           }}
-          className="rounded-ctl border border-line-strong bg-surface px-2.5 py-2 text-sm file:mr-3 file:cursor-pointer file:rounded-ctl file:border-0 file:bg-action-soft file:px-3 file:py-1 file:font-ui file:text-[13px] file:font-semibold file:text-action"
+          className="rounded-ctl border border-line-strong bg-surface px-2.5 py-2 text-sm file:mr-3 file:cursor-pointer file:rounded-ctl file:border-0 file:bg-action-soft file:px-3 file:py-1 file:font-ui file:text-caption file:font-semibold file:text-action"
         />
 
         {sheetHeaders.length > 0 && (

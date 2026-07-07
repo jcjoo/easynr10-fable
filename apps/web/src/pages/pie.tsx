@@ -2,13 +2,14 @@ import { useMemo, useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useNavigate, useParams, useSearch } from '@tanstack/react-router';
 import { Download, FileText, FolderPlus, Layers, List, Pencil, Upload } from 'lucide-react';
+import { Td } from '@/components/ui/table';
 
 import { trpc } from '@/lib/trpc';
 import { useUnitPermissions } from '@/lib/use-unit-permissions';
 import { useDialogMutation, useDialogTarget } from '@/lib/use-dialog-mutation';
 import { formatDate } from '@/lib/format';
 import { Button } from '@/components/ui/button';
-import { Page } from '@/components/ui/page';
+import { Page, PageTitle } from '@/components/ui/page';
 import { Dialog } from '@/components/ui/dialog';
 import { Field } from '@/components/ui/field';
 import { FileTypeIcon, FolderIcon } from '@/components/ui/icons';
@@ -71,7 +72,7 @@ function ExpiryPill({
   if (days <= (warnDaysBefore ?? DEFAULT_WARN_DAYS)) {
     return <Pill label={date} className="text-warn bg-warn-soft" title={`Vence em ${days} d`} />;
   }
-  return <span className="tabular font-mono text-[13px]">{date}</span>;
+  return <span className="tabular font-mono text-caption">{date}</span>;
 }
 
 export function PiePage() {
@@ -336,7 +337,7 @@ export function PiePage() {
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <p className="text-sm text-muted">Prontuário de Instalações Elétricas</p>
-          <h1 className="text-[28px] font-bold tracking-tight">PIE</h1>
+          <PageTitle>P.I.E</PageTitle>
         </div>
         <div className="flex gap-2">
           {canManageSchemas && (
@@ -366,8 +367,8 @@ export function PiePage() {
       {/* Caminho dentro do prontuário + modo de visualização */}
       <div className="flex flex-wrap items-center justify-between gap-2">
       <nav
-        aria-label="Caminho no PIE"
-        className="flex flex-wrap items-center gap-2 font-ui text-[13px]"
+        aria-label="Caminho no P.I.E"
+        className="flex flex-wrap items-center gap-2 font-ui text-caption"
       >
         <button
           type="button"
@@ -549,7 +550,7 @@ export function PiePage() {
                 }}
                 className="group cursor-pointer hover:bg-paper"
               >
-                <td className="border-b border-line px-3.5 py-2.5">
+                <Td>
                   <Link
                     to="/$companyId/$unitId/pie"
                     params={{ companyId, unitId }}
@@ -560,12 +561,12 @@ export function PiePage() {
                     <FolderIcon aria-hidden className="size-4 shrink-0 text-muted" />
                     <span className="truncate">{node.name}</span>
                   </Link>
-                </td>
-                <td className="border-b border-line px-3.5 py-2.5 text-muted">—</td>
-                <td className="tabular border-b border-line px-3.5 py-2.5 font-mono text-[13px]">
+                </Td>
+                <Td className="text-muted">—</Td>
+                <Td className="tabular font-mono text-caption">
                   {formatDate(node.createdAt)}
-                </td>
-                <td className="border-b border-line px-3.5 py-2.5">
+                </Td>
+                <Td>
                   <div className="flex items-center justify-end gap-0.5">
                     {canRenameFolder && (
                       <button
@@ -610,7 +611,7 @@ export function PiePage() {
                       />
                     )}
                   </div>
-                </td>
+                </Td>
               </tr>
             ))}
 
@@ -662,7 +663,7 @@ export function PiePage() {
                   }}
                   className="group hover:bg-paper"
                 >
-                  <td className="border-b border-line px-3.5 py-2.5">
+                  <Td>
                     <span className="flex items-center gap-2.5 font-medium">
                       <FileTypeIcon
                         aria-hidden
@@ -679,15 +680,15 @@ export function PiePage() {
                         {doc.name}
                       </button>
                     </span>
-                  </td>
+                  </Td>
                   {docsOnly && (
-                    <td className="border-b border-line px-3.5 py-2.5">
+                    <Td>
                       {doc.folderId ? (
                         <button
                           type="button"
                           title={folderPath(doc.folderId)}
                           onClick={() => goTo(doc.folderId, 'lista')}
-                          className="flex max-w-56 cursor-pointer items-center gap-1.5 text-[13px] text-muted hover:text-action hover:underline"
+                          className="flex max-w-56 cursor-pointer items-center gap-1.5 text-caption text-muted hover:text-action hover:underline"
                         >
                           <FolderIcon aria-hidden className="size-3.5 shrink-0" />
                           <span className="truncate">
@@ -697,15 +698,15 @@ export function PiePage() {
                       ) : (
                         <span className="text-muted">—</span>
                       )}
-                    </td>
+                    </Td>
                   )}
-                  <td className="border-b border-line px-3.5 py-2.5">
+                  <Td>
                     <ExpiryPill expiresAt={doc.expiresAt} warnDaysBefore={doc.warnDaysBefore} />
-                  </td>
-                  <td className="tabular border-b border-line px-3.5 py-2.5 font-mono text-[13px]">
+                  </Td>
+                  <Td className="tabular font-mono text-caption">
                     {formatDate(doc.createdAt)}
-                  </td>
-                  <td className="border-b border-line px-3.5 py-2.5">
+                  </Td>
+                  <Td>
                     <div className="flex items-center justify-end gap-0.5">
                       <button
                         type="button"
@@ -729,7 +730,7 @@ export function PiePage() {
                       )}
                       <RowMenu label={`Ações de ${doc.name}`} items={documentMenuItems(doc)} />
                     </div>
-                  </td>
+                  </Td>
                 </tr>
               ))}
           </tbody>

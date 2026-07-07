@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from 'react';
-import { Link } from '@tanstack/react-router';
+import { Link, useRouterState } from '@tanstack/react-router';
 import { useQuery } from '@tanstack/react-query';
 import {
   BadgeCheck,
@@ -17,10 +17,9 @@ import {
   ListChecks,
   ListTodo,
   MapPinned,
-  ShieldCheck,
+  Settings,
   TrafficCone,
   TriangleAlert,
-  UserCog,
   Users,
   Wrench,
   X,
@@ -31,6 +30,7 @@ import { trpc } from '@/lib/trpc';
 import { signOut, useSession } from '@/lib/auth-client';
 import { useActiveContext } from '@/stores/active-context';
 import { useUnitPermissions } from '@/lib/use-unit-permissions';
+import { SETTINGS_FROM_KEY } from '@/pages/configuracoes';
 import { NewMenu } from './new-menu';
 import fullLogo from '@/assets/fullLogo.png';
 import fullLogoDark from '@/assets/fullLogoDark.png';
@@ -42,6 +42,8 @@ interface NavItemProps {
   params?: Record<string, string>;
   /** Sub-navegações (?tipo=): o item só acende quando o search casa. */
   search?: Record<string, string>;
+  /** Clique (ex.: gravar a origem para o Voltar das Configurações). */
+  onClick?: () => void;
   label: string;
   icon: LucideIcon;
   exact?: boolean;
@@ -51,12 +53,13 @@ interface NavItemProps {
 
 const navItemPadding = { 1: 'pl-8', 2: 'pl-12' } as const;
 
-function NavItem({ to, params, search, label, icon: Icon, exact, depth }: NavItemProps) {
+function NavItem({ to, params, search, onClick, label, icon: Icon, exact, depth }: NavItemProps) {
   return (
     <Link
       to={to}
       params={params}
       search={search}
+      onClick={onClick}
       activeOptions={{ exact: exact ?? false }}
       activeProps={{ className: 'active bg-action-soft text-ink' }}
       className={`group relative flex items-center gap-2.5 rounded-ctl py-1.5 pr-3 font-ui text-sm
@@ -76,13 +79,13 @@ function NavItem({ to, params, search, label, icon: Icon, exact, depth }: NavIte
 
 function GroupLabel({ children }: { children: string }) {
   return (
-    <span className="truncate px-3.5 pb-1 font-mono text-[11px] font-medium uppercase tracking-[.12em] text-muted">
+    <span className="truncate px-3.5 pb-1 font-mono text-micro font-medium uppercase tracking-[.12em] text-muted">
       {children}
     </span>
   );
 }
 
-// Seção recolhível da unidade (mesmo padrão da árvore do PIE): estado por
+// Seção recolhível da unidade (mesmo padrão da árvore do P.I.E): estado por
 // seção persistido em localStorage, aberta por padrão.
 function useCollapsed(id: string) {
   const key = `easynr10.sidebar.${id}`;
@@ -96,7 +99,7 @@ function useCollapsed(id: string) {
 }
 
 // Pai recolhível — MESMA linguagem visual em todos os níveis (padrão do item
-// PIE): linha de item com chevron colado no ícone, na grade de recuo única
+// P.I.E): linha de item com chevron colado no ícone, na grade de recuo única
 // (ícone em 14px no nível 0 / 32px no nível 1; filhos um passo abaixo).
 function Section({
   id,
@@ -166,22 +169,6 @@ function CompanyGroup({ companyId }: { companyId: string }) {
           icon={MapPinned}
         />
       )}
-      {isAdmin && (
-        <>
-          <NavItem
-            to="/$companyId/usuarios"
-            params={{ companyId }}
-            label="Usuários"
-            icon={UserCog}
-          />
-          <NavItem
-            to="/$companyId/papeis"
-            params={{ companyId }}
-            label="Papéis"
-            icon={ShieldCheck}
-          />
-        </>
-      )}
     </div>
   );
 }
@@ -212,7 +199,7 @@ function UnitGroup({ companyId, unitId }: { companyId: string; unitId: string })
       )}
       {show('pie.ler') && (
         <>
-      {/* Item PIE com seta colada no ícone (estilo Drive): seta+ícone alternam
+      {/* Item P.I.E com seta colada no ícone (estilo Drive): seta+ícone alternam
           a árvore, o texto navega. pl-0.5 + seta(12px) deixa o ícone alinhado
           com os demais itens (pl-3.5 = 14px). */}
       <Link
@@ -230,7 +217,7 @@ function UnitGroup({ companyId, unitId }: { companyId: string; unitId: string })
         <button
           type="button"
           aria-expanded={treeOpen}
-          aria-label={treeOpen ? 'Recolher pastas do PIE' : 'Expandir pastas do PIE'}
+          aria-label={treeOpen ? 'Recolher pastas do P.I.E' : 'Expandir pastas do P.I.E'}
           title={treeOpen ? 'Recolher pastas' : 'Expandir pastas'}
           onClick={(e) => {
             e.preventDefault();
@@ -245,7 +232,7 @@ function UnitGroup({ companyId, unitId }: { companyId: string; unitId: string })
           />
           <FolderKanban aria-hidden className="size-4 shrink-0" />
         </button>
-        <span className="truncate">PIE</span>
+        <span className="truncate">P.I.E</span>
       </Link>
       {treeOpen && <SidebarFolderTree companyId={companyId} unitId={unitId} />}
         </>
@@ -364,6 +351,8 @@ export function Sidebar({ open, onClose }: { open: boolean; onClose: () => void 
   const { data: session } = useSession();
   const { companyId, unitId } = useActiveContext();
   const isAdmin = session?.user.role === 'admin';
+  // Origem para o "Voltar" das Configurações (página fora deste shell).
+  const currentHref = useRouterState({ select: (state) => state.location.href });
   // Cliente com uma única empresa entra direto nela — "Empresas" some
   // (a rota redirecionaria de volta). Enquanto carrega, não esconder.
   const companies = useQuery({
@@ -378,7 +367,7 @@ export function Sidebar({ open, onClose }: { open: boolean; onClose: () => void 
     <aside
       className={`fixed inset-y-0 left-0 z-50 flex h-full w-64 shrink-0 flex-col bg-paper
         transition-transform lg:static lg:z-auto lg:translate-x-0
-        ${open ? 'translate-x-0 shadow-[0_8px_24px_rgba(26,35,51,.2)] lg:shadow-none' : '-translate-x-full'}`}
+        ${open ? 'translate-x-0 shadow-pop lg:shadow-none' : '-translate-x-full'}`}
     >
       <div className="flex h-16 items-center justify-between px-5">
         <Link to="/empresas" aria-label="EasyNR10 — início">
@@ -400,11 +389,21 @@ export function Sidebar({ open, onClose }: { open: boolean; onClose: () => void 
       <nav className="mt-3 flex flex-1 flex-col gap-5 overflow-y-auto px-3 pb-4">
         <div className="flex flex-col gap-0.5">
           {showCompanies && <NavItem to="/empresas" label="Empresas" icon={Building2} />}
-          {isAdmin && <NavItem to="/usuarios" label="Usuários" icon={UserCog} />}
         </div>
         {companyId && <CompanyGroup companyId={companyId} />}
         {companyId && unitId && <UnitGroup companyId={companyId} unitId={unitId} />}
       </nav>
+
+      {/* Seção fixa no rodapé (acima do usuário): Configurações é uma página
+          própria — a origem gravada aqui alimenta o "Voltar" de lá. */}
+      <div className="border-t border-line px-3 py-2">
+        <NavItem
+          to="/configuracoes"
+          onClick={() => sessionStorage.setItem(SETTINGS_FROM_KEY, currentHref)}
+          label="Configurações"
+          icon={Settings}
+        />
+      </div>
 
       <div className="flex items-center justify-between gap-2 border-t border-line p-4">
         <div className="min-w-0">
@@ -413,7 +412,7 @@ export function Sidebar({ open, onClose }: { open: boolean; onClose: () => void 
         </div>
         <button
           onClick={() => signOut().then(() => window.location.assign('/login'))}
-          className="shrink-0 cursor-pointer rounded-ctl border border-line-strong px-2.5 py-1 font-ui text-[13px] font-semibold hover:bg-line/60"
+          className="shrink-0 cursor-pointer rounded-ctl border border-line-strong px-2.5 py-1 font-ui text-caption font-semibold hover:bg-line/60"
         >
           Sair
         </button>

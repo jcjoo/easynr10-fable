@@ -18,6 +18,8 @@
   --color-action: #2452c4;
   --color-action-hover: #1c419c;
   --color-action-soft: #e8eefb;
+  /* Hover de ações destrutivas (par do --color-bad) */
+  --color-bad-hover: #a32b2b;
 
   /* Identidade: âmbar de sinalização — só marca, nunca controles */
   --color-hazard: #f2b200;
@@ -41,9 +43,20 @@
   --font-body: 'IBM Plex Sans', 'Segoe UI', system-ui, sans-serif;
   --font-mono: 'IBM Plex Mono', ui-monospace, monospace;
 
+  /* Escala tipográfica semântica (além da default do Tailwind):
+     title = título de página; caption = legendas/células auxiliares;
+     label = chips/links pequenos; micro = contadores/labels mono. */
+  --text-title: 28px;
+  --text-caption: 13px;
+  --text-label: 12.5px;
+  --text-micro: 11px;
+
   /* Forma */
   --radius-ctl: 4px;
   --radius-card: 8px;
+
+  /* Elevação única de camadas flutuantes (menu, dialog, drawer) */
+  --shadow-pop: 0 8px 24px rgb(26 35 51 / 0.2);
 }
 
 /* Modo escuro: mesmos papéis, valores trocados (guia — pendência v0.2).
@@ -63,6 +76,10 @@
   --color-action: #5b86ec;
   --color-action-hover: #7ba2f5;
   --color-action-soft: #1c2a47;
+  --color-bad-hover: #f49d93;
+
+  /* Fundo escuro pede sombra mais profunda para a camada destacar */
+  --shadow-pop: 0 8px 24px rgb(0 0 0 / 0.55);
 
   --color-bad: #ef8377;
   --color-bad-soft: #391f20;

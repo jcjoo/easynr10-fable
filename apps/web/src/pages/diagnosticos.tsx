@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useNavigate, useParams, useSearch } from '@tanstack/react-router';
 import { Settings2 } from 'lucide-react';
+import { Td } from '@/components/ui/table';
 import {
   compareNormCodes,
   diagnosticStatuses,
@@ -14,7 +15,7 @@ import { trpc } from '@/lib/trpc';
 import { useUnitPermissions } from '@/lib/use-unit-permissions';
 import { formatDate } from '@/lib/format';
 import { Button } from '@/components/ui/button';
-import { Page } from '@/components/ui/page';
+import { Page, PageTitle } from '@/components/ui/page';
 import { StatusFilter, type DiagnosticFilter } from '@/components/ui/status-filter';
 import { StatusPill } from '@/components/ui/status-pill';
 import {
@@ -124,7 +125,7 @@ export function DiagnosticosPage() {
     <Page>
       <div>
         <p className="text-sm text-muted">Avaliação da Conformidade</p>
-        <h1 className="text-[28px] font-bold tracking-tight">Diagnóstico</h1>
+        <PageTitle>Diagnóstico</PageTitle>
       </div>
 
       <StatusFilter
@@ -199,25 +200,25 @@ export function DiagnosticosPage() {
                 onClick={() => setTarget(row)}
                 className="group cursor-pointer hover:bg-paper"
               >
-                <td className="border-b border-line px-3.5 py-2.5">
-                  <span className="rounded-ctl bg-action-soft px-1.5 py-0.5 font-mono text-[12.5px] text-action">
+                <Td>
+                  <span className="rounded-ctl bg-action-soft px-1.5 py-0.5 font-mono text-label text-action">
                     {row.normCode}
                   </span>
-                </td>
-                <td className="w-full border-b border-line px-3.5 py-2.5">
+                </Td>
+                <Td className="w-full">
                   <span className="line-clamp-2">{row.normDescription}</span>
-                </td>
-                <td className="border-b border-line px-3.5 py-2.5">
+                </Td>
+                <Td>
                   <StatusPill status={row.status ?? 'inexistente'} />
-                </td>
-                <td className="tabular whitespace-nowrap border-b border-line px-3.5 py-2.5 font-mono text-[13px]">
+                </Td>
+                <Td className="tabular whitespace-nowrap font-mono text-caption">
                   {row.lastDiagnosticAt ? (
                     formatDate(new Date(row.lastDiagnosticAt))
                   ) : (
                     <span className="font-ui text-muted">Sem avaliação</span>
                   )}
-                </td>
-                <td className="border-b border-line px-3.5 py-2.5">
+                </Td>
+                <Td>
                   <div className="flex justify-end">
                     {canConfigure && (
                       <Link
@@ -232,7 +233,7 @@ export function DiagnosticosPage() {
                       </Link>
                     )}
                   </div>
-                </td>
+                </Td>
               </tr>
             ))}
           </tbody>

@@ -94,6 +94,27 @@ export const usersRouter = router({
         }));
     }),
 
+  // Usuários de UMA unidade (têm vínculo nela), com o papel do vínculo —
+  // seção "Usuários da unidade" das Configurações.
+  listByUnit: adminProcedure
+    .input(z.object({ unitId: z.uuid() }))
+    .query(async ({ ctx, input }) => {
+      return ctx.db
+        .select({
+          id: user.id,
+          name: user.name,
+          email: user.email,
+          role: user.role,
+          createdAt: user.createdAt,
+          roleName: appRole.name,
+        })
+        .from(membership)
+        .innerJoin(user, eq(membership.userId, user.id))
+        .innerJoin(appRole, eq(membership.roleId, appRole.id))
+        .where(and(eq(membership.unitId, input.unitId), notDeleted(membership)))
+        .orderBy(asc(user.name));
+    }),
+
   // Cria um usuário JÁ vinculado a unidades de uma empresa, com papel —
   // fluxo do painel de usuários da empresa (papel global sempre client).
   createForCompany: adminProcedure
@@ -111,6 +132,12 @@ export const usersRouter = router({
       const role = await findActiveRole(ctx.db, input.roleId);
       if (role.companyId && role.companyId !== input.companyId) {
         throw new TRPCError({ code: 'BAD_REQUEST', message: 'Papel de outra empresa' });
+      }
+      if (role.unitId && input.unitIds.some((unitId) => unitId !== role.unitId)) {
+        throw new TRPCError({
+          code: 'BAD_REQUEST',
+          message: 'Papel próprio de outra unidade',
+        });
       }
       const units = await ctx.db
         .select({ id: unit.id, companyId: unit.companyId })
@@ -168,10 +195,10 @@ export const usersRouter = router({
 
   // — Papéis (mapeamento de permissões por unidade) —
 
-  // Papéis disponíveis para uma empresa: os padrões do sistema (globais,
-  // imutáveis — presentes em toda empresa) + os customizados da empresa.
+  // Papéis disponíveis: padrões do sistema (globais, imutáveis) + os da
+  // empresa; com unitId, a unidade HERDA esses e soma os papéis próprios dela.
   roles: adminProcedure
-    .input(z.object({ companyId: z.uuid() }))
+    .input(z.object({ companyId: z.uuid(), unitId: z.uuid().optional() }))
     .query(async ({ ctx, input }) => {
       const rows = await ctx.db
         .select({
@@ -179,13 +206,18 @@ export const usersRouter = router({
           name: appRole.name,
           isSystem: appRole.isSystem,
           companyId: appRole.companyId,
+          unitId: appRole.unitId,
           permissions: appRole.permissions,
         })
         .from(appRole)
         .where(
           and(
             notDeleted(appRole),
-            or(isNull(appRole.companyId), eq(appRole.companyId, input.companyId)),
+            or(
+              and(isNull(appRole.companyId), isNull(appRole.unitId)),
+              and(eq(appRole.companyId, input.companyId), isNull(appRole.unitId)),
+              input.unitId ? eq(appRole.unitId, input.unitId) : undefined,
+            ),
           ),
         )
         .orderBy(desc(appRole.isSystem), asc(appRole.createdAt));
@@ -227,19 +259,30 @@ export const usersRouter = router({
     };
   }),
 
+  // Com unitId, cria um papel PRÓPRIO da unidade (visível/atribuível só nela).
   createRole: adminProcedure
     .input(
       z.object({
         companyId: z.uuid(),
+        unitId: z.uuid().optional(),
         name: z.string().trim().min(2).max(120),
         permissions: z.array(z.enum(unitActions)),
       }),
     )
     .mutation(async ({ ctx, input }) => {
+      if (input.unitId) {
+        const found = await ctx.db.query.unit.findFirst({
+          where: and(eq(unit.id, input.unitId), notDeleted(unit)),
+        });
+        if (!found || found.companyId !== input.companyId) {
+          throw new TRPCError({ code: 'BAD_REQUEST', message: 'Unidade de outra empresa' });
+        }
+      }
       const [created] = await ctx.db
         .insert(appRole)
         .values({
           companyId: input.companyId,
+          unitId: input.unitId,
           name: input.name,
           permissions: input.permissions,
         })
@@ -334,6 +377,13 @@ export const usersRouter = router({
     )
     .mutation(async ({ ctx, input }) => {
       const role = await findActiveRole(ctx.db, input.roleId);
+      // Papel próprio de unidade só é atribuível NELA.
+      if (role.unitId && input.unitIds.some((unitId) => unitId !== role.unitId)) {
+        throw new TRPCError({
+          code: 'BAD_REQUEST',
+          message: 'Papel próprio de outra unidade — use um papel da unidade ou da empresa',
+        });
+      }
       if (role.companyId) {
         const rows = await ctx.db
           .select({ companyId: unit.companyId })

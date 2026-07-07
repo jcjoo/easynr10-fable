@@ -1,11 +1,11 @@
 import { TRPCError } from '@trpc/server';
-import { and, asc, count, eq, inArray } from 'drizzle-orm';
+import { and, asc, eq, inArray } from 'drizzle-orm';
 import { notDeleted, schema, type Db } from '@easynr10/db';
 import { folderCreateSchema, folderRenameSchema } from '@easynr10/shared';
 import { z } from 'zod';
 import { router, unitAction } from '../trpc';
 
-const { folder, document } = schema;
+const { folder, document, employee, equipment, registerDocumentLink } = schema;
 
 async function findUnitFolder(db: Db, unitId: string, folderId: string) {
   const found = await db.query.folder.findFirst({
@@ -85,11 +85,11 @@ export const foldersRouter = router({
         folderIds.push(...(byParent.get(folderIds[i]!) ?? []));
       }
 
-      const [docs] = await ctx.db
-        .select({ total: count() })
+      const docs = await ctx.db
+        .select({ id: document.id })
         .from(document)
         .where(and(inArray(document.folderId, folderIds), notDeleted(document)));
-      const docCount = docs?.total ?? 0;
+      const docCount = docs.length;
 
       const isEmpty = folderIds.length === 1 && docCount === 0;
       if (!isEmpty && ctx.session.user.role !== 'admin') {
@@ -105,7 +105,31 @@ export const foldersRouter = router({
           .update(document)
           .set({ deletedAt })
           .where(and(inArray(document.folderId, folderIds), notDeleted(document)));
+        // Vínculos campo→documento dos cadastros acompanham o documento —
+        // sem isso o colaborador/equipamento segue "coberto" por doc excluído.
+        await ctx.db
+          .update(registerDocumentLink)
+          .set({ deletedAt })
+          .where(
+            and(
+              inArray(
+                registerDocumentLink.documentId,
+                docs.map((doc) => doc.id),
+              ),
+              notDeleted(registerDocumentLink),
+            ),
+          );
       }
+      // Cadastros cuja pasta do item está na subárvore perdem o vínculo —
+      // a referência sumiria da UI mas ficaria fantasma no banco.
+      await ctx.db
+        .update(employee)
+        .set({ folderId: null })
+        .where(inArray(employee.folderId, folderIds));
+      await ctx.db
+        .update(equipment)
+        .set({ folderId: null })
+        .where(inArray(equipment.folderId, folderIds));
       await ctx.db.update(folder).set({ deletedAt }).where(inArray(folder.id, folderIds));
       return { success: true, folders: folderIds.length, documents: docCount };
     }),

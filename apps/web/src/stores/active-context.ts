@@ -2,8 +2,8 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
 // Contexto ativo (empresa/unidade) espelhado da URL — a URL é a fonte da
-// verdade; o store só mantém o contexto visível na sidebar ao navegar para
-// rotas sem params (ex.: /empresas). Mesmo contrato do client-test.
+// verdade. Rotas SEM params (/, /empresas, /configuracoes) limpam o contexto
+// no AuthedLayout: manter a última empresa/unidade na sidebar confundia.
 interface ActiveContextState {
   companyId: string | null;
   unitId: string | null;
@@ -17,12 +17,9 @@ export const useActiveContext = create<ActiveContextState>()(
     (set) => ({
       companyId: null,
       unitId: null,
-      // Trocar de empresa só mantém a unidade se ela já pertencer à empresa.
-      setCompany: (companyId) =>
-        set((state) => ({
-          companyId,
-          unitId: state.companyId === companyId ? state.unitId : null,
-        })),
+      // Rota de empresa (sem unidade nos params) desmarca a unidade — ir
+      // para "Unidades" ou o painel da empresa é SAIR da unidade atual.
+      setCompany: (companyId) => set({ companyId, unitId: null }),
       setUnit: (companyId, unitId) => set({ companyId, unitId }),
       clear: () => set({ companyId: null, unitId: null }),
     }),

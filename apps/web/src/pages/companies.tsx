@@ -6,7 +6,7 @@ import { useSession } from '@/lib/auth-client';
 import { Button } from '@/components/ui/button';
 import { Dialog } from '@/components/ui/dialog';
 import { RowMenu } from '@/components/ui/row-menu';
-import { Page } from '@/components/ui/page';
+import { Page, PageTitle } from '@/components/ui/page';
 
 export function CompaniesPage() {
   const { data: session } = useSession();
@@ -38,7 +38,7 @@ export function CompaniesPage() {
   return (
     <Page>
       <div>
-        <h1 className="text-[28px] font-bold tracking-tight">Empresas</h1>
+        <PageTitle>Empresas</PageTitle>
         <p className="text-sm text-muted">Clientes atendidos e suas unidades.</p>
       </div>
 
@@ -85,7 +85,7 @@ export function CompaniesPage() {
               className="block rounded-card bg-paper p-4 transition-colors hover:bg-line/60"
             >
               <span className="font-ui font-semibold">{company.name}</span>
-              <div className="mt-0.5 text-[13px] text-muted">
+              <div className="mt-0.5 text-caption text-muted">
                 {company.unitCount === 0
                   ? 'Sem unidades'
                   : `${company.unitCount} unidade${company.unitCount > 1 ? 's' : ''} →`}

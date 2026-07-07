@@ -2,7 +2,10 @@
 // com itens inseridos direto (generate pegaria normas de outros testes).
 import { describe, expect, test } from 'bun:test';
 import {
+  callerFor,
+  createUser,
   isoDaysFromNow,
+  memberCaller,
   seedAdequacyItem,
   seedDocument,
   seedNorm,
@@ -137,5 +140,42 @@ describe('reports', () => {
     const rows = await adminCaller.reports.companyOverview({ companyId: company.id });
     expect(rows.find((row) => row.unitId === unit.id)?.percent).toBe(60);
     expect(rows.find((row) => row.unitId === sibling.id)?.percent).toBeNull();
+  });
+
+  // globalOverview testado pela visão de um MEMBRO (o banco de teste é
+  // compartilhado entre arquivos — admin veria unidades de outros testes).
+  test('globalOverview consolida pendências das unidades visíveis', async () => {
+    const { adminCaller, company, unit } = await buildFixture();
+    // Item ativo sem diagnóstico: entra em "sem avaliação" sem mexer no %.
+    const norm = await seedNorm({ weight: 2 });
+    await seedAdequacyItem(unit.id, norm.id);
+
+    const { caller } = await memberCaller(adminCaller, unit.id, 'Leitor');
+    const overview = await caller.reports.globalOverview();
+
+    expect(overview.companies).toHaveLength(1);
+    expect(overview.companies[0]?.name).toBe(company.name);
+    const row = overview.companies[0]?.units.find((u) => u.unitId === unit.id);
+    expect(row?.percent).toBe(60);
+    expect(row?.unevaluated).toBe(1);
+    expect(row?.expiredDocs).toBe(1);
+    expect(row?.expiringDocs).toBe(1);
+    expect(row?.pendingActions).toBe(1);
+    expect(row?.overdueActions).toBe(1);
+
+    expect(overview.totals).toEqual({
+      expiredDocs: 1,
+      expiringDocs: 1,
+      unevaluated: 1,
+      overdueActions: 1,
+      pendingActions: 1,
+    });
+  });
+
+  test('globalOverview sem unidades visíveis vem vazio', async () => {
+    const stranger = await createUser('client');
+    const overview = await callerFor(stranger).reports.globalOverview();
+    expect(overview.companies).toHaveLength(0);
+    expect(overview.totals.expiredDocs).toBe(0);
   });
 });

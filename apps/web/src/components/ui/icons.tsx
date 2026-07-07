@@ -38,7 +38,7 @@ export function FolderIcon(props: SVGProps<SVGSVGElement>) {
   );
 }
 
-// — Ícones por tipo de arquivo (PIE) —
+// — Ícones por tipo de arquivo (P.I.E) —
 // Porte do getMimeTypeIcon do legado (documents/components/icons.tsx): decide
 // pelo MIME type com fallback pela extensão do nome. Glifos Tabler
 // (file-type-*), cores nos tokens semânticos para funcionar no dark mode.

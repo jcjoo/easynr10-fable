@@ -8,6 +8,7 @@ import {
   uuid,
   varchar,
 } from 'drizzle-orm/pg-core';
+import { sql } from 'drizzle-orm';
 import { audit, id, whereActive } from './helpers';
 import { user } from './auth';
 
@@ -46,16 +47,25 @@ export const appRole = pgTable(
   'app_role',
   {
     id: id(),
-    // NULL = papel padrão do sistema (Gestor/Leitor), disponível em TODAS as
-    // empresas e imutável; com company_id = papel customizado da empresa.
+    // NULL/NULL = papel padrão do sistema (Gestor/Leitor), disponível em
+    // TODAS as empresas e imutável; com company_id = papel da empresa; com
+    // unit_id também = papel próprio da unidade (a unidade herda os da
+    // empresa e os do sistema).
     companyId: uuid('company_id').references(() => company.id),
+    unitId: uuid('unit_id').references(() => unit.id),
     name: varchar('name', { length: 120 }).notNull(),
     isSystem: boolean('is_system').notNull().default(false),
     permissions: jsonb('permissions').$type<string[]>().notNull().default([]),
     ...audit,
   },
   (t) => [
-    uniqueIndex('uq_app_role_company_name').on(t.companyId, t.name).where(whereActive(t)),
+    // Nome único por escopo: entre os papéis da empresa e entre os da unidade.
+    uniqueIndex('uq_app_role_company_name')
+      .on(t.companyId, t.name)
+      .where(sql`${whereActive(t)} AND ${t.unitId} IS NULL`),
+    uniqueIndex('uq_app_role_unit_name')
+      .on(t.unitId, t.name)
+      .where(sql`${whereActive(t)} AND ${t.unitId} IS NOT NULL`),
   ],
 );
 

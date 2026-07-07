@@ -33,6 +33,8 @@
 | `companies.byId` | query | 🔑 `autenticado` | — |
 | `companies.create` | mutation | 🛡️ `admin` | — |
 | `companies.list` | query | 🔑 `autenticado` | — |
+| `companies.logoUploadUrl` | mutation | 🛡️ `admin` | — |
+| `companies.logoUrl` | query | 🔑 `autenticado` | — |
 | `companies.remove` | mutation | 🛡️ `admin` | — |
 | `companies.update` | mutation | 🛡️ `admin` | — |
 | `defaultDocuments.list` | query | 🔑 `autenticado` | — |
@@ -75,12 +77,15 @@
 | `reports.actionPlan` | query | 🏭 `membro-da-unidade` | `relatorios.ler` |
 | `reports.companyOverview` | query | 🔑 `autenticado` | — |
 | `reports.documentsSituation` | query | 🏭 `membro-da-unidade` | `relatorios.ler` |
+| `reports.globalOverview` | query | 🔑 `autenticado` | — |
 | `reports.nonConformities` | query | 🏭 `membro-da-unidade` | `relatorios.ler` |
 | `reports.overview` | query | 🏭 `membro-da-unidade` | `painel.ler` |
 | `reports.timeline` | query | 🏭 `membro-da-unidade` | `painel.ler` |
 | `units.byId` | query | 🏭 `membro-da-unidade` | — |
 | `units.create` | mutation | 🛡️ `admin` | — |
 | `units.listByCompany` | query | 🔑 `autenticado` | — |
+| `units.logoUploadUrl` | mutation | 🛡️ `admin` | — |
+| `units.logoUrl` | query | 🏭 `membro-da-unidade` | — |
 | `units.myPermissions` | query | 🏭 `membro-da-unidade` | — |
 | `units.remove` | mutation | 🛡️ `admin` | — |
 | `units.update` | mutation | 🛡️ `admin` | — |
@@ -91,6 +96,7 @@
 | `users.grant` | mutation | 🛡️ `admin` | — |
 | `users.list` | query | 🛡️ `admin` | — |
 | `users.listByCompany` | query | 🛡️ `admin` | — |
+| `users.listByUnit` | query | 🛡️ `admin` | — |
 | `users.memberships` | query | 🛡️ `admin` | — |
 | `users.permissionCatalog` | query | 🛡️ `admin` | — |
 | `users.removeRole` | mutation | 🛡️ `admin` | — |

@@ -46,13 +46,15 @@ export const registersRouter = router({
       .select({
         id: employee.id,
         name: employee.name,
-        folderId: employee.folderId,
+        // folderId sai do JOIN filtrado: vínculo com pasta excluída (dados
+        // antigos, antes da limpeza no folders.remove) aparece como sem pasta.
+        folderId: folder.id,
         folderName: folder.name,
         metadata: employee.metadata,
         createdAt: employee.createdAt,
       })
       .from(employee)
-      .leftJoin(folder, eq(employee.folderId, folder.id))
+      .leftJoin(folder, and(eq(employee.folderId, folder.id), notDeleted(folder)))
       .where(and(eq(employee.unitId, input.unitId), notDeleted(employee)))
       .orderBy(asc(employee.name));
   }),
@@ -98,13 +100,13 @@ export const registersRouter = router({
         id: equipment.id,
         name: equipment.name,
         type: equipment.type,
-        folderId: equipment.folderId,
+        folderId: folder.id,
         folderName: folder.name,
         metadata: equipment.metadata,
         createdAt: equipment.createdAt,
       })
       .from(equipment)
-      .leftJoin(folder, eq(equipment.folderId, folder.id))
+      .leftJoin(folder, and(eq(equipment.folderId, folder.id), notDeleted(folder)))
       .where(and(eq(equipment.unitId, input.unitId), notDeleted(equipment)))
       .orderBy(asc(equipment.name));
   }),
@@ -250,7 +252,15 @@ export const registersRouter = router({
       .from(registerDocumentLink)
       .innerJoin(document, eq(registerDocumentLink.documentId, document.id))
       .innerJoin(folder, eq(document.folderId, folder.id))
-      .where(and(eq(folder.unitId, input.unitId), notDeleted(registerDocumentLink)));
+      .where(
+        and(
+          eq(folder.unitId, input.unitId),
+          notDeleted(registerDocumentLink),
+          // Documento excluído (ex.: cascata do delete de pasta) não pode
+          // seguir aparecendo como evidência vinculada.
+          notDeleted(document),
+        ),
+      );
   }),
 
   linkDocument: unitAction('cadastros.vinculos')

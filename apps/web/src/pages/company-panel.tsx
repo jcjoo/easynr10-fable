@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Link, useParams } from '@tanstack/react-router';
 import { adherenceBand, type DiagnosticStatus } from '@easynr10/shared';
 import { trpc } from '@/lib/trpc';
-import { Page } from '@/components/ui/page';
+import { Page, PageTitle } from '@/components/ui/page';
 
 // Painel da empresa (RF19): aderência geral consolidada por unidade.
 
@@ -23,7 +23,7 @@ export function CompanyPanelPage() {
     <Page>
       <div>
         <p className="text-sm text-muted">Empresa</p>
-        <h1 className="text-[28px] font-bold tracking-tight">{company.data?.name ?? '…'}</h1>
+        <PageTitle>{company.data?.name ?? '…'}</PageTitle>
       </div>
 
       {units.data?.length === 0 && (
@@ -68,7 +68,7 @@ export function CompanyPanelPage() {
                     />
                   )}
                 </div>
-                <p className="font-mono text-[11.5px] text-muted">
+                <p className="font-mono text-micro text-muted">
                   {band ? `${band.emoji} ${band.label} · ` : ''}
                   {row.evaluated}/{row.activeTotal} itens avaliados
                 </p>
