@@ -1,6 +1,5 @@
 # Build e push das imagens (api e web) para o registry do próprio Forgejo a
-# cada push na main. Com .forgejo/workflows presente, o Forgejo ignora o
-# .github/workflows — que segue valendo para o espelho no GitHub (ghcr).
+# cada push na main (pacotes ficam na org, não no ghcr).
 # REGISTRY_HOST é variável de org no Forgejo (host do registry, visto pelo
 # daemon docker do runner — ex.: localhost:3300 no teste local).
 # Sem setup-buildx: o builder padrão (driver docker) builda e publica pelo
