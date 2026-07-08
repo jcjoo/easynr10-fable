@@ -98,6 +98,9 @@ export function PiePage() {
   const canEditDoc = can('pie.documento.editar');
   const canDeleteDoc = can('pie.documento.excluir');
   const canRestoreDoc = can('pie.documento.restaurar');
+  // Exclusão DEFINITIVA (documento com histórico, ou uma versão): ação
+  // própria do papel — erros que não podem aparecer a clientes/auditores.
+  const canPurge = can('exclusao.definitiva');
   const canManageSchemas = can('pie.estruturas.gerenciar');
 
   const folders = useQuery(trpc.folders.list.queryOptions({ unitId }));
@@ -234,6 +237,12 @@ export function PiePage() {
 
   const deleteDialog = useDialogTarget<DocumentRow>();
   const removeDocument = useDialogMutation(trpc.documents.remove.mutationOptions(), () => {
+    deleteDialog.close();
+    invalidateDocuments();
+  });
+  // Exclusão definitiva opcional dentro do mesmo dialog (checkbox).
+  const [purgeChecked, setPurgeChecked] = useState(false);
+  const purgeDocument = useDialogMutation(trpc.documents.purge.mutationOptions(), () => {
     deleteDialog.close();
     invalidateDocuments();
   });
@@ -829,27 +838,62 @@ export function PiePage() {
 
       <Dialog
         open={deleteDialog.isOpen}
-        onClose={() => deleteDialog.close()}
+        onClose={() => {
+          deleteDialog.close();
+          setPurgeChecked(false);
+        }}
         title="Excluir documento"
       >
         <div className="flex flex-col gap-4">
           <p className="text-sm">
-            Excluir <strong>{deleteDialog.target?.name}</strong>? O histórico de versões será mantido
-            no registro do prontuário.
+            Excluir <strong>{deleteDialog.target?.name}</strong>?{' '}
+            {purgeChecked
+              ? 'Documento, histórico de versões e arquivos serão APAGADOS do sistema.'
+              : 'O histórico de versões será mantido no registro do prontuário.'}
           </p>
+          {canPurge && (
+            <label className="flex cursor-pointer items-start gap-2 rounded-ctl border border-line bg-paper p-3 text-sm">
+              <input
+                type="checkbox"
+                checked={purgeChecked}
+                onChange={(e) => setPurgeChecked(e.target.checked)}
+                className="mt-0.5 size-4 accent-[var(--color-bad)]"
+              />
+              <span>
+                <strong>Excluir definitivamente</strong> — apaga também o histórico de versões e
+                os arquivos, sem recuperação (nem pelo suporte).
+              </span>
+            </label>
+          )}
+          {(removeDocument.error || purgeDocument.error) && (
+            <p role="alert" className="text-sm text-bad">
+              {removeDocument.error?.message ?? purgeDocument.error?.message}
+            </p>
+          )}
           <div className="flex justify-end gap-2">
-            <Button type="button" variant="secondary" onClick={() => deleteDialog.close()}>
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={() => {
+                deleteDialog.close();
+                setPurgeChecked(false);
+              }}
+            >
               Cancelar
             </Button>
             <Button
               type="button"
               variant="danger"
-              disabled={removeDocument.isPending}
-              onClick={() =>
-                deleteDialog.target && removeDocument.mutate({ unitId, documentId: deleteDialog.target.id })
-              }
+              disabled={removeDocument.isPending || purgeDocument.isPending}
+              onClick={() => {
+                if (!deleteDialog.target) return;
+                const input = { unitId, documentId: deleteDialog.target.id };
+                if (purgeChecked) purgeDocument.mutate(input);
+                else removeDocument.mutate(input);
+                setPurgeChecked(false);
+              }}
             >
-              Excluir
+              {purgeChecked ? 'Excluir definitivamente' : 'Excluir'}
             </Button>
           </div>
         </div>
@@ -895,6 +939,7 @@ export function PiePage() {
         uploading={uploading}
         canUpload={canUploadDoc}
         canRestore={canRestoreDoc}
+        canPurge={canPurge}
         onClose={() => versionsDialog.close()}
         onUploadNewVersion={() => {
           if (!versionsDialog.target) return;

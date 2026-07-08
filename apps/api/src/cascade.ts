@@ -7,6 +7,7 @@ const {
   actionItem,
   adequacyItem,
   adequacyItemRequirement,
+  authorization,
   customField,
   diagnostic,
   document,
@@ -69,6 +70,9 @@ const cascadeSteps: {
       return targets.length > 0 ? or(...targets) : undefined;
     },
   },
+  // Eventos de autorização não têm deleted_at (imutáveis) — ficam órfãos e
+  // inacessíveis, como as versões de documento.
+  { table: authorization, where: (c) => eq(authorization.unitId, c.unitId) },
   { table: employee, where: (c) => byIds(employee.id, c.employeeIds) },
   { table: equipment, where: (c) => byIds(equipment.id, c.equipmentIds) },
   { table: document, where: (c) => byIds(document.id, c.documentIds) },

@@ -2,11 +2,14 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Upload } from 'lucide-react';
 import { trpc } from '@/lib/trpc';
 import { formatBytes, formatDateTime } from '@/lib/format';
+import { Button } from '@/components/ui/button';
 import { Dialog } from '@/components/ui/dialog';
+import { useDialogTarget } from '@/lib/use-dialog-mutation';
 
 // Histórico de versões do documento (RF09.2): enviar nova versão (o upload em
 // si fica com a página, dona do input de arquivo), baixar/visualizar cada
 // versão e restaurar uma antiga (reutiliza o storage_key — versões imutáveis).
+// Com exclusao.definitiva, versões antigas podem ser APAGADAS do histórico.
 
 export function DocumentVersionsDialog({
   unitId,
@@ -14,6 +17,7 @@ export function DocumentVersionsDialog({
   uploading,
   canUpload,
   canRestore,
+  canPurge,
   onClose,
   onUploadNewVersion,
   onDownload,
@@ -26,6 +30,7 @@ export function DocumentVersionsDialog({
   /** Permissões do papel na unidade — sem elas os botões de escrita somem. */
   canUpload: boolean;
   canRestore: boolean;
+  canPurge: boolean;
   onClose: () => void;
   onUploadNewVersion: () => void;
   onDownload: (versionId: string) => void;
@@ -37,15 +42,25 @@ export function DocumentVersionsDialog({
     ...trpc.documents.versions.queryOptions({ unitId, documentId: target?.id ?? '' }),
     enabled: Boolean(target),
   });
+  const invalidateVersions = () => {
+    if (target) {
+      queryClient.invalidateQueries({
+        queryKey: trpc.documents.versions.queryKey({ unitId, documentId: target.id }),
+      });
+    }
+    onDocumentsChanged();
+  };
   const restoreVersion = useMutation(
-    trpc.documents.restoreVersion.mutationOptions({
+    trpc.documents.restoreVersion.mutationOptions({ onSuccess: invalidateVersions }),
+  );
+  // Exclusão definitiva de UMA versão do histórico (confirmação própria —
+  // abre sobre este dialog, irmão depois no DOM fica por cima).
+  const purgeConfirm = useDialogTarget<{ id: string; number: number }>();
+  const removeVersion = useMutation(
+    trpc.documents.removeVersion.mutationOptions({
       onSuccess: () => {
-        if (target) {
-          queryClient.invalidateQueries({
-            queryKey: trpc.documents.versions.queryKey({ unitId, documentId: target.id }),
-          });
-        }
-        onDocumentsChanged();
+        purgeConfirm.close();
+        invalidateVersions();
       },
     }),
   );
@@ -120,10 +135,61 @@ export function DocumentVersionsDialog({
                     Restaurar
                   </button>
                 )}
+                {index !== 0 && canPurge && (
+                  <button
+                    type="button"
+                    title="Apagar esta versão do histórico (sem recuperação)"
+                    onClick={() => purgeConfirm.open({ id: version.id, number: version.number })}
+                    className="cursor-pointer font-ui text-caption font-semibold text-bad hover:underline"
+                  >
+                    Excluir
+                  </button>
+                )}
               </div>
             </li>
           ))}
         </ul>
+      )}
+
+      {purgeConfirm.target && (
+        <Dialog
+          open={purgeConfirm.isOpen}
+          onClose={purgeConfirm.close}
+          title="Excluir versão do histórico"
+        >
+          <div className="flex flex-col gap-4">
+            <p className="text-sm">
+              Apagar a versão <strong>v{purgeConfirm.target.number}</strong> de{' '}
+              <strong>{target?.name}</strong> do histórico? O arquivo desta versão é removido do
+              sistema — <strong>sem recuperação</strong>. As demais versões continuam intactas.
+            </p>
+            {removeVersion.error && (
+              <p role="alert" className="text-sm text-bad">
+                {removeVersion.error.message}
+              </p>
+            )}
+            <div className="flex justify-end gap-2">
+              <Button type="button" variant="secondary" onClick={purgeConfirm.close}>
+                Cancelar
+              </Button>
+              <Button
+                type="button"
+                variant="danger"
+                disabled={removeVersion.isPending}
+                onClick={() =>
+                  target &&
+                  removeVersion.mutate({
+                    unitId,
+                    documentId: target.id,
+                    versionId: purgeConfirm.target!.id,
+                  })
+                }
+              >
+                {removeVersion.isPending ? 'Excluindo…' : 'Excluir versão'}
+              </Button>
+            </div>
+          </div>
+        </Dialog>
       )}
     </Dialog>
   );

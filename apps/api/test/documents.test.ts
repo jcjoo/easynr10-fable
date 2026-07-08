@@ -118,6 +118,47 @@ describe('documents', () => {
     );
   });
 
+  test('removeVersion apaga versão antiga do histórico; a atual é bloqueada', async () => {
+    const { adminCaller, unit } = await setupUnit();
+    const folder = await makeFolder(adminCaller, unit.id);
+    const doc = await seedDocument(adminCaller, unit.id, folder.id);
+    await adminCaller.documents.confirmNewVersion({
+      unitId: unit.id,
+      documentId: doc.id,
+      storageKey: `units/${unit.id}/${crypto.randomUUID()}/v2.pdf`,
+      mimeType: 'application/pdf',
+      sizeBytes: 4,
+    });
+
+    const versions = await adminCaller.documents.versions({ unitId: unit.id, documentId: doc.id });
+    const v1 = versions.find((v) => v.number === 1)!;
+    const v2 = versions.find((v) => v.number === 2)!;
+
+    // A versão corrente não sai pelo removeVersion.
+    await expectTRPCError(
+      adminCaller.documents.removeVersion({ unitId: unit.id, documentId: doc.id, versionId: v2.id }),
+      'BAD_REQUEST',
+    );
+
+    await adminCaller.documents.removeVersion({ unitId: unit.id, documentId: doc.id, versionId: v1.id });
+    const after = await adminCaller.documents.versions({ unitId: unit.id, documentId: doc.id });
+    expect(after.map((v) => v.number)).toEqual([2]);
+  });
+
+  test('purge apaga documento e histórico de verdade (hard delete)', async () => {
+    const { adminCaller, unit } = await setupUnit();
+    const folder = await makeFolder(adminCaller, unit.id);
+    const doc = await seedDocument(adminCaller, unit.id, folder.id);
+
+    await adminCaller.documents.purge({ unitId: unit.id, documentId: doc.id });
+    const rows = await adminCaller.documents.listByFolder({ unitId: unit.id, folderId: folder.id });
+    expect(rows.map((row) => row.id)).not.toContain(doc.id);
+    await expectTRPCError(
+      adminCaller.documents.versions({ unitId: unit.id, documentId: doc.id }),
+      'NOT_FOUND',
+    );
+  });
+
   test('createUploadUrl devolve URL presignada com a chave da unidade', async () => {
     const { adminCaller, unit } = await setupUnit();
     const { uploadUrl, storageKey } = await adminCaller.documents.createUploadUrl({

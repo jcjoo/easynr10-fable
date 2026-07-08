@@ -30,6 +30,15 @@
 | `adequacy.setActionStatus` | mutation | 🏭 `membro-da-unidade` | `plano.status` |
 | `adequacy.setActive` | mutation | 🏭 `membro-da-unidade` | `diagnostico.configurar` |
 | `adequacy.updateItem` | mutation | 🏭 `membro-da-unidade` | `diagnostico.configurar` |
+| `authorizations.cancel` | mutation | 🏭 `membro-da-unidade` | `autorizacoes.gerar` |
+| `authorizations.create` | mutation | 🏭 `membro-da-unidade` | `autorizacoes.gerar` |
+| `authorizations.documentUrl` | mutation | 🏭 `membro-da-unidade` | `autorizacoes.ler` |
+| `authorizations.events` | query | 🏭 `membro-da-unidade` | `autorizacoes.ler` |
+| `authorizations.list` | query | 🏭 `membro-da-unidade` | `autorizacoes.ler` |
+| `authorizations.publicByToken` | query | 🌐 `publica` | — |
+| `authorizations.publicSign` | mutation | 🌐 `publica` | — |
+| `authorizations.remove` | mutation | 🏭 `membro-da-unidade` | `exclusao.definitiva` |
+| `authorizations.signInPerson` | mutation | 🏭 `membro-da-unidade` | `autorizacoes.gerar` |
 | `companies.byId` | query | 🔑 `autenticado` | — |
 | `companies.create` | mutation | 🛡️ `admin` | — |
 | `companies.list` | query | 🔑 `autenticado` | — |
@@ -45,7 +54,9 @@
 | `documents.listByFolder` | query | 🏭 `membro-da-unidade` | `pie.ler` |
 | `documents.listBySubtree` | query | 🏭 `membro-da-unidade` | `pie.ler` |
 | `documents.previewUrl` | mutation | 🏭 `membro-da-unidade` | `pie.ler` |
+| `documents.purge` | mutation | 🏭 `membro-da-unidade` | `exclusao.definitiva` |
 | `documents.remove` | mutation | 🏭 `membro-da-unidade` | `pie.documento.excluir` |
+| `documents.removeVersion` | mutation | 🏭 `membro-da-unidade` | `exclusao.definitiva` |
 | `documents.restoreVersion` | mutation | 🏭 `membro-da-unidade` | `pie.documento.restaurar` |
 | `documents.update` | mutation | 🏭 `membro-da-unidade` | `pie.documento.editar` |
 | `documents.versions` | query | 🏭 `membro-da-unidade` | `pie.ler` |

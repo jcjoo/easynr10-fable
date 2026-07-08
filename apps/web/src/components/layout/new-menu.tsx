@@ -33,7 +33,8 @@ export function NewMenu({ companyId, unitId }: { companyId: string; unitId: stri
     allow('pie.pasta.criar') ||
     allow('pie.documento.enviar') ||
     allow('diagnostico.avaliar') ||
-    allow('cadastros.itens');
+    allow('cadastros.itens') ||
+    allow('autorizacoes.gerar');
 
   // — Adicionar documentos: escolhe a pasta → upload nela —
   const [pickingDocFolder, setPickingDocFolder] = useState(false);
@@ -123,6 +124,28 @@ export function NewMenu({ companyId, unitId }: { companyId: string; unitId: stri
                         to: '/$companyId/$unitId/equipamentos',
                         params: { companyId, unitId },
                         search: { novo: '1' },
+                      }),
+                  },
+                ]
+              : []),
+            ...(allow('autorizacoes.gerar')
+              ? [
+                  {
+                    label: 'Nova permissão de trabalho',
+                    onSelect: () =>
+                      navigate({
+                        to: '/$companyId/$unitId/autorizacoes',
+                        params: { companyId, unitId },
+                        search: { novo: '1', tipo: 'permissao-trabalho' },
+                      }),
+                  },
+                  {
+                    label: 'Nova ficha de EPI',
+                    onSelect: () =>
+                      navigate({
+                        to: '/$companyId/$unitId/autorizacoes',
+                        params: { companyId, unitId },
+                        search: { novo: '1', tipo: 'ficha-epi' },
                       }),
                   },
                 ]

@@ -82,8 +82,11 @@ describe('catálogo de permissões', () => {
   test('ações são únicas e todo módulo tem a leitura "*.ler"', () => {
     expect(new Set(unitActions).size).toBe(unitActions.length);
     const groups = new Set(unitActionCatalog.map((entry) => entry.group));
-    // Cada grupo do catálogo expõe pelo menos uma ação de leitura.
+    // Grupos transversais (não são módulos de navegação — nada para "ler").
+    const crossCutting = new Set(['Exclusão definitiva']);
+    // Cada grupo-módulo do catálogo expõe pelo menos uma ação de leitura.
     for (const group of groups) {
+      if (crossCutting.has(group)) continue;
       const actions = unitActionCatalog
         .filter((entry) => entry.group === group)
         .map((entry) => entry.action);

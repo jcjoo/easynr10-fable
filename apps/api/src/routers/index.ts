@@ -9,6 +9,7 @@ import { adequacyRouter } from './adequacy';
 import { usersRouter } from './users';
 import { registersRouter } from './registers';
 import { reportsRouter } from './reports';
+import { authorizationsRouter } from './authorizations';
 
 export const appRouter = router({
   companies: companiesRouter,
@@ -21,6 +22,7 @@ export const appRouter = router({
   users: usersRouter,
   registers: registersRouter,
   reports: reportsRouter,
+  authorizations: authorizationsRouter,
 });
 
 export type AppRouter = typeof appRouter;

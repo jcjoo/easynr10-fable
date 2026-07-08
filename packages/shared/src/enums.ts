@@ -147,6 +147,20 @@ export const unitActionCatalog = [
     description: 'Definir a estrutura de pastas padrão de cada grupo de cadastro.',
   },
   {
+    action: 'autorizacoes.ler',
+    group: 'Autorizações',
+    label: 'Ver autorizações',
+    description:
+      'Acessar Permissões de Trabalho e Fichas de EPI (lista, documentos assinados e trilha de auditoria). Desligado, o módulo some da navegação.',
+  },
+  {
+    action: 'autorizacoes.gerar',
+    group: 'Autorizações',
+    label: 'Gerar e assinar autorizações',
+    description:
+      'Criar permissões de trabalho e fichas de EPI, colher assinatura presencial, compartilhar o link público e cancelar pendentes.',
+  },
+  {
     action: 'painel.ler',
     group: 'Painel',
     label: 'Ver o painel da unidade',
@@ -159,6 +173,13 @@ export const unitActionCatalog = [
     label: 'Ver e exportar relatórios',
     description:
       'Acessar os relatórios analíticos e exportar CSV/PDF. Desligado, o módulo some da navegação.',
+  },
+  {
+    action: 'exclusao.definitiva',
+    group: 'Exclusão definitiva',
+    label: 'Excluir definitivamente (sem recuperação)',
+    description:
+      'Apagar DO SISTEMA autorizações (com trilha e PDF), documentos com todo o histórico e versões individuais — para erros que não podem aparecer a clientes/auditores. Nenhum papel recebe por padrão.',
   },
 ] as const;
 
@@ -405,6 +426,52 @@ export const registerBasePath: Record<RegisterTarget, string[]> = {
   epi: ['Equipamentos', 'EPI', 'Lista de EPI'],
   epc: ['Equipamentos', 'EPC', 'Lista de EPC'],
 };
+
+// Autorizações (módulo sob Cadastros): documentos gerados para a assinatura
+// do colaborador — presencial (canvas na hora) ou por link público (colaborador
+// sem acesso ao sistema). Assinado, vira PDF com trilha de auditoria na pasta
+// do colaborador no P.I.E, vinculado à autorização.
+export const authorizationTypes = ['permissao_trabalho', 'ficha_epi'] as const;
+export type AuthorizationType = (typeof authorizationTypes)[number];
+
+export const authorizationTypeLabels: Record<AuthorizationType, string> = {
+  permissao_trabalho: 'Permissão de Trabalho',
+  ficha_epi: 'Ficha de EPI',
+};
+
+export const authorizationStatuses = ['pendente', 'assinada', 'cancelada'] as const;
+export type AuthorizationStatus = (typeof authorizationStatuses)[number];
+
+export const authorizationStatusLabels: Record<AuthorizationStatus, string> = {
+  pendente: 'Pendente',
+  assinada: 'Assinada',
+  cancelada: 'Cancelada',
+};
+
+// Trilha de auditoria (RNF de rastreabilidade): eventos imutáveis por
+// autorização, impressos na ficha final do PDF.
+export const authorizationEventTypes = ['criada', 'assinada', 'concluida', 'cancelada'] as const;
+export type AuthorizationEventType = (typeof authorizationEventTypes)[number];
+
+export const authorizationEventLabels: Record<AuthorizationEventType, string> = {
+  criada: 'Criada',
+  assinada: 'Assinada',
+  concluida: 'Concluída',
+  cancelada: 'Cancelada',
+};
+
+// Conteúdo por tipo (jsonb `details`): o essencial de cada documento.
+export interface WorkPermitDetails {
+  atividade: string;
+  local?: string;
+  validade?: string; // YYYY-MM-DD
+}
+
+export interface EpiSheetDetails {
+  epis: { nome: string; ca?: string }[];
+}
+
+export type AuthorizationDetails = WorkPermitDetails | EpiSheetDetails;
 
 // Grupos documentais do sistema atual (default_documents do legado).
 export const documentGroups = [

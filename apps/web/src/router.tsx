@@ -39,6 +39,12 @@ import {
 } from '@easynr10/shared';
 import { sortSearch, type SortState } from '@/components/ui/sortable';
 import { ColaboradoresPage, EquipamentosPage } from '@/pages/registros';
+import {
+  AutorizacoesPage,
+  authorizationTabs,
+  type AuthorizationTab,
+} from '@/pages/autorizacoes';
+import { AssinarPage } from '@/pages/assinar';
 import { NotFoundPage, RouteErrorPage } from '@/pages/error-pages';
 import { expiryPresets, type ExpiryPreset } from '@/components/pie/expiry-filter';
 import { diagnosticFilters, type DiagnosticFilter } from '@/components/ui/status-filter';
@@ -218,6 +224,7 @@ const unitEntrySections = [
   ['plano.ler', '/$companyId/$unitId/plano-de-acao'],
   ['relatorios.ler', '/$companyId/$unitId/relatorios'],
   ['cadastros.ler', '/$companyId/$unitId/equipamentos'],
+  ['autorizacoes.ler', '/$companyId/$unitId/autorizacoes'],
 ] as const;
 
 // Período do gráfico de evolução do painel na URL (?periodo=30d|12m; 90d default).
@@ -473,9 +480,35 @@ const equipamentosRoute = createRoute({
   component: EquipamentosPage,
 });
 const colaboradoresRoute = unitSection('colaboradores', ColaboradoresPage);
+// Tipo de autorização na URL (?tipo=permissao-trabalho|ficha-epi, default
+// permissao-trabalho) — os tipos são filhos de Autorizações na sidebar.
+const autorizacoesRoute = createRoute({
+  getParentRoute: () => authedRoute,
+  path: '/$companyId/$unitId/autorizacoes',
+  beforeLoad: ({ params }) => requireUuidParams(params),
+  validateSearch: (
+    search: Record<string, unknown>,
+  ): { novo?: '1'; tipo?: AuthorizationTab } & SortState => ({
+    novo: search.novo === '1' ? '1' : undefined,
+    tipo: authorizationTabs.includes(search.tipo as AuthorizationTab)
+      ? (search.tipo as AuthorizationTab)
+      : 'permissao-trabalho',
+    ...sortSearch(search),
+  }),
+  component: AutorizacoesPage,
+});
+
+// Assinatura por link PÚBLICO (colaborador sem acesso ao sistema): fora do
+// shell autenticado — o token opaco da URL é a credencial.
+const assinarRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/assinar/$token',
+  component: AssinarPage,
+});
 
 const routeTree = rootRoute.addChildren([
   loginRoute,
+  assinarRoute,
   settingsAuthRoute.addChildren([
     configuracoesRoute.addChildren([
       configIndexRoute,
@@ -506,6 +539,7 @@ const routeTree = rootRoute.addChildren([
     relatoriosRoute,
     equipamentosRoute,
     colaboradoresRoute,
+    autorizacoesRoute,
   ]),
 ]);
 

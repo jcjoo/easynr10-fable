@@ -66,6 +66,56 @@ export async function purgeUnitObjects(unitId: string) {
   return removed;
 }
 
+// Remove DEFINITIVAMENTE objetos específicos, incluindo as versões e delete
+// markers do bucket versionado — hard deletes de admin (documento/versão/
+// autorização com PDF). O Prefix pega tudo da key; o filtro exato evita levar
+// keys vizinhas que por acaso comecem igual.
+export async function purgeObjects(keys: string[]) {
+  let removed = 0;
+  for (const key of keys) {
+    let keyMarker: string | undefined;
+    let versionIdMarker: string | undefined;
+    do {
+      const page = await internal.send(
+        new ListObjectVersionsCommand({
+          Bucket: env.S3_BUCKET,
+          Prefix: key,
+          KeyMarker: keyMarker,
+          VersionIdMarker: versionIdMarker,
+        }),
+      );
+      const targets = [...(page.Versions ?? []), ...(page.DeleteMarkers ?? [])]
+        .filter((entry) => entry.Key === key)
+        .map((entry) => ({ Key: entry.Key!, VersionId: entry.VersionId }));
+      if (targets.length > 0) {
+        await internal.send(
+          new DeleteObjectsCommand({
+            Bucket: env.S3_BUCKET,
+            Delete: { Objects: targets, Quiet: true },
+          }),
+        );
+        removed += targets.length;
+      }
+      keyMarker = page.IsTruncated ? page.NextKeyMarker : undefined;
+      versionIdMarker = page.IsTruncated ? page.NextVersionIdMarker : undefined;
+    } while (keyMarker || versionIdMarker);
+  }
+  return removed;
+}
+
+// Upload feito pela PRÓPRIA API (endpoint interno): PDFs gerados no servidor
+// (autorizações assinadas) — a exceção da regra "o browser trafega o binário".
+export async function putObject(storageKey: string, body: Uint8Array, contentType: string) {
+  await internal.send(
+    new PutObjectCommand({
+      Bucket: env.S3_BUCKET,
+      Key: storageKey,
+      Body: body,
+      ContentType: contentType,
+    }),
+  );
+}
+
 const UPLOAD_URL_TTL_S = 10 * 60;
 const DOWNLOAD_URL_TTL_S = 5 * 60;
 

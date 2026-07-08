@@ -7,12 +7,15 @@ import {
   Cable,
   ChartColumn,
   ChevronRight,
+  ClipboardCheck,
   ClipboardList,
   Database,
   FileClock,
+  FileSignature,
   FolderKanban,
   Gauge,
   HardHat,
+  House,
   LayoutGrid,
   ListChecks,
   ListTodo,
@@ -298,8 +301,10 @@ function UnitGroup({ companyId, unitId }: { companyId: string; unitId: string })
           />
         </Section>
       )}
-      {show('cadastros.ler') && (
+      {(show('cadastros.ler') || show('autorizacoes.ler')) && (
         <Section id="cadastros" label="Cadastros" icon={Database}>
+          {show('cadastros.ler') && (
+          <>
           <NavItem
             to="/$companyId/$unitId/colaboradores"
             params={params}
@@ -341,6 +346,28 @@ function UnitGroup({ companyId, unitId }: { companyId: string; unitId: string })
               depth={2}
             />
           </Section>
+          </>
+          )}
+          {show('autorizacoes.ler') && (
+            <Section id="autorizacoes" label="Autorizações" icon={FileSignature} depth={1}>
+              <NavItem
+                to="/$companyId/$unitId/autorizacoes"
+                params={params}
+                search={{ tipo: 'permissao-trabalho' }}
+                label="Permissão de Trabalho"
+                icon={ClipboardCheck}
+                depth={2}
+              />
+              <NavItem
+                to="/$companyId/$unitId/autorizacoes"
+                params={params}
+                search={{ tipo: 'ficha-epi' }}
+                label="Ficha de EPI"
+                icon={HardHat}
+                depth={2}
+              />
+            </Section>
+          )}
         </Section>
       )}
     </div>
@@ -370,7 +397,7 @@ export function Sidebar({ open, onClose }: { open: boolean; onClose: () => void 
         ${open ? 'translate-x-0 shadow-pop lg:shadow-none' : '-translate-x-full'}`}
     >
       <div className="flex h-16 items-center justify-between px-5">
-        <Link to="/empresas" aria-label="EasyNR10 — início">
+        <Link to="/" aria-label="EasyNR10 — início">
           <img src={fullLogo} alt="EasyNR10" className="h-9 dark:hidden" />
           <img src={fullLogoDark} alt="EasyNR10" className="hidden h-9 dark:block" />
         </Link>
@@ -384,10 +411,17 @@ export function Sidebar({ open, onClose }: { open: boolean; onClose: () => void 
         </button>
       </div>
 
-      {companyId && unitId && <NewMenu companyId={companyId} unitId={unitId} />}
+      {/* Slot de altura FIXA do "Novo": sem unidade ativa (ou papel sem
+          escrita) o botão some, mas o espaço fica — a navegação não pula. */}
+      <div className="h-[42px] shrink-0">
+        {companyId && unitId && <NewMenu companyId={companyId} unitId={unitId} />}
+      </div>
 
       <nav className="mt-3 flex flex-1 flex-col gap-5 overflow-y-auto px-3 pb-4">
         <div className="flex flex-col gap-0.5">
+          {/* Início = painel geral (/); cliente de empresa única é
+              redirecionado pela própria rota. */}
+          <NavItem to="/" label="Início" icon={House} exact />
           {showCompanies && <NavItem to="/empresas" label="Empresas" icon={Building2} />}
         </div>
         {companyId && <CompanyGroup companyId={companyId} />}

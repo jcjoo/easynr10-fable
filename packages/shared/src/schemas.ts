@@ -269,3 +269,46 @@ export const equipmentImportSchema = z.object({
   items: z.array(importItemSchema).min(1).max(2000),
 });
 export type EquipmentImportInput = z.infer<typeof equipmentImportSchema>;
+
+// — Autorizações —
+
+// Conteúdo por tipo: união discriminada casada com AuthorizationDetails.
+export const workPermitDetailsSchema = z.object({
+  atividade: z.string().trim().min(1).max(2000),
+  local: z.string().trim().max(255).optional(),
+  validade: z.iso.date().optional(),
+});
+
+export const epiSheetDetailsSchema = z.object({
+  epis: z
+    .array(
+      z.object({
+        nome: z.string().trim().min(1).max(255),
+        ca: z.string().trim().max(60).optional(),
+      }),
+    )
+    .min(1)
+    .max(200),
+});
+
+export const authorizationCreateSchema = z.discriminatedUnion("type", [
+  z.object({
+    unitId: z.uuid(),
+    employeeId: z.uuid(),
+    type: z.literal("permissao_trabalho"),
+    details: workPermitDetailsSchema,
+  }),
+  z.object({
+    unitId: z.uuid(),
+    employeeId: z.uuid(),
+    type: z.literal("ficha_epi"),
+    details: epiSheetDetailsSchema,
+  }),
+]);
+export type AuthorizationCreateInput = z.infer<typeof authorizationCreateSchema>;
+
+// Assinatura desenhada no canvas (PNG pequeno embutido no PDF).
+export const signatureDataUrlSchema = z
+  .string()
+  .startsWith("data:image/png;base64,")
+  .max(300_000, "Assinatura muito grande — limpe e assine novamente");

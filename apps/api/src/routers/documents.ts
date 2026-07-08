@@ -9,7 +9,14 @@ import {
 } from '@easynr10/shared';
 import { z } from 'zod';
 import { router, unitAction } from '../trpc';
-import { buildStorageKey, presignDownload, presignPreview, presignUpload } from '../s3';
+import {
+  buildStorageKey,
+  presignDownload,
+  presignPreview,
+  presignUpload,
+  purgeObjects,
+} from '../s3';
+import { purgeDocuments } from '../services/purge';
 
 const { document, documentVersion, folder, user } = schema;
 
@@ -247,6 +254,51 @@ export const documentsRouter = router({
     .mutation(async ({ ctx, input }) => {
       const doc = await findUnitDocument(ctx.db, input.unitId, input.documentId);
       await ctx.db.update(document).set({ deletedAt: new Date() }).where(eq(document.id, doc.id));
+      return { success: true };
+    }),
+
+  // Exclusão DEFINITIVA (ação exclusao.definitiva do papel; admins têm):
+  // documento + histórico de versões + objetos no bucket somem — erros que
+  // clientes/auditores não podem ver.
+  purge: unitAction('exclusao.definitiva')
+    .input(z.object({ documentId: z.uuid() }))
+    .mutation(async ({ ctx, input }) => {
+      const doc = await findUnitDocument(ctx.db, input.unitId, input.documentId);
+      return purgeDocuments(ctx.db, [doc.id]);
+    }),
+
+  // Apaga UMA versão do histórico (mesma ação) — ex.: upload errado que não
+  // pode aparecer em auditoria. A versão atual não sai por aqui:
+  // restaure/envie outra antes, ou exclua o documento inteiro.
+  removeVersion: unitAction('exclusao.definitiva')
+    .input(z.object({ documentId: z.uuid(), versionId: z.uuid() }))
+    .mutation(async ({ ctx, input }) => {
+      const doc = await findUnitDocument(ctx.db, input.unitId, input.documentId);
+      const version = await ctx.db.query.documentVersion.findFirst({
+        where: and(
+          eq(documentVersion.id, input.versionId),
+          eq(documentVersion.documentId, doc.id),
+        ),
+      });
+      if (!version) {
+        throw new TRPCError({ code: 'NOT_FOUND', message: 'Versão não encontrada' });
+      }
+      if (doc.currentVersionId === version.id) {
+        throw new TRPCError({
+          code: 'BAD_REQUEST',
+          message:
+            'A versão atual não pode ser excluída — restaure outra versão antes ou exclua o documento',
+        });
+      }
+      await ctx.db.delete(documentVersion).where(eq(documentVersion.id, version.id));
+      // Restaurações reutilizam o storage_key: o objeto só sai do bucket
+      // quando nenhuma outra versão apontar para ele.
+      const [shared] = await ctx.db
+        .select({ id: documentVersion.id })
+        .from(documentVersion)
+        .where(eq(documentVersion.storageKey, version.storageKey))
+        .limit(1);
+      if (!shared) await purgeObjects([version.storageKey]);
       return { success: true };
     }),
 

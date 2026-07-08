@@ -12,6 +12,8 @@
   "dependencies": {
     "@easynr10/shared": "workspace:*",
     "@fontsource-variable/archivo": "^5.2.8",
+    "@fontsource/caveat": "^5.2.8",
+    "@fontsource/great-vibes": "^5.2.8",
     "@fontsource/ibm-plex-mono": "^5.2.7",
     "@fontsource/ibm-plex-sans": "^5.2.8",
     "@tailwindcss/vite": "^4.1.16",

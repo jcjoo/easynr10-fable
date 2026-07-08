@@ -3,6 +3,7 @@ export * from './auth';
 export * from './org';
 export * from './pie';
 export * from './registers';
+export * from './authorizations';
 export * from './norms';
 export * from './diagnostics';
 export * from './notifications';
