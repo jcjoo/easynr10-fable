@@ -11,6 +11,11 @@ on:
     branches: [main]
   workflow_dispatch:
 
+# Eleva o token do job para publicar no registry de pacotes da org.
+permissions:
+  contents: read
+  packages: write
+
 jobs:
   build:
     runs-on: ubuntu-latest
