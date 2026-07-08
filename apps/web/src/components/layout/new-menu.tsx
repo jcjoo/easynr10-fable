@@ -131,7 +131,7 @@ export function NewMenu({ companyId, unitId }: { companyId: string; unitId: stri
             ...(allow('autorizacoes.gerar')
               ? [
                   {
-                    label: 'Nova permissão de trabalho',
+                    label: 'Nova autorização de trabalho',
                     onSelect: () =>
                       navigate({
                         to: '/$companyId/$unitId/autorizacoes',

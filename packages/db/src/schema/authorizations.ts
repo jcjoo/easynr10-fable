@@ -1,6 +1,6 @@
 import { jsonb, pgTable, text, timestamp, uniqueIndex, uuid, varchar } from 'drizzle-orm/pg-core';
 import type { AuthorizationDetails } from '@easynr10/shared';
-import { audit, id } from './helpers';
+import { audit, id, whereActive } from './helpers';
 import { authorizationEventType, authorizationStatus, authorizationType } from './enums';
 import { unit } from './org';
 import { employee } from './registers';
@@ -35,6 +35,22 @@ export const authorization = pgTable(
     ...audit,
   },
   (t) => [uniqueIndex('uq_authorization_sign_token').on(t.signToken)],
+);
+
+// Catálogo de atividades da unidade: opções do checklist da Autorização de
+// Trabalho (details.atividades guarda o NOME escolhido, não o id — ver
+// WorkPermitDetails).
+export const activity = pgTable(
+  'activity',
+  {
+    id: id(),
+    unitId: uuid('unit_id')
+      .notNull()
+      .references(() => unit.id),
+    name: varchar('name', { length: 255 }).notNull(),
+    ...audit,
+  },
+  (t) => [uniqueIndex('uq_activity_unit_name').on(t.unitId, t.name).where(whereActive(t))],
 );
 
 // Trilha de auditoria: eventos imutáveis (sem update/soft-delete), impressos

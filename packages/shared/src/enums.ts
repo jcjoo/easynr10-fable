@@ -435,7 +435,7 @@ export const authorizationTypes = ['permissao_trabalho', 'ficha_epi'] as const;
 export type AuthorizationType = (typeof authorizationTypes)[number];
 
 export const authorizationTypeLabels: Record<AuthorizationType, string> = {
-  permissao_trabalho: 'Permissão de Trabalho',
+  permissao_trabalho: 'Autorização de Trabalho',
   ficha_epi: 'Ficha de EPI',
 };
 
@@ -461,8 +461,11 @@ export const authorizationEventLabels: Record<AuthorizationEventType, string> = 
 };
 
 // Conteúdo por tipo (jsonb `details`): o essencial de cada documento.
+// `atividades` guarda o NOME (snapshot) das atividades marcadas na lista
+// cadastrada — não o id, para o documento assinado sobreviver a uma
+// atividade renomeada/excluída depois.
 export interface WorkPermitDetails {
-  atividade: string;
+  atividades: string[];
   local?: string;
   validade?: string; // YYYY-MM-DD
 }

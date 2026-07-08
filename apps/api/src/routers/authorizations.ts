@@ -1,8 +1,9 @@
 import { randomBytes } from 'node:crypto';
 import { TRPCError } from '@trpc/server';
-import { and, desc, eq } from 'drizzle-orm';
+import { and, asc, desc, eq } from 'drizzle-orm';
 import { notDeleted, schema } from '@easynr10/db';
 import {
+  activityUpsertSchema,
   authorizationCreateSchema,
   authorizationTypes,
   signatureDataUrlSchema,
@@ -17,9 +18,10 @@ import {
 } from '../services/authorizations';
 import { purgeDocuments } from '../services/purge';
 
-const { authorization, authorizationEvent, document, documentVersion, employee } = schema;
+const { activity, authorization, authorizationEvent, document, documentVersion, employee } =
+  schema;
 
-// Autorizações (Permissão de Trabalho / Ficha de EPI): o operador escolhe o
+// Autorizações (Autorização de Trabalho / Ficha de EPI): o operador escolhe o
 // colaborador e gera o documento; a assinatura é presencial (canvas) ou pelo
 // link público /assinar/<token> (colaborador sem acesso ao sistema). Assinado,
 // o PDF com trilha de auditoria entra na pasta do colaborador no P.I.E.
@@ -178,6 +180,59 @@ export const authorizationsRouter = router({
         throw new TRPCError({ code: 'NOT_FOUND', message: 'Documento não encontrado' });
       }
       return { url: await presignPreview(row.storageKey, row.name, 'application/pdf') };
+    }),
+
+  // — Catálogo de atividades (checklist da Autorização de Trabalho) —
+
+  listActivities: unitAction('autorizacoes.ler').query(async ({ ctx, input }) => {
+    return ctx.db
+      .select({ id: activity.id, name: activity.name, createdAt: activity.createdAt })
+      .from(activity)
+      .where(and(eq(activity.unitId, input.unitId), notDeleted(activity)))
+      .orderBy(asc(activity.name));
+  }),
+
+  upsertActivity: unitAction('autorizacoes.gerar')
+    .input(activityUpsertSchema)
+    .mutation(async ({ ctx, input }) => {
+      if (input.activityId) {
+        const [updated] = await ctx.db
+          .update(activity)
+          .set({ name: input.name })
+          .where(
+            and(
+              eq(activity.id, input.activityId),
+              eq(activity.unitId, input.unitId),
+              notDeleted(activity),
+            ),
+          )
+          .returning();
+        if (!updated) {
+          throw new TRPCError({ code: 'NOT_FOUND', message: 'Atividade não encontrada' });
+        }
+        return updated;
+      }
+      const [created] = await ctx.db
+        .insert(activity)
+        .values({ unitId: input.unitId, name: input.name })
+        .returning();
+      return created!;
+    }),
+
+  removeActivity: unitAction('autorizacoes.gerar')
+    .input(z.object({ activityId: z.uuid() }))
+    .mutation(async ({ ctx, input }) => {
+      await ctx.db
+        .update(activity)
+        .set({ deletedAt: new Date() })
+        .where(
+          and(
+            eq(activity.id, input.activityId),
+            eq(activity.unitId, input.unitId),
+            notDeleted(activity),
+          ),
+        );
+      return { success: true };
     }),
 
   // — Página pública de assinatura (/assinar/<token>) — sem sessão; o token

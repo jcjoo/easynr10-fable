@@ -1,12 +1,13 @@
 import { useEffect, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { useNavigate, useParams, useSearch } from '@tanstack/react-router';
+import { Link, useNavigate, useParams, useSearch } from '@tanstack/react-router';
 import {
   Check,
   ClipboardCheck,
   FileText,
   History,
   Link2,
+  ListChecks,
   PenLine,
   Plus,
   Trash2,
@@ -43,11 +44,14 @@ import {
   type SortValue,
 } from '@/components/ui/sortable';
 
-// Autorizações (sob Cadastros): Permissão de Trabalho e Ficha de EPI. O
+// Autorizações (seção própria): Autorização de Trabalho e Ficha de EPI. O
 // operador escolhe o colaborador e gera o documento; a assinatura é presencial
 // (canvas aqui) ou pelo link público /assinar/<token> (colaborador sem acesso
 // ao sistema). Assinado, o PDF com trilha de auditoria entra na pasta do
-// colaborador no P.I.E e fica acessível também por esta tela.
+// colaborador no P.I.E e fica acessível também por esta tela. As atividades
+// marcáveis da Autorização de Trabalho vêm do catálogo da unidade (AtividadesPage,
+// em pages/atividades.tsx) — CRUD próprio acessível pelo botão "Atividades"
+// ao lado de "Nova".
 
 export const authorizationTabs = ['permissao-trabalho', 'ficha-epi'] as const;
 export type AuthorizationTab = (typeof authorizationTabs)[number];
@@ -79,7 +83,7 @@ const statusColors: Record<AuthorizationStatus, string> = {
 function summary(type: AuthorizationType, details: AuthorizationRow['details']) {
   if (type === 'permissao_trabalho') {
     const pt = details as WorkPermitDetails;
-    return [pt.atividade, pt.local].filter(Boolean).join(' — ');
+    return [pt.atividades.join(', '), pt.local].filter(Boolean).join(' — ');
   }
   const epis = (details as EpiSheetDetails).epis;
   return `${epis.length} EPI${epis.length === 1 ? '' : 's'}: ${epis.map((epi) => epi.nome).join(', ')}`;
@@ -87,29 +91,6 @@ function summary(type: AuthorizationType, details: AuthorizationRow['details']) 
 
 const rowActionClass = `cursor-pointer rounded-ctl p-1 text-muted opacity-0 transition-opacity
   hover:bg-line/60 hover:text-ink focus-visible:opacity-100 group-hover:opacity-100`;
-
-// Textarea no mesmo papel visual do Field (input) — atividade é texto longo.
-function TextareaField({
-  label,
-  hint,
-  ...textarea
-}: { label: string; hint?: string } & React.TextareaHTMLAttributes<HTMLTextAreaElement>) {
-  return (
-    <div className="flex flex-col gap-1.5">
-      <label className="font-ui text-caption font-semibold">
-        {label}
-        <textarea
-          rows={3}
-          className="mt-1.5 w-full resize-y rounded-ctl border border-line-strong bg-surface px-2.5
-            py-2 text-[15px] font-normal text-ink focus-visible:border-action
-            focus-visible:outline-2 focus-visible:outline-action focus-visible:outline-offset-0"
-          {...textarea}
-        />
-      </label>
-      {hint && <span className="text-xs text-muted">{hint}</span>}
-    </div>
-  );
-}
 
 export function AutorizacoesPage() {
   const { companyId, unitId } = useParams({ strict: false }) as {
@@ -144,7 +125,7 @@ export function AutorizacoesPage() {
   // — Nova autorização —
   const [createOpen, setCreateOpen] = useState(false);
   const [employeeId, setEmployeeId] = useState('');
-  const [atividade, setAtividade] = useState('');
+  const [atividadesSelected, setAtividadesSelected] = useState<Set<string>>(new Set());
   const [local, setLocal] = useState('');
   const [validade, setValidade] = useState('');
   const [episSelected, setEpisSelected] = useState<Set<string>>(new Set());
@@ -158,11 +139,17 @@ export function AutorizacoesPage() {
     enabled: createOpen && !isPermit,
   });
   const epis = (equipment.data ?? []).filter((row) => row.type === 'epi');
+  // Autorização de Trabalho: atividade não é digitada — marca-se no
+  // checklist do catálogo cadastrado em Atividades (mesma origem do botão).
+  const activities = useQuery({
+    ...trpc.authorizations.listActivities.queryOptions({ unitId }),
+    enabled: createOpen && isPermit,
+  });
 
   function openCreate() {
     setCreateOpen(true);
     setEmployeeId('');
-    setAtividade('');
+    setAtividadesSelected(new Set());
     setLocal('');
     setValidade('');
     setEpisSelected(new Set());
@@ -182,7 +169,9 @@ export function AutorizacoesPage() {
         type: 'permissao_trabalho',
         employeeId,
         details: {
-          atividade: atividade.trim(),
+          atividades: (activities.data ?? [])
+            .filter((activity) => atividadesSelected.has(activity.id))
+            .map((activity) => activity.name),
           local: local.trim() || undefined,
           validade: validade || undefined,
         },
@@ -201,7 +190,8 @@ export function AutorizacoesPage() {
     }
   }
 
-  const createValid = employeeId && (isPermit ? atividade.trim() : episSelected.size > 0);
+  const createValid =
+    employeeId && (isPermit ? atividadesSelected.size > 0 : episSelected.size > 0);
 
   // Botão "Novo" da sidebar (?novo=1): abre o editor e limpa o flag.
   useEffect(() => {
@@ -291,14 +281,26 @@ export function AutorizacoesPage() {
     <Page>
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <p className="text-sm text-muted">Cadastros · Autorizações</p>
+          <p className="text-sm text-muted">Autorizações</p>
           <PageTitle>{typeLabel}</PageTitle>
         </div>
-        {canGerar && (
-          <Button onClick={openCreate}>
-            <Plus aria-hidden className="size-4" /> Nova {typeLabel.toLowerCase()}
-          </Button>
-        )}
+        <div className="flex items-center gap-2">
+          {isPermit && canGerar && (
+            <Link
+              to="/$companyId/$unitId/atividades"
+              params={{ companyId, unitId }}
+              className="inline-flex items-center gap-2 rounded-ctl border border-line-strong
+                bg-surface px-4 py-2 font-ui text-sm font-semibold text-ink hover:bg-paper"
+            >
+              <ListChecks aria-hidden className="size-4" /> Atividades
+            </Link>
+          )}
+          {canGerar && (
+            <Button onClick={openCreate}>
+              <Plus aria-hidden className="size-4" /> Nova
+            </Button>
+          )}
+        </div>
       </div>
 
       <div className="overflow-x-auto">
@@ -306,7 +308,7 @@ export function AutorizacoesPage() {
           <thead>
             <tr>
               <SortableTh colKey="colaborador" label="Colaborador" ord={currentOrd} dir={currentDir} onSort={handleSort} />
-              <PlainTh label={isPermit ? 'Atividade' : 'EPIs entregues'} />
+              <PlainTh label={isPermit ? 'Atividades' : 'EPIs entregues'} />
               <SortableTh colKey="status" label="Status" ord={currentOrd} dir={currentDir} onSort={handleSort} />
               <SortableTh colKey="criada" label="Criada em" ord={currentOrd} dir={currentDir} onSort={handleSort} />
               <SortableTh colKey="assinada" label="Assinada em" ord={currentOrd} dir={currentDir} onSort={handleSort} />
@@ -439,12 +441,49 @@ export function AutorizacoesPage() {
 
           {isPermit ? (
             <>
-              <TextareaField
-                label="Atividade autorizada"
-                value={atividade}
-                onChange={(e) => setAtividade(e.target.value)}
-                placeholder="Ex.: Manutenção no painel elétrico QGBT-02, com o circuito desenergizado…"
-              />
+              <div className="rounded-card border border-line">
+                <div className="flex items-center justify-between border-b border-line px-3 py-2">
+                  <span className="font-ui text-caption font-semibold">
+                    Atividades autorizadas ({atividadesSelected.size} selecionada
+                    {atividadesSelected.size === 1 ? '' : 's'})
+                  </span>
+                </div>
+                <ul className="max-h-56 overflow-y-auto p-2">
+                  {(activities.data ?? []).length === 0 && (
+                    <li className="px-1 py-2 text-sm text-muted">
+                      Nenhuma atividade cadastrada — cadastre pelo botão{' '}
+                      <Link
+                        to="/$companyId/$unitId/atividades"
+                        params={{ companyId, unitId }}
+                        className="text-action hover:underline"
+                      >
+                        Atividades
+                      </Link>
+                      .
+                    </li>
+                  )}
+                  {activities.data?.map((atividade) => (
+                    <li key={atividade.id}>
+                      <label className="flex cursor-pointer items-center gap-2 rounded-ctl px-1.5 py-1 text-sm hover:bg-paper">
+                        <input
+                          type="checkbox"
+                          checked={atividadesSelected.has(atividade.id)}
+                          onChange={(e) =>
+                            setAtividadesSelected((state) => {
+                              const next = new Set(state);
+                              if (e.target.checked) next.add(atividade.id);
+                              else next.delete(atividade.id);
+                              return next;
+                            })
+                          }
+                          className="size-4 accent-[var(--color-action)]"
+                        />
+                        <span className="flex-1">{atividade.name}</span>
+                      </label>
+                    </li>
+                  ))}
+                </ul>
+              </div>
               <Field label="Local (opcional)" value={local} onChange={(e) => setLocal(e.target.value)} />
               <Field
                 label="Válida até (opcional)"

@@ -274,7 +274,7 @@ export type EquipmentImportInput = z.infer<typeof equipmentImportSchema>;
 
 // Conteúdo por tipo: união discriminada casada com AuthorizationDetails.
 export const workPermitDetailsSchema = z.object({
-  atividade: z.string().trim().min(1).max(2000),
+  atividades: z.array(z.string().trim().min(1).max(255)).min(1).max(100),
   local: z.string().trim().max(255).optional(),
   validade: z.iso.date().optional(),
 });
@@ -312,3 +312,12 @@ export const signatureDataUrlSchema = z
   .string()
   .startsWith("data:image/png;base64,")
   .max(300_000, "Assinatura muito grande — limpe e assine novamente");
+
+// Catálogo de atividades da unidade (RF: checklist da Autorização de
+// Trabalho) — mesmo id em create/update para reaproveitar um único diálogo.
+export const activityUpsertSchema = z.object({
+  unitId: z.uuid(),
+  activityId: z.uuid().optional(),
+  name: z.string().trim().min(1).max(255),
+});
+export type ActivityUpsertInput = z.infer<typeof activityUpsertSchema>;

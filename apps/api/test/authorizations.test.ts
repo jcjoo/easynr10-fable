@@ -1,4 +1,4 @@
-// Autorizações (Permissão de Trabalho / Ficha de EPI): criação, permissões,
+// Autorizações (Autorização de Trabalho / Ficha de EPI): criação, permissões,
 // link público e o fluxo completo de assinatura — PDF REAL via Gotenberg
 // (docker-compose.dev, :3010) arquivado no MinIO e na pasta do colaborador.
 import { describe, expect, test } from 'bun:test';
@@ -39,7 +39,7 @@ describe('autorizações', () => {
       unitId: unit.id,
       type: 'permissao_trabalho',
       employeeId: employee.id,
-      details: { atividade: 'Inspeção no QGBT-01' },
+      details: { atividades: ['Inspeção no QGBT-01'] },
     });
     expect(created.status).toBe('pendente');
     expect(created.signToken.length).toBeGreaterThanOrEqual(16);
@@ -55,7 +55,7 @@ describe('autorizações', () => {
         unitId: unit.id,
         type: 'permissao_trabalho',
         employeeId: employee.id,
-        details: { atividade: 'x' },
+        details: { atividades: ['x'] },
       }),
       'FORBIDDEN',
     );
@@ -81,7 +81,7 @@ describe('autorizações', () => {
         unitId: unit.id,
         type: 'permissao_trabalho',
         employeeId: foreignEmployee.id,
-        details: { atividade: 'x' },
+        details: { atividades: ['x'] },
       }),
       'NOT_FOUND',
     );
@@ -151,7 +151,7 @@ describe('autorizações', () => {
       unitId: unit.id,
       type: 'permissao_trabalho',
       employeeId: employee.id,
-      details: { atividade: 'Troca de disjuntor', local: 'Subestação 2' },
+      details: { atividades: ['Troca de disjuntor'], local: 'Subestação 2' },
     });
 
     const anon = callerFor(null);
@@ -181,7 +181,7 @@ describe('autorizações', () => {
       unitId: unit.id,
       type: 'permissao_trabalho',
       employeeId: employee.id,
-      details: { atividade: 'Atividade cancelável' },
+      details: { atividades: ['Atividade cancelável'] },
     });
     await adminCaller.authorizations.cancel({ unitId: unit.id, authorizationId: created.id });
 
@@ -199,6 +199,56 @@ describe('autorizações', () => {
   });
 });
 
+describe('catálogo de atividades', () => {
+  test('CRUD completo; leitor lê mas não gerencia; nome vira snapshot na autorização criada', async () => {
+    const { adminCaller, unit } = await setupUnit();
+    const employee = await createEmployee(adminCaller, unit.id);
+    const leitor = await memberCaller(adminCaller, unit.id, 'Leitor');
+
+    const created = await adminCaller.authorizations.upsertActivity({
+      unitId: unit.id,
+      name: uniqueName('Inspeção termográfica'),
+    });
+
+    const listed = await leitor.caller.authorizations.listActivities({ unitId: unit.id });
+    expect(listed.map((row) => row.id)).toContain(created.id);
+    await expectTRPCError(
+      leitor.caller.authorizations.upsertActivity({ unitId: unit.id, name: 'x' }),
+      'FORBIDDEN',
+    );
+
+    // Editar (mesmo id) renomeia em vez de duplicar.
+    const renamed = await adminCaller.authorizations.upsertActivity({
+      unitId: unit.id,
+      activityId: created.id,
+      name: uniqueName('Inspeção termográfica renomeada'),
+    });
+    expect(renamed.id).toBe(created.id);
+    expect(renamed.name).not.toBe(created.name);
+
+    // A autorização guarda o NOME (snapshot), não o id do catálogo.
+    const authorization = await adminCaller.authorizations.create({
+      unitId: unit.id,
+      type: 'permissao_trabalho',
+      employeeId: employee.id,
+      details: { atividades: [renamed.name] },
+    });
+    expect((authorization.details as { atividades: string[] }).atividades).toEqual([
+      renamed.name,
+    ]);
+
+    // Excluir some da listagem; autorização já criada mantém o snapshot.
+    await adminCaller.authorizations.removeActivity({ unitId: unit.id, activityId: created.id });
+    const afterRemove = await adminCaller.authorizations.listActivities({ unitId: unit.id });
+    expect(afterRemove.map((row) => row.id)).not.toContain(created.id);
+    const [rawAuth] = await db
+      .select()
+      .from(schema.authorization)
+      .where(eq(schema.authorization.id, authorization.id));
+    expect((rawAuth!.details as { atividades: string[] }).atividades).toEqual([renamed.name]);
+  });
+});
+
 describe('exclusão definitiva', () => {
   test('remove apaga registro, trilha e PDF; Gestor não tem a ação', async () => {
     const { adminCaller, unit } = await setupUnit();
@@ -207,7 +257,7 @@ describe('exclusão definitiva', () => {
       unitId: unit.id,
       type: 'permissao_trabalho',
       employeeId: employee.id,
-      details: { atividade: 'Erro a ser apagado' },
+      details: { atividades: ['Erro a ser apagado'] },
     });
     await adminCaller.authorizations.signInPerson({
       unitId: unit.id,

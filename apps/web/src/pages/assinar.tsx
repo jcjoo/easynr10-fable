@@ -72,10 +72,14 @@ export function AssinarPage() {
                 </p>
                 {data.type === 'permissao_trabalho' ? (
                   <div className="mt-2 flex flex-col gap-1">
-                    <p className="whitespace-pre-wrap">
-                      <span className="text-muted">Atividade:</span>{' '}
-                      {(data.details as WorkPermitDetails).atividade}
+                    <p>
+                      <span className="text-muted">Atividades:</span>
                     </p>
+                    <ul className="ml-4 list-disc">
+                      {(data.details as WorkPermitDetails).atividades.map((atividade) => (
+                        <li key={atividade}>{atividade}</li>
+                      ))}
+                    </ul>
                     {(data.details as WorkPermitDetails).local && (
                       <p>
                         <span className="text-muted">Local:</span>{' '}

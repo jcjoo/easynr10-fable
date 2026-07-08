@@ -301,10 +301,8 @@ function UnitGroup({ companyId, unitId }: { companyId: string; unitId: string })
           />
         </Section>
       )}
-      {(show('cadastros.ler') || show('autorizacoes.ler')) && (
+      {show('cadastros.ler') && (
         <Section id="cadastros" label="Cadastros" icon={Database}>
-          {show('cadastros.ler') && (
-          <>
           <NavItem
             to="/$companyId/$unitId/colaboradores"
             params={params}
@@ -346,28 +344,27 @@ function UnitGroup({ companyId, unitId }: { companyId: string; unitId: string })
               depth={2}
             />
           </Section>
-          </>
-          )}
-          {show('autorizacoes.ler') && (
-            <Section id="autorizacoes" label="Autorizações" icon={FileSignature} depth={1}>
-              <NavItem
-                to="/$companyId/$unitId/autorizacoes"
-                params={params}
-                search={{ tipo: 'permissao-trabalho' }}
-                label="Permissão de Trabalho"
-                icon={ClipboardCheck}
-                depth={2}
-              />
-              <NavItem
-                to="/$companyId/$unitId/autorizacoes"
-                params={params}
-                search={{ tipo: 'ficha-epi' }}
-                label="Ficha de EPI"
-                icon={HardHat}
-                depth={2}
-              />
-            </Section>
-          )}
+        </Section>
+      )}
+      {/* Autorizações é seção própria (não mais filha de Cadastros). */}
+      {show('autorizacoes.ler') && (
+        <Section id="autorizacoes" label="Autorizações" icon={FileSignature}>
+          <NavItem
+            to="/$companyId/$unitId/autorizacoes"
+            params={params}
+            search={{ tipo: 'permissao-trabalho' }}
+            label="Autorização de Trabalho"
+            icon={ClipboardCheck}
+            depth={1}
+          />
+          <NavItem
+            to="/$companyId/$unitId/autorizacoes"
+            params={params}
+            search={{ tipo: 'ficha-epi' }}
+            label="Ficha de EPI"
+            icon={HardHat}
+            depth={1}
+          />
         </Section>
       )}
     </div>

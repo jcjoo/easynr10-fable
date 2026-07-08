@@ -35,10 +35,13 @@
 | `authorizations.documentUrl` | mutation | 🏭 `membro-da-unidade` | `autorizacoes.ler` |
 | `authorizations.events` | query | 🏭 `membro-da-unidade` | `autorizacoes.ler` |
 | `authorizations.list` | query | 🏭 `membro-da-unidade` | `autorizacoes.ler` |
+| `authorizations.listActivities` | query | 🏭 `membro-da-unidade` | `autorizacoes.ler` |
 | `authorizations.publicByToken` | query | 🌐 `publica` | — |
 | `authorizations.publicSign` | mutation | 🌐 `publica` | — |
 | `authorizations.remove` | mutation | 🏭 `membro-da-unidade` | `exclusao.definitiva` |
+| `authorizations.removeActivity` | mutation | 🏭 `membro-da-unidade` | `autorizacoes.gerar` |
 | `authorizations.signInPerson` | mutation | 🏭 `membro-da-unidade` | `autorizacoes.gerar` |
+| `authorizations.upsertActivity` | mutation | 🏭 `membro-da-unidade` | `autorizacoes.gerar` |
 | `companies.byId` | query | 🔑 `autenticado` | — |
 | `companies.create` | mutation | 🛡️ `admin` | — |
 | `companies.list` | query | 🔑 `autenticado` | — |

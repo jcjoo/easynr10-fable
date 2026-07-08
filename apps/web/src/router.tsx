@@ -44,6 +44,7 @@ import {
   authorizationTabs,
   type AuthorizationTab,
 } from '@/pages/autorizacoes';
+import { AtividadesPage } from '@/pages/atividades';
 import { AssinarPage } from '@/pages/assinar';
 import { NotFoundPage, RouteErrorPage } from '@/pages/error-pages';
 import { expiryPresets, type ExpiryPreset } from '@/components/pie/expiry-filter';
@@ -497,6 +498,9 @@ const autorizacoesRoute = createRoute({
   }),
   component: AutorizacoesPage,
 });
+// Catálogo de atividades (checklist da Autorização de Trabalho) — CRUD
+// próprio, acessado pelo botão "Atividades" da tela de Autorizações.
+const atividadesRoute = unitSection('atividades', AtividadesPage);
 
 // Assinatura por link PÚBLICO (colaborador sem acesso ao sistema): fora do
 // shell autenticado — o token opaco da URL é a credencial.
@@ -540,6 +544,7 @@ const routeTree = rootRoute.addChildren([
     equipamentosRoute,
     colaboradoresRoute,
     autorizacoesRoute,
+    atividadesRoute,
   ]),
 ]);
 

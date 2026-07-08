@@ -16,7 +16,7 @@ import { createItemFolder } from './register-folders';
 const { authorization, authorizationEvent, document, documentVersion, employee, unit, company } =
   schema;
 
-// Fluxo de assinatura das autorizações (Permissão de Trabalho / Ficha de EPI):
+// Fluxo de assinatura das autorizações (Autorização de Trabalho / Ficha de EPI):
 // assinou (presencial ou link público) → PDF com trilha de auditoria via
 // Gotenberg → objeto no S3 → documento na pasta do colaborador no P.I.E,
 // vinculado à autorização (document_id).
@@ -99,9 +99,12 @@ function detailsHtml(bundle: AuthorizationBundle) {
   const details = bundle.authorization.details;
   if (bundle.authorization.type === 'permissao_trabalho') {
     const pt = details as WorkPermitDetails;
+    const atividades = pt.atividades
+      .map((atividade) => `<li>${escapeHtml(atividade)}</li>`)
+      .join('\n');
     return `
       <table class="fields">
-        <tr><th>Atividade autorizada</th><td>${escapeHtml(pt.atividade)}</td></tr>
+        <tr><th>Atividades autorizadas</th><td><ul>${atividades}</ul></td></tr>
         ${pt.local ? `<tr><th>Local</th><td>${escapeHtml(pt.local)}</td></tr>` : ''}
         ${pt.validade ? `<tr><th>Válida até</th><td>${formatDate(pt.validade)}</td></tr>` : ''}
       </table>`;
@@ -169,6 +172,7 @@ export function renderAuthorizationHtml(options: {
   table.fields th { width: 34%; text-align: left; font-size: 9px; text-transform: uppercase;
     letter-spacing: .05em; color: #555; padding: 6px 8px; vertical-align: top; }
   table.fields td { padding: 6px 8px; white-space: pre-wrap; }
+  table.fields td ul { margin: 0; padding-left: 16px; }
   table.fields tr { border-bottom: 0.5px solid #c9ccd1; }
   table.list { width: 100%; border-collapse: collapse; }
   table.list th { text-align: left; font-size: 9px; text-transform: uppercase; letter-spacing: .05em;
