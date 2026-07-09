@@ -120,6 +120,13 @@
       "when": 1783523199787,
       "tag": "0016_polite_the_order",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1783609373275,
+      "tag": "0017_special_red_ghost",
+      "breakpoints": true
     }
   ]
 }

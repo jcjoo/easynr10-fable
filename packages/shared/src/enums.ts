@@ -539,6 +539,16 @@ export const defaultRegisterFields: Record<RegisterTarget, RegisterField[]> = {
   ],
 };
 
+// Chaves dos campos default guardados em COLUNA de verdade (não no metadata):
+// selects, textos e o código de documentos com `code`. Documentos sem código
+// não têm valor de texto (o vínculo vive em register_document_link). Os campos
+// PERSONALIZADOS da unidade continuam no metadata do item.
+export function columnFieldKeys(target: RegisterTarget): string[] {
+  return defaultRegisterFields[target]
+    .filter((field) => field.kind !== 'document' || field.code)
+    .map((field) => field.key);
+}
+
 // Estrutura FIXA de pastas dos cadastros no PIE (criada sob demanda):
 // Colaboradores/Lista de Colaboradores/[nome]/[estrutura opcional]
 // Equipamentos/<Tipo>/Lista de <Tipo>/[nome]/[estrutura opcional]

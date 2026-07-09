@@ -1,6 +1,6 @@
 import { jsonb, pgTable, uniqueIndex, uuid, varchar } from 'drizzle-orm/pg-core';
 import { audit, id, whereActive } from './helpers';
-import { equipmentType, registerTarget } from './enums';
+import { equipmentType, nivelAutorizacao, registerTarget } from './enums';
 import { unit } from './org';
 import { document, folder, folderSchema } from './pie';
 
@@ -9,6 +9,9 @@ import { document, folder, folderSchema } from './pie';
 // tipo group aponta para um alvo fixo: colaboradores ou um tipo de equipamento).
 // metadata = valores dos campos default do sistema + personalizados da unidade.
 
+// Colunas padrão do sistema são colunas de verdade (não JSON). O metadata
+// guarda SÓ os campos personalizados da unidade. Campos default por tipo de
+// equipamento ficam em tabelas-filho 1:1 (equipment_epi/epc/eletrico/ferramenta).
 export const employee = pgTable(
   'employee',
   {
@@ -17,6 +20,8 @@ export const employee = pgTable(
       .notNull()
       .references(() => unit.id),
     name: varchar('name', { length: 255 }).notNull(),
+    // Nível de autorização NR-10 (Básico | Básico + SEP) — coluna default.
+    nivelAutorizacao: nivelAutorizacao('nivel_autorizacao'),
     // Pasta do colaborador no PIE (RF18.3) — base da sugestão de evidências.
     folderId: uuid('folder_id').references(() => folder.id),
     metadata: jsonb('metadata').$type<Record<string, string>>().notNull().default({}),
@@ -40,6 +45,56 @@ export const equipment = pgTable(
   },
   (t) => [uniqueIndex('uq_equipment_unit_name').on(t.unitId, t.name).where(whereActive(t))],
 );
+
+// Tabelas-filho 1:1 por tipo de equipamento: guardam as colunas default
+// específicas de cada tipo (as PERSONALIZADAS continuam no metadata do
+// equipment). equipment_id é único (1:1); o ciclo de vida segue o equipment
+// (soft-delete lá; aqui a linha só é lida por JOIN com equipamento ativo).
+// Os nomes das colunas batem com as `key` de defaultRegisterFields (o service
+// espalha o mapa direto). Campos kind=document sem código não viram coluna.
+export const equipmentEletrico = pgTable('equipment_eletrico', {
+  id: id(),
+  equipmentId: uuid('equipment_id')
+    .notNull()
+    .unique()
+    .references(() => equipment.id),
+  fabricante: varchar('fabricante', { length: 512 }),
+  identificacao: varchar('identificacao', { length: 512 }),
+  tensao: varchar('tensao', { length: 512 }),
+  localizacao: varchar('localizacao', { length: 512 }),
+});
+
+export const equipmentFerramenta = pgTable('equipment_ferramenta', {
+  id: id(),
+  equipmentId: uuid('equipment_id')
+    .notNull()
+    .unique()
+    .references(() => equipment.id),
+  fabricante: varchar('fabricante', { length: 512 }),
+  modelo: varchar('modelo', { length: 512 }),
+  numero_serie: varchar('numero_serie', { length: 512 }),
+});
+
+export const equipmentEpi = pgTable('equipment_epi', {
+  id: id(),
+  equipmentId: uuid('equipment_id')
+    .notNull()
+    .unique()
+    .references(() => equipment.id),
+  fabricante: varchar('fabricante', { length: 512 }),
+  // Código do CA (o documento em si é vinculado por register_document_link).
+  ca: varchar('ca', { length: 512 }),
+});
+
+export const equipmentEpc = pgTable('equipment_epc', {
+  id: id(),
+  equipmentId: uuid('equipment_id')
+    .notNull()
+    .unique()
+    .references(() => equipment.id),
+  fabricante: varchar('fabricante', { length: 512 }),
+  localizacao: varchar('localizacao', { length: 512 }),
+});
 
 // Campos personalizados da unidade, por grupo-alvo (cada tipo de equipamento
 // tem estrutura própria); valores no metadata do item.

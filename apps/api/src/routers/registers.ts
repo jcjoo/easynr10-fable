@@ -20,6 +20,7 @@ import { router, unitAction } from '../trpc';
 import { findUnitSchemaOrThrow } from '../services/folders';
 import { ensureRegisterSkeleton } from '../services/register-folders';
 import {
+  detailToMetadata,
   employeeStore,
   equipmentStore,
   importRegisterItems,
@@ -31,10 +32,21 @@ const {
   document,
   employee,
   equipment,
+  equipmentEletrico,
+  equipmentFerramenta,
+  equipmentEpi,
+  equipmentEpc,
   folder,
   registerDocumentLink,
   registerTargetSetting,
 } = schema;
+
+const equipmentDetailTables = {
+  eletrico: equipmentEletrico,
+  ferramenta: equipmentFerramenta,
+  epi: equipmentEpi,
+  epc: equipmentEpc,
+} as const;
 
 // Cadastros da unidade: Colaboradores e Equipamentos (RF18). Os fluxos
 // compartilhados (upsert com pasta do item, importação) vivem em
@@ -60,7 +72,7 @@ export const registersRouter = router({
 
   listEmployees: unitAction('cadastros.ler').query(async ({ ctx, input }) => {
     await ensureRegisterSkeleton(ctx.db, input.unitId);
-    return ctx.db
+    const rows = await ctx.db
       .select({
         id: employee.id,
         name: employee.name,
@@ -68,6 +80,7 @@ export const registersRouter = router({
         // antigos, antes da limpeza no folders.remove) aparece como sem pasta.
         folderId: folder.id,
         folderName: folder.name,
+        nivelAutorizacao: employee.nivelAutorizacao,
         metadata: employee.metadata,
         createdAt: employee.createdAt,
       })
@@ -75,6 +88,14 @@ export const registersRouter = router({
       .leftJoin(folder, and(eq(employee.folderId, folder.id), notDeleted(folder)))
       .where(and(eq(employee.unitId, input.unitId), notDeleted(employee)))
       .orderBy(asc(employee.name));
+    // Mapa unificado p/ a UI: colunas default (nivel) + metadata personalizado.
+    return rows.map(({ nivelAutorizacao, metadata, ...row }) => ({
+      ...row,
+      metadata: {
+        ...metadata,
+        ...(nivelAutorizacao ? { nivel_autorizacao: nivelAutorizacao } : {}),
+      } as Record<string, string>,
+    }));
   }),
 
   upsertEmployee: unitAction('cadastros.itens')
@@ -84,7 +105,7 @@ export const registersRouter = router({
         unitId: input.unitId,
         itemId: input.employeeId,
         name: input.name,
-        metadata: input.metadata,
+        fields: input.metadata,
         folderSchemaId: input.folderSchemaId,
       }),
     ),
@@ -113,7 +134,7 @@ export const registersRouter = router({
 
   listEquipment: unitAction('cadastros.ler').query(async ({ ctx, input }) => {
     await ensureRegisterSkeleton(ctx.db, input.unitId);
-    return ctx.db
+    const rows = await ctx.db
       .select({
         id: equipment.id,
         name: equipment.name,
@@ -127,6 +148,25 @@ export const registersRouter = router({
       .leftJoin(folder, and(eq(equipment.folderId, folder.id), notDeleted(folder)))
       .where(and(eq(equipment.unitId, input.unitId), notDeleted(equipment)))
       .orderBy(asc(equipment.name));
+
+    // Colunas default de cada tipo vêm das tabelas-filho; junta num mapa por id.
+    const ids = rows.map((row) => row.id);
+    const detailByEquipment = new Map<string, Record<string, string>>();
+    if (ids.length > 0) {
+      for (const table of Object.values(equipmentDetailTables)) {
+        const details = await ctx.db
+          .select()
+          .from(table)
+          .where(inArray(table.equipmentId, ids));
+        for (const detail of details) {
+          detailByEquipment.set(detail.equipmentId, detailToMetadata(detail));
+        }
+      }
+    }
+    return rows.map((row) => ({
+      ...row,
+      metadata: { ...row.metadata, ...detailByEquipment.get(row.id) },
+    }));
   }),
 
   upsertEquipment: unitAction('cadastros.itens')
@@ -136,7 +176,7 @@ export const registersRouter = router({
         unitId: input.unitId,
         itemId: input.equipmentId,
         name: input.name,
-        metadata: input.metadata,
+        fields: input.metadata,
         folderSchemaId: input.folderSchemaId,
       }),
     ),
@@ -285,7 +325,12 @@ export const registersRouter = router({
     // reflete o estado atual da pasta; o vínculo manual sempre tem precedência.
     const [employees, equipments, folders, documents] = await Promise.all([
       ctx.db
-        .select({ id: employee.id, folderId: employee.folderId, metadata: employee.metadata })
+        .select({
+          id: employee.id,
+          folderId: employee.folderId,
+          nivelAutorizacao: employee.nivelAutorizacao,
+          metadata: employee.metadata,
+        })
         .from(employee)
         .where(and(eq(employee.unitId, input.unitId), notDeleted(employee))),
       ctx.db
@@ -339,7 +384,10 @@ export const registersRouter = router({
         kind: 'employee' as const,
         id: e.id,
         folderId: e.folderId,
-        metadata: e.metadata,
+        metadata: {
+          ...e.metadata,
+          ...(e.nivelAutorizacao ? { nivel_autorizacao: e.nivelAutorizacao } : {}),
+        } as Record<string, string>,
         target: 'colaboradores' as RegisterTarget,
       })),
       ...equipments.map((q) => ({
