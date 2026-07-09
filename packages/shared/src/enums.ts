@@ -415,8 +415,6 @@ const sepRequires = { fieldKey: 'nivel_autorizacao', value: 'basico_sep' } as co
 
 export const defaultRegisterFields: Record<RegisterTarget, RegisterField[]> = {
   colaboradores: [
-    { key: 'funcao', label: 'Função' },
-    { key: 'matricula', label: 'Matrícula' },
     {
       key: 'nivel_autorizacao',
       label: 'Nível de autorização',

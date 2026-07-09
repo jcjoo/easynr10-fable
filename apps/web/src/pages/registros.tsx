@@ -465,7 +465,7 @@ export function RegisterPage({ module }: { module: RegisterModule }) {
                   label: field.shortLabel ?? field.label,
                   title: field.shortLabel ? field.label : undefined,
                 })),
-                { key: 'pasta', label: 'Pasta no P.I.E', title: undefined as string | undefined },
+                { key: 'pasta', label: 'Pasta', title: undefined as string | undefined },
               ].map(({ key, label, title }) => (
                 <SortableTh
                   key={key}
