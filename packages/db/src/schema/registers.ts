@@ -58,10 +58,7 @@ export const equipmentEletrico = pgTable('equipment_eletrico', {
     .notNull()
     .unique()
     .references(() => equipment.id),
-  fabricante: varchar('fabricante', { length: 512 }),
   identificacao: varchar('identificacao', { length: 512 }),
-  tensao: varchar('tensao', { length: 512 }),
-  localizacao: varchar('localizacao', { length: 512 }),
 });
 
 export const equipmentFerramenta = pgTable('equipment_ferramenta', {
@@ -70,8 +67,6 @@ export const equipmentFerramenta = pgTable('equipment_ferramenta', {
     .notNull()
     .unique()
     .references(() => equipment.id),
-  fabricante: varchar('fabricante', { length: 512 }),
-  modelo: varchar('modelo', { length: 512 }),
   numero_serie: varchar('numero_serie', { length: 512 }),
 });
 
@@ -81,19 +76,18 @@ export const equipmentEpi = pgTable('equipment_epi', {
     .notNull()
     .unique()
     .references(() => equipment.id),
-  fabricante: varchar('fabricante', { length: 512 }),
   // Código do CA (o documento em si é vinculado por register_document_link).
   ca: varchar('ca', { length: 512 }),
 });
 
+// EPC não tem coluna default própria (só documentos vinculados) — a tabela fica
+// como âncora 1:1 para colunas futuras; hoje sem linhas.
 export const equipmentEpc = pgTable('equipment_epc', {
   id: id(),
   equipmentId: uuid('equipment_id')
     .notNull()
     .unique()
     .references(() => equipment.id),
-  fabricante: varchar('fabricante', { length: 512 }),
-  localizacao: varchar('localizacao', { length: 512 }),
 });
 
 // Campos personalizados da unidade, por grupo-alvo (cada tipo de equipamento

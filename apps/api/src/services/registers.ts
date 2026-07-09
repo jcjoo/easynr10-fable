@@ -134,10 +134,13 @@ async function writeDetail(
   columns: Record<string, string | null>,
 ) {
   const table = detailTables[type];
-  await db
-    .insert(table)
-    .values({ equipmentId, ...columns } as typeof table.$inferInsert)
-    .onConflictDoUpdate({ target: table.equipmentId, set: columns });
+  // Tipos sem coluna default (ex.: EPC) não gravam linha na tabela-filho.
+  if (Object.keys(columns).length > 0) {
+    await db
+      .insert(table)
+      .values({ equipmentId, ...columns } as typeof table.$inferInsert)
+      .onConflictDoUpdate({ target: table.equipmentId, set: columns });
+  }
   for (const other of Object.keys(detailTables) as EquipmentType[]) {
     if (other !== type) {
       await db.delete(detailTables[other]).where(eq(detailTables[other].equipmentId, equipmentId));

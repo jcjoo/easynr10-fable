@@ -127,6 +127,13 @@
       "when": 1783609373275,
       "tag": "0017_special_red_ghost",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1783615568441,
+      "tag": "0018_spicy_slipstream",
+      "breakpoints": true
     }
   ]
 }

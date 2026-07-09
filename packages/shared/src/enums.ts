@@ -469,10 +469,7 @@ export const defaultRegisterFields: Record<RegisterTarget, RegisterField[]> = {
     },
   ],
   eletrico: [
-    { key: 'fabricante', label: 'Fabricante' },
-    { key: 'identificacao', label: 'Identificação (TAG)' },
-    { key: 'tensao', label: 'Tensão (V)' },
-    { key: 'localizacao', label: 'Localização' },
+    { key: 'identificacao', label: 'Identificação (TAG)', shortLabel: 'TAG' },
     { key: 'manual_tecnico', label: 'Manual Técnico', kind: 'document' },
     {
       key: 'certificado_calibracao',
@@ -483,9 +480,7 @@ export const defaultRegisterFields: Record<RegisterTarget, RegisterField[]> = {
     },
   ],
   ferramenta: [
-    { key: 'fabricante', label: 'Fabricante' },
-    { key: 'modelo', label: 'Modelo' },
-    { key: 'numero_serie', label: 'Nº de série' },
+    { key: 'numero_serie', label: 'Nº de série', shortLabel: 'Nº série' },
     {
       key: 'laudo_isolacao',
       label: 'Laudo e Teste de Isolação',
@@ -500,7 +495,6 @@ export const defaultRegisterFields: Record<RegisterTarget, RegisterField[]> = {
     },
   ],
   epi: [
-    { key: 'fabricante', label: 'Fabricante' },
     {
       key: 'ca',
       label: 'Certificado de Aprovação (CA)',
@@ -522,8 +516,6 @@ export const defaultRegisterFields: Record<RegisterTarget, RegisterField[]> = {
     },
   ],
   epc: [
-    { key: 'fabricante', label: 'Fabricante' },
-    { key: 'localizacao', label: 'Localização' },
     {
       key: 'laudo_isolacao',
       label: 'Laudo e Teste de Isolação',
