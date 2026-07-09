@@ -459,14 +459,19 @@ export function RegisterPage({ module }: { module: RegisterModule }) {
           <thead>
             <tr>
               {[
-                ['nome', 'Nome'] as const,
-                ...allFields.map((field) => [`campo:${field.key}`, field.label] as const),
-                ['pasta', 'Pasta no P.I.E'] as const,
-              ].map(([key, label]) => (
+                { key: 'nome', label: 'Nome', title: undefined as string | undefined },
+                ...allFields.map((field) => ({
+                  key: `campo:${field.key}`,
+                  label: field.shortLabel ?? field.label,
+                  title: field.shortLabel ? field.label : undefined,
+                })),
+                { key: 'pasta', label: 'Pasta no P.I.E', title: undefined as string | undefined },
+              ].map(({ key, label, title }) => (
                 <SortableTh
                   key={key}
                   colKey={key}
                   label={label}
+                  title={title}
                   ord={currentOrd}
                   dir={currentDir}
                   onSort={handleSort}

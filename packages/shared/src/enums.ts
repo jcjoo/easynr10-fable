@@ -402,6 +402,9 @@ export const nivelAutorizacaoLabels: Record<NivelAutorizacao, string> = {
 export interface RegisterField {
   key: string;
   label: string;
+  /** Rótulo curto só para o cabeçalho da tabela (nome completo vai no tooltip
+   * e nos botões/diálogos) — evita colunas largas com rótulos longos. */
+  shortLabel?: string;
   kind?: 'document' | 'select';
   code?: boolean;
   options?: { value: string; label: string }[];
@@ -417,6 +420,7 @@ export const defaultRegisterFields: Record<RegisterTarget, RegisterField[]> = {
     {
       key: 'nivel_autorizacao',
       label: 'Nível de autorização',
+      shortLabel: 'Nível',
       kind: 'select',
       options: nivelAutorizacaoValues.map((value) => ({
         value,
@@ -426,26 +430,35 @@ export const defaultRegisterFields: Record<RegisterTarget, RegisterField[]> = {
     {
       key: 'treinamento_nr10_basico',
       label: 'Certificado de Treinamento NR10 Básico',
+      shortLabel: 'NR10 Básico',
       kind: 'document',
     },
     {
       key: 'treinamento_nr10_basico_reciclagem',
       label: 'Certificado de Treinamento NR10 Básico Reciclagem',
+      shortLabel: 'NR10 Básico recic.',
       kind: 'document',
     },
     {
       key: 'treinamento_nr10_sep',
       label: 'Certificado de Treinamento NR10 SEP',
+      shortLabel: 'NR10 SEP',
       kind: 'document',
       requires: sepRequires,
     },
     {
       key: 'treinamento_nr10_sep_reciclagem',
       label: 'Certificado de Treinamento NR10 SEP Reciclagem',
+      shortLabel: 'NR10 SEP recic.',
       kind: 'document',
       requires: sepRequires,
     },
-    { key: 'autorizacao_trabalho', label: 'Autorização de Trabalho', kind: 'document' },
+    {
+      key: 'autorizacao_trabalho',
+      label: 'Autorização de Trabalho',
+      shortLabel: 'Autorização',
+      kind: 'document',
+    },
   ],
   eletrico: [
     { key: 'fabricante', label: 'Fabricante' },
@@ -453,26 +466,67 @@ export const defaultRegisterFields: Record<RegisterTarget, RegisterField[]> = {
     { key: 'tensao', label: 'Tensão (V)' },
     { key: 'localizacao', label: 'Localização' },
     { key: 'manual_tecnico', label: 'Manual Técnico', kind: 'document' },
-    { key: 'certificado_calibracao', label: 'Certificado de Calibração', kind: 'document' },
+    {
+      key: 'certificado_calibracao',
+      label: 'Certificado de Calibração',
+      shortLabel: 'Cert. calibração',
+      kind: 'document',
+    },
   ],
   ferramenta: [
     { key: 'fabricante', label: 'Fabricante' },
     { key: 'modelo', label: 'Modelo' },
     { key: 'numero_serie', label: 'Nº de série' },
-    { key: 'laudo_isolacao', label: 'Laudo e Teste de Isolação', kind: 'document' },
-    { key: 'especificacao_tecnica', label: 'Especificação Técnica', kind: 'document' },
+    {
+      key: 'laudo_isolacao',
+      label: 'Laudo e Teste de Isolação',
+      shortLabel: 'Laudo isolação',
+      kind: 'document',
+    },
+    {
+      key: 'especificacao_tecnica',
+      label: 'Especificação Técnica',
+      shortLabel: 'Especificação',
+      kind: 'document',
+    },
   ],
   epi: [
     { key: 'fabricante', label: 'Fabricante' },
-    { key: 'ca', label: 'Certificado de Aprovação (CA)', kind: 'document', code: true },
-    { key: 'laudo_isolacao', label: 'Laudo e Teste de Isolação', kind: 'document' },
-    { key: 'especificacao_tecnica', label: 'Especificação Técnica', kind: 'document' },
+    {
+      key: 'ca',
+      label: 'Certificado de Aprovação (CA)',
+      shortLabel: 'CA',
+      kind: 'document',
+      code: true,
+    },
+    {
+      key: 'laudo_isolacao',
+      label: 'Laudo e Teste de Isolação',
+      shortLabel: 'Laudo isolação',
+      kind: 'document',
+    },
+    {
+      key: 'especificacao_tecnica',
+      label: 'Especificação Técnica',
+      shortLabel: 'Especificação',
+      kind: 'document',
+    },
   ],
   epc: [
     { key: 'fabricante', label: 'Fabricante' },
     { key: 'localizacao', label: 'Localização' },
-    { key: 'laudo_isolacao', label: 'Laudo e Teste de Isolação', kind: 'document' },
-    { key: 'especificacao_tecnica', label: 'Especificação Técnica', kind: 'document' },
+    {
+      key: 'laudo_isolacao',
+      label: 'Laudo e Teste de Isolação',
+      shortLabel: 'Laudo isolação',
+      kind: 'document',
+    },
+    {
+      key: 'especificacao_tecnica',
+      label: 'Especificação Técnica',
+      shortLabel: 'Especificação',
+      kind: 'document',
+    },
   ],
 };
 

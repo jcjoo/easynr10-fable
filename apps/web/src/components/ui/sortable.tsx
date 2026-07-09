@@ -55,12 +55,14 @@ export function SortableTh({
   ord,
   dir,
   onSort,
+  title,
 }: {
   label: string;
   colKey: string;
   ord: string;
   dir: SortDir;
   onSort: (key: string) => void;
+  title?: string;
 }) {
   const active = ord === colKey;
   const Icon = active ? (dir === 'asc' ? ArrowUp : ArrowDown) : ArrowUpDown;
@@ -71,6 +73,7 @@ export function SortableTh({
     >
       <button
         type="button"
+        title={title}
         onClick={() => onSort(colKey)}
         className={`flex w-full cursor-pointer items-center gap-1 px-3.5 py-2.5 text-left font-ui text-xs font-semibold uppercase tracking-[.06em] hover:text-ink ${
           active ? 'text-ink' : 'text-muted'
