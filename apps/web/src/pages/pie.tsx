@@ -1,7 +1,21 @@
 import { useMemo, useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useNavigate, useParams, useSearch } from '@tanstack/react-router';
-import { Download, FileText, FolderPlus, Layers, List, Pencil, Upload } from 'lucide-react';
+import {
+  Download,
+  FileText,
+  FolderPlus,
+  HardHat,
+  Layers,
+  List,
+  Pencil,
+  TrafficCone,
+  Upload,
+  Users,
+  Wrench,
+  Zap,
+  type LucideIcon,
+} from 'lucide-react';
 import { Td } from '@/components/ui/table';
 
 import { trpc } from '@/lib/trpc';
@@ -36,8 +50,29 @@ import {
   normalizeText,
   registerBasePath,
   registerTargets,
+  type RegisterTarget,
 } from '@easynr10/shared';
 import { RegisterPage } from './registros';
+
+// Pasta "Lista de <Grupo>" ganha o ícone do cadastro respectivo (mesmo da
+// sidebar) — deixa claro que aquela pasta É a lista do cadastro.
+const registerFolderIcon: Record<RegisterTarget, LucideIcon> = {
+  colaboradores: Users,
+  eletrico: Zap,
+  ferramenta: Wrench,
+  epi: HardHat,
+  epc: TrafficCone,
+};
+
+// Caminho (nomes) igual a um registerBasePath ⇒ é a "Lista de <Grupo>".
+function matchRegisterTarget(names: string[]): RegisterTarget | null {
+  return (
+    registerTargets.find((target) => {
+      const base = registerBasePath[target];
+      return base.length === names.length && base.every((name, i) => name === names[i]);
+    }) ?? null
+  );
+}
 
 interface FolderNode {
   id: string;
@@ -151,16 +186,10 @@ export function PiePage() {
   // Quando a pasta atual É a "Lista de <Grupo>" de um cadastro (caminho igual
   // ao registerBasePath), a listagem do PIE dá lugar à página do cadastro —
   // clicar num item abre a pasta dele (?pasta=) e volta ao PIE normal.
-  const registerListTarget = useMemo(() => {
-    if (!pasta) return null;
-    const names = path.map((node) => node.name);
-    return (
-      registerTargets.find((target) => {
-        const base = registerBasePath[target];
-        return base.length === names.length && base.every((name, i) => name === names[i]);
-      }) ?? null
-    );
-  }, [path, pasta]);
+  const registerListTarget = useMemo(
+    () => (pasta ? matchRegisterTarget(path.map((node) => node.name)) : null),
+    [path, pasta],
+  );
   const showRegister = Boolean(registerListTarget) && !docsOnly;
 
   // Caminho completo de uma pasta (tooltip da coluna Local).
@@ -371,7 +400,7 @@ export function PiePage() {
           <PageTitle>P.I.E</PageTitle>
         </div>
         <div className="flex gap-2">
-          {canManageSchemas && (
+          {canManageSchemas && !showRegister && (
             <Button variant="secondary" onClick={() => setSchemasOpen(true)}>
               <Layers aria-hidden className="size-4" /> Estruturas
             </Button>
@@ -580,7 +609,11 @@ export function PiePage() {
             )}
 
             {!docsOnly &&
-              sortedChildren.map((node) => (
+              sortedChildren.map((node) => {
+              // Pasta "Lista de <Grupo>" (filha) usa o ícone do cadastro.
+              const childTarget = matchRegisterTarget([...path.map((p) => p.name), node.name]);
+              const NodeIcon = childTarget ? registerFolderIcon[childTarget] : FolderIcon;
+              return (
               <tr
                 key={node.id}
                 onClick={() => goTo(node.id)}
@@ -599,7 +632,10 @@ export function PiePage() {
                     onClick={(e) => e.stopPropagation()}
                     className="flex items-center gap-2.5 font-medium"
                   >
-                    <FolderIcon aria-hidden className="size-4 shrink-0 text-muted" />
+                    <NodeIcon
+                      aria-hidden
+                      className={`size-4 shrink-0 ${childTarget ? 'text-action' : 'text-muted'}`}
+                    />
                     <span className="truncate">{node.name}</span>
                   </Link>
                 </Td>
@@ -654,7 +690,8 @@ export function PiePage() {
                   </div>
                 </Td>
               </tr>
-            ))}
+              );
+              })}
 
             {/* Input inline de nova pasta — entra logo depois da última pasta */}
             {!docsOnly && creating && (
