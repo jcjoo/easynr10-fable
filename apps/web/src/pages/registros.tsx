@@ -4,6 +4,7 @@ import { Link, useNavigate, useParams, useSearch } from '@tanstack/react-router'
 import { Td } from '@/components/ui/table';
 import {
   ChevronDown,
+  ChevronRight,
   FileSpreadsheet,
   Link2,
   Pencil,
@@ -35,6 +36,7 @@ import { useDialogMutation, useDialogTarget } from '@/lib/use-dialog-mutation';
 import { Button } from '@/components/ui/button';
 import { Dialog } from '@/components/ui/dialog';
 import { Field } from '@/components/ui/field';
+import { FolderIcon } from '@/components/ui/icons';
 import { Page, PageTitle } from '@/components/ui/page';
 import { SelectField } from '@/components/ui/select';
 import { DocumentPickerDialog } from '@/components/pie/document-picker';
@@ -409,6 +411,7 @@ export function RegisterPage({
   };
   const accessors: Record<string, (row: RegisterRow) => SortValue> = {
     nome: (row) => normalizeText(row.name),
+    pasta: (row) => (row.folderName ? normalizeText(row.folderName) : null),
     ...Object.fromEntries(
       allFields.map((field) => [`campo:${field.key}`, fieldAccessor(field)]),
     ),
@@ -495,6 +498,7 @@ export function RegisterPage({
                   label: field.shortLabel ?? field.label,
                   title: field.shortLabel ? field.label : undefined,
                 })),
+                { key: 'pasta', label: 'Pasta', title: undefined as string | undefined },
               ].map(({ key, label, title }) => (
                 <SortableTh
                   key={key}
@@ -512,7 +516,7 @@ export function RegisterPage({
           <tbody>
             {rows.length === 0 && (
               <tr>
-                <td colSpan={2 + allFields.length} className="px-3.5 py-12 text-center text-muted">
+                <td colSpan={3 + allFields.length} className="px-3.5 py-12 text-center text-muted">
                   Nenhum item cadastrado — os requisitos de evidência tipo grupo expandem os
                   itens deste cadastro.
                 </td>
@@ -520,21 +524,7 @@ export function RegisterPage({
             )}
             {sorted.map((row) => (
               <tr key={row.id} className="group hover:bg-paper">
-                <Td className="font-medium">
-                  {row.folderId ? (
-                    <Link
-                      to="/$companyId/$unitId/pie"
-                      params={{ companyId, unitId }}
-                      search={{ pasta: row.folderId }}
-                      title={`Abrir a pasta de ${row.name} no P.I.E`}
-                      className="cursor-pointer text-action hover:underline"
-                    >
-                      {row.name}
-                    </Link>
-                  ) : (
-                    row.name
-                  )}
-                </Td>
+                <Td className="font-medium">{row.name}</Td>
                 {allFields.map((field) => {
                   // Colunas condicionadas (ex.: SEP) não se aplicam ao item.
                   if (!fieldApplies(field, row.metadata)) {
@@ -626,6 +616,23 @@ export function RegisterPage({
                     </Td>
                   );
                 })}
+                <Td>
+                  {row.folderId ? (
+                    <Link
+                      to="/$companyId/$unitId/pie"
+                      params={{ companyId, unitId }}
+                      search={{ pasta: row.folderId }}
+                      title={`Abrir a pasta de ${row.name} no P.I.E`}
+                      className="group/pasta inline-flex max-w-56 items-center gap-1.5 text-caption text-muted hover:text-action"
+                    >
+                      <FolderIcon aria-hidden className="size-3.5 shrink-0" />
+                      <span className="truncate group-hover/pasta:underline">{row.folderName}</span>
+                      <ChevronRight aria-hidden className="size-3.5 shrink-0" />
+                    </Link>
+                  ) : (
+                    <span className="text-muted">—</span>
+                  )}
+                </Td>
                 <Td>
                   <div className="flex items-center justify-end gap-0.5">
                     {canManageItems && (
