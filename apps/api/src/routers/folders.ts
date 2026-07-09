@@ -1,11 +1,12 @@
 import { TRPCError } from '@trpc/server';
-import { and, asc, eq, inArray } from 'drizzle-orm';
+import { and, asc, eq } from 'drizzle-orm';
 import { notDeleted, schema, type Db } from '@easynr10/db';
 import { folderCreateSchema, folderRenameSchema } from '@easynr10/shared';
 import { z } from 'zod';
 import { router, unitAction } from '../trpc';
+import { removeFolderSubtree } from '../services/folders';
 
-const { folder, document, employee, equipment, registerDocumentLink } = schema;
+const { folder, document } = schema;
 
 async function findUnitFolder(db: Db, unitId: string, folderId: string) {
   const found = await db.query.folder.findFirst({
@@ -69,29 +70,16 @@ export const foldersRouter = router({
     .mutation(async ({ ctx, input }) => {
       const found = await findUnitFolder(ctx.db, input.unitId, input.folderId);
 
-      // Subárvore a partir da lista flat da unidade.
-      const all = await ctx.db
-        .select({ id: folder.id, parentId: folder.parentId })
+      // Pasta não-vazia só o admin remove (a subárvore inteira vai junto).
+      const childCount = await ctx.db
+        .select({ id: folder.id })
         .from(folder)
-        .where(and(eq(folder.unitId, input.unitId), notDeleted(folder)));
-      const byParent = new Map<string, string[]>();
-      for (const node of all) {
-        if (node.parentId) {
-          byParent.set(node.parentId, [...(byParent.get(node.parentId) ?? []), node.id]);
-        }
-      }
-      const folderIds = [found.id];
-      for (let i = 0; i < folderIds.length; i++) {
-        folderIds.push(...(byParent.get(folderIds[i]!) ?? []));
-      }
-
-      const docs = await ctx.db
+        .where(and(eq(folder.parentId, found.id), notDeleted(folder)));
+      const docsHere = await ctx.db
         .select({ id: document.id })
         .from(document)
-        .where(and(inArray(document.folderId, folderIds), notDeleted(document)));
-      const docCount = docs.length;
-
-      const isEmpty = folderIds.length === 1 && docCount === 0;
+        .where(and(eq(document.folderId, found.id), notDeleted(document)));
+      const isEmpty = childCount.length === 0 && docsHere.length === 0;
       if (!isEmpty && ctx.session.user.role !== 'admin') {
         throw new TRPCError({
           code: 'CONFLICT',
@@ -99,38 +87,7 @@ export const foldersRouter = router({
         });
       }
 
-      const deletedAt = new Date();
-      if (docCount > 0) {
-        await ctx.db
-          .update(document)
-          .set({ deletedAt })
-          .where(and(inArray(document.folderId, folderIds), notDeleted(document)));
-        // Vínculos campo→documento dos cadastros acompanham o documento —
-        // sem isso o colaborador/equipamento segue "coberto" por doc excluído.
-        await ctx.db
-          .update(registerDocumentLink)
-          .set({ deletedAt })
-          .where(
-            and(
-              inArray(
-                registerDocumentLink.documentId,
-                docs.map((doc) => doc.id),
-              ),
-              notDeleted(registerDocumentLink),
-            ),
-          );
-      }
-      // Cadastros cuja pasta do item está na subárvore perdem o vínculo —
-      // a referência sumiria da UI mas ficaria fantasma no banco.
-      await ctx.db
-        .update(employee)
-        .set({ folderId: null })
-        .where(inArray(employee.folderId, folderIds));
-      await ctx.db
-        .update(equipment)
-        .set({ folderId: null })
-        .where(inArray(equipment.folderId, folderIds));
-      await ctx.db.update(folder).set({ deletedAt }).where(inArray(folder.id, folderIds));
-      return { success: true, folders: folderIds.length, documents: docCount };
+      const result = await removeFolderSubtree(ctx.db, input.unitId, found.id);
+      return { success: true, ...result };
     }),
 });

@@ -17,7 +17,7 @@ import {
 } from '@easynr10/shared';
 import { z } from 'zod';
 import { router, unitAction } from '../trpc';
-import { findUnitSchemaOrThrow } from '../services/folders';
+import { findUnitSchemaOrThrow, removeFolderSubtree } from '../services/folders';
 import { ensureRegisterSkeleton } from '../services/register-folders';
 import {
   detailToMetadata,
@@ -113,7 +113,7 @@ export const registersRouter = router({
   removeEmployee: unitAction('cadastros.itens')
     .input(z.object({ employeeId: z.uuid() }))
     .mutation(async ({ ctx, input }) => {
-      await ctx.db
+      const [removed] = await ctx.db
         .update(employee)
         .set({ deletedAt: new Date() })
         .where(
@@ -122,7 +122,12 @@ export const registersRouter = router({
             eq(employee.unitId, input.unitId),
             notDeleted(employee),
           ),
-        );
+        )
+        .returning({ folderId: employee.folderId });
+      // A pasta do item vai junto — sem isso ela fica órfã em "Lista de …".
+      if (removed?.folderId) {
+        await removeFolderSubtree(ctx.db, input.unitId, removed.folderId);
+      }
       return { success: true };
     }),
 
@@ -184,7 +189,7 @@ export const registersRouter = router({
   removeEquipment: unitAction('cadastros.itens')
     .input(z.object({ equipmentId: z.uuid() }))
     .mutation(async ({ ctx, input }) => {
-      await ctx.db
+      const [removed] = await ctx.db
         .update(equipment)
         .set({ deletedAt: new Date() })
         .where(
@@ -193,7 +198,11 @@ export const registersRouter = router({
             eq(equipment.unitId, input.unitId),
             notDeleted(equipment),
           ),
-        );
+        )
+        .returning({ folderId: equipment.folderId });
+      if (removed?.folderId) {
+        await removeFolderSubtree(ctx.db, input.unitId, removed.folderId);
+      }
       return { success: true };
     }),
 

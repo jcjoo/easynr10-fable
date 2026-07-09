@@ -256,6 +256,25 @@ describe('registers', () => {
     expect(sepField(basico.id)).toBeUndefined();
   });
 
+  test('excluir item remove a pasta do item no P.I.E (sem pasta órfã)', async () => {
+    const { adminCaller, unit } = await setupUnit();
+    const maria = (await adminCaller.registers.upsertEmployee({
+      unitId: unit.id,
+      name: uniqueName('Maria'),
+      metadata: {},
+    }))!;
+    const folderId = maria.folderId!;
+    // Documento dentro da pasta do item — some junto na exclusão.
+    const doc = await seedDocument(adminCaller, unit.id, folderId, { name: 'ASO' });
+
+    await adminCaller.registers.removeEmployee({ unitId: unit.id, employeeId: maria.id });
+
+    const folders = await adminCaller.folders.list({ unitId: unit.id });
+    expect(folders.some((row) => row.id === folderId)).toBe(false);
+    const docs = await adminCaller.documents.listByFolder({ unitId: unit.id, folderId });
+    expect(docs.some((row) => row.id === doc.id)).toBe(false);
+  });
+
   test('excluir a pasta do item limpa o vínculo do cadastro e dos documentos', async () => {
     const { adminCaller, unit } = await setupUnit();
     const maria = (await adminCaller.registers.upsertEmployee({
