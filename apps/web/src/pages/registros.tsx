@@ -623,10 +623,10 @@ export function RegisterPage({
                       params={{ companyId, unitId }}
                       search={{ pasta: row.folderId }}
                       title={`Abrir a pasta de ${row.name} no P.I.E`}
-                      className="group/pasta inline-flex max-w-56 items-center gap-1.5 text-caption text-muted hover:text-action"
+                      aria-label={`Abrir a pasta de ${row.name} no P.I.E`}
+                      className="inline-flex items-center gap-0.5 rounded-ctl p-1 text-muted hover:bg-line/60 hover:text-action"
                     >
-                      <FolderIcon aria-hidden className="size-3.5 shrink-0" />
-                      <span className="truncate group-hover/pasta:underline">{row.folderName}</span>
+                      <FolderIcon aria-hidden className="size-4 shrink-0" />
                       <ChevronRight aria-hidden className="size-3.5 shrink-0" />
                     </Link>
                   ) : (
