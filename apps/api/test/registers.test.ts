@@ -191,6 +191,70 @@ describe('registers', () => {
     expect(links.some((row) => row.equipmentId === epi.id)).toBe(false);
   });
 
+  test('auto-vínculo: documento com o nome padrão na pasta do item vincula sozinho', async () => {
+    const { adminCaller, unit } = await setupUnit();
+    const epi = (await adminCaller.registers.upsertEquipment({
+      unitId: unit.id,
+      name: uniqueName('Luva'),
+      type: 'epi',
+      metadata: {},
+    }))!;
+    expect(epi.folderId).not.toBeNull();
+
+    // Nome com o sufixo por item da convenção do catálogo ("Nome - <item>").
+    await seedDocument(adminCaller, unit.id, epi.folderId!, {
+      name: 'Certificado de Aprovação (CA) - Luva X',
+    });
+
+    const links = await adminCaller.registers.documentLinks({ unitId: unit.id });
+    const ca = links.find((row) => row.equipmentId === epi.id && row.fieldKey === 'ca');
+    expect(ca?.auto).toBe(true);
+    expect(ca?.documentName).toBe('Certificado de Aprovação (CA) - Luva X');
+
+    // Vínculo manual tem precedência sobre o automático (não duplica).
+    const manual = await seedDocument(adminCaller, unit.id, epi.folderId!, { name: 'CA manual' });
+    await adminCaller.registers.linkDocument({
+      unitId: unit.id,
+      fieldKey: 'ca',
+      documentId: manual.id,
+      employeeIds: [],
+      equipmentIds: [epi.id],
+    });
+    const after = (await adminCaller.registers.documentLinks({ unitId: unit.id })).filter(
+      (row) => row.equipmentId === epi.id && row.fieldKey === 'ca',
+    );
+    expect(after).toHaveLength(1);
+    expect(after[0]?.auto).toBe(false);
+    expect(after[0]?.documentId).toBe(manual.id);
+  });
+
+  test('auto-vínculo respeita a condição SEP (só Básico + SEP)', async () => {
+    const { adminCaller, unit } = await setupUnit();
+    const basico = (await adminCaller.registers.upsertEmployee({
+      unitId: unit.id,
+      name: uniqueName('Básico'),
+      metadata: { nivel_autorizacao: 'basico' },
+    }))!;
+    const sep = (await adminCaller.registers.upsertEmployee({
+      unitId: unit.id,
+      name: uniqueName('SEP'),
+      metadata: { nivel_autorizacao: 'basico_sep' },
+    }))!;
+    // Mesmo documento padrão de treinamento SEP na pasta de cada um.
+    await seedDocument(adminCaller, unit.id, basico.folderId!, {
+      name: 'Certificado de Treinamento NR10 SEP',
+    });
+    await seedDocument(adminCaller, unit.id, sep.folderId!, {
+      name: 'Certificado de Treinamento NR10 SEP',
+    });
+
+    const links = await adminCaller.registers.documentLinks({ unitId: unit.id });
+    const sepField = (id: string) =>
+      links.find((row) => row.employeeId === id && row.fieldKey === 'treinamento_nr10_sep');
+    expect(sepField(sep.id)?.auto).toBe(true);
+    expect(sepField(basico.id)).toBeUndefined();
+  });
+
   test('excluir a pasta do item limpa o vínculo do cadastro e dos documentos', async () => {
     const { adminCaller, unit } = await setupUnit();
     const maria = (await adminCaller.registers.upsertEmployee({

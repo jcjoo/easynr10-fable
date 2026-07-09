@@ -3,6 +3,7 @@ import { and, asc, eq, inArray } from 'drizzle-orm';
 import { notDeleted, schema } from '@easynr10/db';
 import {
   customFieldCreateSchema,
+  defaultRegisterFields,
   documentLinkSchema,
   documentUnlinkSchema,
   employeeImportSchema,
@@ -10,6 +11,7 @@ import {
   equipmentImportSchema,
   equipmentUpsertSchema,
   registerTargets,
+  type RegisterTarget,
 } from '@easynr10/shared';
 import { z } from 'zod';
 import { router, unitAction } from '../trpc';
@@ -35,6 +37,16 @@ const {
 // Cadastros da unidade: Colaboradores e Equipamentos (RF18). Os fluxos
 // compartilhados (upsert com pasta do item, importação) vivem em
 // services/registers.ts — aqui só o contrato tRPC e as queries de leitura.
+
+// Um documento casa com o documento padrão de um campo quando tem o mesmo nome,
+// tolerando o sufixo por item da convenção do catálogo ("Nome - <item>", RF11).
+// Exato ou prefixo "<nome> - " evita que "NR10 Básico" case com "NR10 Básico
+// Reciclagem" (que é o padrão de outro campo).
+function docMatchesDefault(docName: string, label: string) {
+  const a = docName.trim().toLowerCase();
+  const b = label.trim().toLowerCase();
+  return a === b || a.startsWith(`${b} - `);
+}
 
 export const registersRouter = router({
 
@@ -238,7 +250,7 @@ export const registersRouter = router({
   // — Vínculo campo→documento (campos kind=document, ex.: CA do EPI) —
 
   documentLinks: unitAction('cadastros.ler').query(async ({ ctx, input }) => {
-    return ctx.db
+    const explicit = await ctx.db
       .select({
         id: registerDocumentLink.id,
         employeeId: registerDocumentLink.employeeId,
@@ -261,6 +273,110 @@ export const registersRouter = router({
           notDeleted(document),
         ),
       );
+
+    // Auto-vínculo: um documento com o nome do documento padrão do campo, na
+    // pasta do item ou abaixo dela, é vinculado automaticamente. Não persiste —
+    // reflete o estado atual da pasta; o vínculo manual sempre tem precedência.
+    const [employees, equipments, folders, documents] = await Promise.all([
+      ctx.db
+        .select({ id: employee.id, folderId: employee.folderId, metadata: employee.metadata })
+        .from(employee)
+        .where(and(eq(employee.unitId, input.unitId), notDeleted(employee))),
+      ctx.db
+        .select({
+          id: equipment.id,
+          type: equipment.type,
+          folderId: equipment.folderId,
+          metadata: equipment.metadata,
+        })
+        .from(equipment)
+        .where(and(eq(equipment.unitId, input.unitId), notDeleted(equipment))),
+      ctx.db
+        .select({ id: folder.id, parentId: folder.parentId })
+        .from(folder)
+        .where(and(eq(folder.unitId, input.unitId), notDeleted(folder))),
+      ctx.db
+        .select({
+          id: document.id,
+          folderId: document.folderId,
+          name: document.name,
+          expiresAt: document.expiresAt,
+          warnDaysBefore: document.warnDaysBefore,
+        })
+        .from(document)
+        .innerJoin(folder, eq(document.folderId, folder.id))
+        .where(and(eq(folder.unitId, input.unitId), notDeleted(document))),
+    ]);
+
+    // Subárvore de pastas a partir da pasta do item (RF18.3) + docs por pasta.
+    const byParent = new Map<string, string[]>();
+    for (const node of folders) {
+      if (node.parentId) {
+        byParent.set(node.parentId, [...(byParent.get(node.parentId) ?? []), node.id]);
+      }
+    }
+    const subtree = (rootId: string) => {
+      const ids = [rootId];
+      for (let i = 0; i < ids.length; i++) ids.push(...(byParent.get(ids[i]!) ?? []));
+      return ids;
+    };
+    const docsByFolder = new Map<string, typeof documents>();
+    for (const doc of documents) {
+      docsByFolder.set(doc.folderId, [...(docsByFolder.get(doc.folderId) ?? []), doc]);
+    }
+
+    const covered = new Set(
+      explicit.map((link) => `${link.employeeId ?? link.equipmentId}:${link.fieldKey}`),
+    );
+    const items = [
+      ...employees.map((e) => ({
+        kind: 'employee' as const,
+        id: e.id,
+        folderId: e.folderId,
+        metadata: e.metadata,
+        target: 'colaboradores' as RegisterTarget,
+      })),
+      ...equipments.map((q) => ({
+        kind: 'equipment' as const,
+        id: q.id,
+        folderId: q.folderId,
+        metadata: q.metadata,
+        target: q.type as RegisterTarget,
+      })),
+    ];
+
+    const auto = items.flatMap((item) => {
+      if (!item.folderId) return [];
+      const subtreeDocs = subtree(item.folderId).flatMap((fid) => docsByFolder.get(fid) ?? []);
+      return (defaultRegisterFields[item.target] ?? [])
+        .filter(
+          (field) =>
+            field.kind === 'document' &&
+            !covered.has(`${item.id}:${field.key}`) &&
+            // Colunas condicionadas (ex.: SEP) não se auto-vinculam se não se
+            // aplicam ao item.
+            (!field.requires || item.metadata?.[field.requires.fieldKey] === field.requires.value),
+        )
+        .flatMap((field) => {
+          const match = subtreeDocs.find((doc) => docMatchesDefault(doc.name, field.label));
+          if (!match) return [];
+          return [
+            {
+              id: `auto:${item.id}:${field.key}`,
+              employeeId: item.kind === 'employee' ? item.id : null,
+              equipmentId: item.kind === 'equipment' ? item.id : null,
+              fieldKey: field.key,
+              documentId: match.id,
+              documentName: match.name,
+              expiresAt: match.expiresAt,
+              warnDaysBefore: match.warnDaysBefore,
+              auto: true,
+            },
+          ];
+        });
+    });
+
+    return [...explicit.map((link) => ({ ...link, auto: false })), ...auto];
   }),
 
   linkDocument: unitAction('cadastros.vinculos')

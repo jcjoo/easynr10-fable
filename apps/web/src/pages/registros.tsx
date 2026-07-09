@@ -9,6 +9,7 @@ import {
   Pencil,
   Plus,
   Settings2,
+  Sparkles,
   Trash2,
   UserPlus,
   Wrench,
@@ -73,6 +74,8 @@ interface DocLink {
   documentName: string;
   expiresAt: string | null;
   warnDaysBefore: number | null;
+  // Vínculo derivado do nome do documento na pasta do item (não persistido).
+  auto: boolean;
 }
 
 const rowActionClass = `cursor-pointer rounded-ctl p-1 text-muted opacity-0 transition-opacity
@@ -521,8 +524,16 @@ export function RegisterPage({ module }: { module: RegisterModule }) {
                           )}
                           {link ? (
                             <span
-                              className={`inline-flex max-w-56 items-center gap-1 rounded-full py-0.5 pl-2.5 ${canLink ? 'pr-1' : 'pr-2.5'} font-ui text-label font-semibold ${expiryTone(link)}`}
+                              title={
+                                link.auto
+                                  ? 'Vínculo automático — documento com o nome padrão na pasta do item'
+                                  : undefined
+                              }
+                              className={`inline-flex max-w-56 items-center gap-1 rounded-full py-0.5 pl-2.5 ${canLink && !link.auto ? 'pr-1' : 'pr-2.5'} font-ui text-label font-semibold ${expiryTone(link)}`}
                             >
+                              {link.auto && (
+                                <Sparkles aria-hidden className="size-3 shrink-0 opacity-70" />
+                              )}
                               {canLink ? (
                                 <button
                                   type="button"
@@ -535,7 +546,7 @@ export function RegisterPage({ module }: { module: RegisterModule }) {
                               ) : (
                                 <span className="truncate">{link.documentName}</span>
                               )}
-                              {canLink && (
+                              {canLink && !link.auto && (
                                 <button
                                   type="button"
                                   title="Desvincular"
