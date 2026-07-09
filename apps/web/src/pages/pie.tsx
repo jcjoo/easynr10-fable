@@ -30,7 +30,14 @@ import {
   toggleSort,
   type SortValue,
 } from '@/components/ui/sortable';
-import { DEFAULT_WARN_DAYS, daysUntilExpiry, normalizeText } from '@easynr10/shared';
+import {
+  DEFAULT_WARN_DAYS,
+  daysUntilExpiry,
+  normalizeText,
+  registerBasePath,
+  registerTargets,
+} from '@easynr10/shared';
+import { RegisterPage } from './registros';
 
 interface FolderNode {
   id: string;
@@ -140,6 +147,21 @@ export function PiePage() {
     }
     return { children, path, folderById: byId };
   }, [folders.data, pasta]);
+
+  // Quando a pasta atual É a "Lista de <Grupo>" de um cadastro (caminho igual
+  // ao registerBasePath), a listagem do PIE dá lugar à página do cadastro —
+  // clicar num item abre a pasta dele (?pasta=) e volta ao PIE normal.
+  const registerListTarget = useMemo(() => {
+    if (!pasta) return null;
+    const names = path.map((node) => node.name);
+    return (
+      registerTargets.find((target) => {
+        const base = registerBasePath[target];
+        return base.length === names.length && base.every((name, i) => name === names[i]);
+      }) ?? null
+    );
+  }, [path, pasta]);
+  const showRegister = Boolean(registerListTarget) && !docsOnly;
 
   // Caminho completo de uma pasta (tooltip da coluna Local).
   const folderPath = (folderId: string) => {
@@ -354,7 +376,7 @@ export function PiePage() {
               <Layers aria-hidden className="size-4" /> Estruturas
             </Button>
           )}
-          {pasta && canUploadDoc && (
+          {pasta && canUploadDoc && !showRegister && (
             <Button onClick={() => setUploadOpen(true)}>
               <Upload aria-hidden className="size-4" /> Enviar documento
             </Button>
@@ -404,6 +426,7 @@ export function PiePage() {
         ))}
       </nav>
 
+      {!showRegister && (
       <div className="flex items-center gap-2">
       <ExpiryFilter
         value={{ venc, de, ate }}
@@ -450,9 +473,17 @@ export function PiePage() {
         </button>
       </div>
       </div>
+      )}
       </div>
 
-      {(actionError || removeFolder.error) && (
+      {showRegister && registerListTarget && (
+        <RegisterPage
+          module={registerListTarget === 'colaboradores' ? 'colaboradores' : 'equipamentos'}
+          embed={{ target: registerListTarget }}
+        />
+      )}
+
+      {!showRegister && (actionError || removeFolder.error) && (
         <p role="alert" className="text-sm text-bad">
           {actionError ?? removeFolder.error?.message}
         </p>
@@ -460,6 +491,7 @@ export function PiePage() {
 
       {/* Lista única (estilo drive): pastas no topo, arquivos abaixo.
           Clique direito fora das linhas abre o menu da seção (Nova pasta). */}
+      {!showRegister && (
       <div
         className="min-h-48 overflow-x-auto"
         onContextMenu={(e) => {
@@ -745,6 +777,7 @@ export function PiePage() {
           </tbody>
         </table>
       </div>
+      )}
 
       {/* — Diálogos — */}
 

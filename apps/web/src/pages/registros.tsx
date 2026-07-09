@@ -138,8 +138,16 @@ function LinkDocsMenu({
   );
 }
 
-export function RegisterPage({ module }: { module: RegisterModule }) {
-  const isEmployees = module === 'colaboradores';
+export function RegisterPage({
+  module,
+  embed,
+}: {
+  module: RegisterModule;
+  // Embed dentro do PIE (pasta "Lista de <Grupo>"): o alvo vem da pasta, não da
+  // URL; ordenação vira estado local e a moldura de página é enxuta.
+  embed?: { target: RegisterTarget };
+}) {
+  const isEmployees = embed ? embed.target === 'colaboradores' : module === 'colaboradores';
   const title = isEmployees ? 'Colaboradores' : 'Equipamentos';
   const itemLabel = isEmployees ? 'colaborador' : 'equipamento';
 
@@ -153,9 +161,14 @@ export function RegisterPage({ module }: { module: RegisterModule }) {
   };
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  // No embed a ordenação é local (a URL do PIE é de documentos, não do cadastro).
+  const [embedSort, setEmbedSort] = useState<SortState>({});
 
-  // O tipo de equipamento vem da URL (?tipo=, filho de Cadastros na sidebar).
-  const equipmentTab: EquipmentType = tipo ?? 'eletrico';
+  // O tipo de equipamento: no embed vem do alvo da pasta; senão, da URL (?tipo=).
+  const equipmentTab: EquipmentType =
+    embed && embed.target !== 'colaboradores'
+      ? (embed.target as EquipmentType)
+      : (tipo ?? 'eletrico');
   const target: RegisterTarget = isEmployees ? 'colaboradores' : equipmentTab;
   const defaults = defaultRegisterFields[target];
   const documentFields = defaults.filter((field) => field.kind === 'document');
@@ -246,7 +259,7 @@ export function RegisterPage({ module }: { module: RegisterModule }) {
 
   // Botão "Novo" da sidebar (?novo=1): abre o editor de criação e limpa o flag.
   useEffect(() => {
-    if (!novo) return;
+    if (!novo || embed) return;
     openEditor('new');
     navigate({
       to: isEmployees ? '/$companyId/$unitId/colaboradores' : '/$companyId/$unitId/equipamentos',
@@ -384,8 +397,8 @@ export function RegisterPage({ module }: { module: RegisterModule }) {
   // Ordenação (?ord=&dir=): nome, campos (default+personalizados) e pasta.
   // Campos kind=document ordenam pelo código cadastrado; sem código, pelo
   // nome do documento vinculado.
-  const currentOrd = ord ?? 'nome';
-  const currentDir = dir ?? 'asc';
+  const currentOrd = (embed ? embedSort.ord : ord) ?? 'nome';
+  const currentDir = (embed ? embedSort.dir : dir) ?? 'asc';
   const fieldAccessor = (field: RegisterField) => (row: RegisterRow): SortValue => {
     const value = row.metadata?.[field.key];
     if (field.kind === 'document' && !value) {
@@ -401,7 +414,11 @@ export function RegisterPage({ module }: { module: RegisterModule }) {
     ),
   };
   const sorted = sortRows(rows, accessors[currentOrd] ?? accessors.nome!, currentDir);
-  const handleSort = (key: string) =>
+  const handleSort = (key: string) => {
+    if (embed) {
+      setEmbedSort((state) => toggleSort(state, key, 'nome'));
+      return;
+    }
     navigate({
       to: isEmployees ? '/$companyId/$unitId/colaboradores' : '/$companyId/$unitId/equipamentos',
       params: { companyId, unitId },
@@ -410,17 +427,18 @@ export function RegisterPage({ module }: { module: RegisterModule }) {
         ...toggleSort({ ord, dir }, key, 'nome'),
       },
     });
+  };
 
   return (
-    <Page>
+    <Page className={embed ? '!space-y-4 !p-0' : ''}>
       <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <p className="text-sm text-muted">Cadastros</p>
-          {/* Sem as abas, o h1 diz qual tipo está ativo (ex.: "Ferramentas"). */}
-          <PageTitle>
-            {isEmployees ? title : registerTargetLabels[equipmentTab]}
-          </PageTitle>
-        </div>
+        {!embed && (
+          <div>
+            <p className="text-sm text-muted">Cadastros</p>
+            {/* Sem as abas, o h1 diz qual tipo está ativo (ex.: "Ferramentas"). */}
+            <PageTitle>{isEmployees ? title : registerTargetLabels[equipmentTab]}</PageTitle>
+          </div>
+        )}
         <div className="flex flex-wrap gap-2">
           {canImport && (
             <Button variant="secondary" onClick={() => setImportOpen(true)}>
