@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useNavigate, useParams, useSearch } from '@tanstack/react-router';
 import { Td } from '@/components/ui/table';
 import {
+  ChevronDown,
   FileSpreadsheet,
   Link2,
   Pencil,
@@ -38,6 +39,7 @@ import { Page, PageTitle } from '@/components/ui/page';
 import { SelectField } from '@/components/ui/select';
 import { DocumentPickerDialog } from '@/components/pie/document-picker';
 import { ImportDialog } from '@/components/registros/import-dialog';
+import { Menu, type MenuPosition } from '@/components/ui/row-menu';
 import {
   PlainTh,
   SortableTh,
@@ -82,6 +84,56 @@ function expiryTone(link: DocLink) {
   if (days < 0) return 'bg-bad-soft text-bad';
   if (days <= (link.warnDaysBefore ?? DEFAULT_WARN_DAYS)) return 'bg-warn-soft text-warn';
   return 'bg-ok-soft text-ok';
+}
+
+// Campos com `requires` só se aplicam quando outro campo select tem o valor
+// dado (ex.: treinamento SEP exige nivel_autorizacao = basico_sep).
+function fieldApplies(field: RegisterField, metadata: Record<string, string> | undefined) {
+  if (!field.requires) return true;
+  return metadata?.[field.requires.fieldKey] === field.requires.value;
+}
+
+// Rótulo exibido de um campo select (ou o valor cru se não bater com opção).
+function selectLabel(field: RegisterField, value: string | undefined) {
+  if (!value) return '';
+  return field.options?.find((option) => option.value === value)?.label ?? value;
+}
+
+// Header: um único botão "Vincular documento ▾" abre um menu com os campos
+// kind=document do grupo (evita uma fileira de botões quando há vários).
+function LinkDocsMenu({
+  fields,
+  onPick,
+}: {
+  fields: RegisterField[];
+  onPick: (field: RegisterField) => void;
+}) {
+  const [position, setPosition] = useState<MenuPosition | null>(null);
+  return (
+    <>
+      <Button
+        variant="secondary"
+        aria-haspopup="menu"
+        aria-expanded={Boolean(position)}
+        onClick={(e) => {
+          const rect = e.currentTarget.getBoundingClientRect();
+          setPosition((current) =>
+            current ? null : { top: rect.bottom + 4, right: window.innerWidth - rect.right },
+          );
+        }}
+      >
+        <Link2 aria-hidden className="size-4" /> Vincular documento
+        <ChevronDown aria-hidden className="size-4" />
+      </Button>
+      {position && (
+        <Menu
+          position={position}
+          items={fields.map((field) => ({ label: field.label, onSelect: () => onPick(field) }))}
+          onClose={() => setPosition(null)}
+        />
+      )}
+    </>
+  );
 }
 
 export function RegisterPage({ module }: { module: RegisterModule }) {
@@ -321,6 +373,11 @@ export function RegisterPage({ module }: { module: RegisterModule }) {
     ...(customFields.data ?? []).map((field) => ({ key: field.name, label: field.name })),
   ];
 
+  // No dialog de vínculo, só itens a que o campo se aplica (ex.: um treinamento
+  // SEP só pode ser vinculado a colaboradores Básico + SEP).
+  const linkField = linkDialog.target?.field;
+  const linkRows = linkField ? rows.filter((row) => fieldApplies(linkField, row.metadata)) : rows;
+
 
   // Ordenação (?ord=&dir=): nome, campos (default+personalizados) e pasta.
   // Campos kind=document ordenam pelo código cadastrado; sem código, pelo
@@ -374,12 +431,14 @@ export function RegisterPage({ module }: { module: RegisterModule }) {
               <Settings2 aria-hidden className="size-4" /> Configurar grupo
             </Button>
           )}
-          {canLink &&
-            documentFields.map((field) => (
-              <Button key={field.key} variant="secondary" onClick={() => openLinkDialog(field)}>
-                <Link2 aria-hidden className="size-4" /> Vincular {field.label}
-              </Button>
-            ))}
+          {canLink && documentFields.length === 1 && (
+            <Button variant="secondary" onClick={() => openLinkDialog(documentFields[0]!)}>
+              <Link2 aria-hidden className="size-4" /> Vincular {documentFields[0]!.label}
+            </Button>
+          )}
+          {canLink && documentFields.length > 1 && (
+            <LinkDocsMenu fields={documentFields} onPick={(field) => openLinkDialog(field)} />
+          )}
           {canManageItems && (
             <Button onClick={() => openEditor('new')}>
               {isEmployees ? (
@@ -429,9 +488,24 @@ export function RegisterPage({ module }: { module: RegisterModule }) {
               <tr key={row.id} className="group hover:bg-paper">
                 <Td className="font-medium">{row.name}</Td>
                 {allFields.map((field) => {
+                  // Colunas condicionadas (ex.: SEP) não se aplicam ao item.
+                  if (!fieldApplies(field, row.metadata)) {
+                    return (
+                      <Td key={field.key} className="text-muted">
+                        n/a
+                      </Td>
+                    );
+                  }
+                  if (field.kind === 'select') {
+                    return (
+                      <Td key={field.key} className="text-ink-soft">
+                        {selectLabel(field, row.metadata?.[field.key]) || '—'}
+                      </Td>
+                    );
+                  }
                   if (field.kind === 'document') {
                     const link = linkByItemField.get(`${row.id}:${field.key}`);
-                    const code = row.metadata?.[field.key];
+                    const code = field.code ? row.metadata?.[field.key] : undefined;
                     return (
                       <Td key={field.key}>
                         <div className="flex items-center gap-2">
@@ -564,21 +638,45 @@ export function RegisterPage({ module }: { module: RegisterModule }) {
             </SelectField>
           )}
           <Field label="Nome" value={name} onChange={(e) => setName(e.target.value)} autoFocus />
-          {editorFields.map((field) => (
-            <Field
-              key={field.key}
-              label={field.label}
-              value={metadata[field.key] ?? ''}
-              onChange={(e) =>
-                setMetadata((state) => ({ ...state, [field.key]: e.target.value }))
-              }
-              hint={
-                field.kind === 'document'
-                  ? 'Código cadastrado; o documento do P.I.E é vinculado pelo botão "Vincular" na lista'
-                  : undefined
-              }
-            />
-          ))}
+          {editorFields.map((field) => {
+            // Documentos sem código não têm texto no editor — vinculam-se pela
+            // lista. Documentos com código (ex.: CA) mostram o input do código.
+            if (field.kind === 'document' && !field.code) return null;
+            if (field.kind === 'select') {
+              return (
+                <SelectField
+                  key={field.key}
+                  label={field.label}
+                  value={metadata[field.key] ?? ''}
+                  onChange={(e) =>
+                    setMetadata((state) => ({ ...state, [field.key]: e.target.value }))
+                  }
+                >
+                  <option value="">—</option>
+                  {field.options?.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </SelectField>
+              );
+            }
+            return (
+              <Field
+                key={field.key}
+                label={field.label}
+                value={metadata[field.key] ?? ''}
+                onChange={(e) =>
+                  setMetadata((state) => ({ ...state, [field.key]: e.target.value }))
+                }
+                hint={
+                  field.kind === 'document'
+                    ? 'Código cadastrado; o documento do P.I.E é vinculado pelo botão "Vincular" na lista'
+                    : undefined
+                }
+              />
+            );
+          })}
           {editing === 'new' && (
             <div className="rounded-card border border-line bg-paper p-3">
               <p className="text-caption text-ink-soft">
@@ -655,21 +753,25 @@ export function RegisterPage({ module }: { module: RegisterModule }) {
                 type="button"
                 onClick={() =>
                   setLinkSelection(
-                    linkSelection.size === rows.length
+                    linkSelection.size === linkRows.length
                       ? new Set()
-                      : new Set(rows.map((row) => row.id)),
+                      : new Set(linkRows.map((row) => row.id)),
                   )
                 }
                 className="cursor-pointer font-ui text-label font-medium text-action hover:underline"
               >
-                {linkSelection.size === rows.length ? 'Desmarcar todos' : 'Selecionar todos'}
+                {linkSelection.size === linkRows.length ? 'Desmarcar todos' : 'Selecionar todos'}
               </button>
             </div>
             <ul className="max-h-56 overflow-y-auto p-2">
-              {rows.length === 0 && (
-                <li className="px-1 py-2 text-sm text-muted">Nenhum item cadastrado.</li>
+              {linkRows.length === 0 && (
+                <li className="px-1 py-2 text-sm text-muted">
+                  {linkField?.requires
+                    ? 'Nenhum colaborador Básico + SEP para este documento.'
+                    : 'Nenhum item cadastrado.'}
+                </li>
               )}
-              {rows.map((row) => {
+              {linkRows.map((row) => {
                 const current = linkDialog.target
                   ? linkByItemField.get(`${row.id}:${linkDialog.target.field.key}`)
                   : undefined;

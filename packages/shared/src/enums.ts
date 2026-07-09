@@ -378,41 +378,101 @@ export const registerTargetLabels: Record<RegisterTarget, string> = {
 export const registerModules = ['colaboradores', 'equipamentos'] as const;
 export type RegisterModule = (typeof registerModules)[number];
 
+// Nível de autorização NR-10 do colaborador (RF): Básico ou Básico + SEP.
+// Guardado no metadata do colaborador (chave `nivel_autorizacao`); condiciona
+// as colunas de treinamento SEP (só se aplicam a quem é Básico + SEP).
+export const nivelAutorizacaoValues = ['basico', 'basico_sep'] as const;
+export type NivelAutorizacao = (typeof nivelAutorizacaoValues)[number];
+export const nivelAutorizacaoLabels: Record<NivelAutorizacao, string> = {
+  basico: 'Básico',
+  basico_sep: 'Básico + SEP',
+};
+
 // Campos default dos cadastros (definidos pelo sistema), POR GRUPO-ALVO —
 // cada tipo de equipamento tem estrutura própria (decisão do usuário,
 // 03/07/2026). kind 'document' = coluna vinculada a um documento do PIE
 // (ex.: CA do EPI aponta para um Certificado de Aprovação; N itens podem
 // apontar para o mesmo documento — base das automações de vencimento).
+// kind 'select' = coluna com opções fixas (valor guardado no metadata).
+// `code` (só document): mostra o input de código no editor + a coluna do
+// código (ex.: nº do CA); documentos sem código só se vinculam pela lista.
+// `requires`: a coluna só se aplica quando outro campo select tem o valor
+// dado (ex.: treinamento SEP exige nivel_autorizacao = basico_sep).
 // Valores texto vivem no metadata do item; vínculos em register_document_link.
 export interface RegisterField {
   key: string;
   label: string;
-  kind?: 'document';
+  kind?: 'document' | 'select';
+  code?: boolean;
+  options?: { value: string; label: string }[];
+  requires?: { fieldKey: string; value: string };
 }
+
+const sepRequires = { fieldKey: 'nivel_autorizacao', value: 'basico_sep' } as const;
 
 export const defaultRegisterFields: Record<RegisterTarget, RegisterField[]> = {
   colaboradores: [
     { key: 'funcao', label: 'Função' },
     { key: 'matricula', label: 'Matrícula' },
+    {
+      key: 'nivel_autorizacao',
+      label: 'Nível de autorização',
+      kind: 'select',
+      options: nivelAutorizacaoValues.map((value) => ({
+        value,
+        label: nivelAutorizacaoLabels[value],
+      })),
+    },
+    {
+      key: 'treinamento_nr10_basico',
+      label: 'Certificado de Treinamento NR10 Básico',
+      kind: 'document',
+    },
+    {
+      key: 'treinamento_nr10_basico_reciclagem',
+      label: 'Certificado de Treinamento NR10 Básico Reciclagem',
+      kind: 'document',
+    },
+    {
+      key: 'treinamento_nr10_sep',
+      label: 'Certificado de Treinamento NR10 SEP',
+      kind: 'document',
+      requires: sepRequires,
+    },
+    {
+      key: 'treinamento_nr10_sep_reciclagem',
+      label: 'Certificado de Treinamento NR10 SEP Reciclagem',
+      kind: 'document',
+      requires: sepRequires,
+    },
+    { key: 'autorizacao_trabalho', label: 'Autorização de Trabalho', kind: 'document' },
   ],
   eletrico: [
     { key: 'fabricante', label: 'Fabricante' },
     { key: 'identificacao', label: 'Identificação (TAG)' },
     { key: 'tensao', label: 'Tensão (V)' },
     { key: 'localizacao', label: 'Localização' },
+    { key: 'manual_tecnico', label: 'Manual Técnico', kind: 'document' },
+    { key: 'certificado_calibracao', label: 'Certificado de Calibração', kind: 'document' },
   ],
   ferramenta: [
     { key: 'fabricante', label: 'Fabricante' },
     { key: 'modelo', label: 'Modelo' },
     { key: 'numero_serie', label: 'Nº de série' },
+    { key: 'laudo_isolacao', label: 'Laudo e Teste de Isolação', kind: 'document' },
+    { key: 'especificacao_tecnica', label: 'Especificação Técnica', kind: 'document' },
   ],
   epi: [
     { key: 'fabricante', label: 'Fabricante' },
-    { key: 'ca', label: 'CA', kind: 'document' },
+    { key: 'ca', label: 'Certificado de Aprovação (CA)', kind: 'document', code: true },
+    { key: 'laudo_isolacao', label: 'Laudo e Teste de Isolação', kind: 'document' },
+    { key: 'especificacao_tecnica', label: 'Especificação Técnica', kind: 'document' },
   ],
   epc: [
     { key: 'fabricante', label: 'Fabricante' },
     { key: 'localizacao', label: 'Localização' },
+    { key: 'laudo_isolacao', label: 'Laudo e Teste de Isolação', kind: 'document' },
+    { key: 'especificacao_tecnica', label: 'Especificação Técnica', kind: 'document' },
   ],
 };
 

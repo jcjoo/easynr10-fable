@@ -41,7 +41,11 @@ export function ImportDialog({
   const [mapping, setMapping] = useState<Record<string, number>>({});
   const [importResult, setImportResult] = useState<string | null>(null);
 
-  const mappableFields = [{ key: '__name', label: 'Nome' }, ...fields];
+  // Documentos sem código não têm texto na planilha (vinculam-se pela lista).
+  const mappableFields = [
+    { key: '__name', label: 'Nome' },
+    ...fields.filter((field) => field.kind !== 'document' || field.code),
+  ];
 
   async function loadSheet(file: File) {
     // codepage 65001 = UTF-8 (CSVs sem BOM viravam mojibake).
