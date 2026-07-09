@@ -240,12 +240,13 @@ describe('registers', () => {
       name: uniqueName('SEP'),
       metadata: { nivel_autorizacao: 'basico_sep' },
     }))!;
-    // Mesmo documento padrão de treinamento SEP na pasta de cada um.
+    // Nome do catálogo (RF11): "Certificado Treinamento..." (sem "de") — casa
+    // pelo defaultDocName, não pelo label exibido.
     await seedDocument(adminCaller, unit.id, basico.folderId!, {
-      name: 'Certificado de Treinamento NR10 SEP',
+      name: 'Certificado Treinamento NR10 SEP',
     });
     await seedDocument(adminCaller, unit.id, sep.folderId!, {
-      name: 'Certificado de Treinamento NR10 SEP',
+      name: 'Certificado Treinamento NR10 SEP',
     });
 
     const links = await adminCaller.registers.documentLinks({ unitId: unit.id });

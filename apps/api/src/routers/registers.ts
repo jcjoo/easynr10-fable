@@ -10,7 +10,9 @@ import {
   employeeUpsertSchema,
   equipmentImportSchema,
   equipmentUpsertSchema,
+  normalizeText,
   registerTargets,
+  type RegisterField,
   type RegisterTarget,
 } from '@easynr10/shared';
 import { z } from 'zod';
@@ -38,14 +40,18 @@ const {
 // compartilhados (upsert com pasta do item, importação) vivem em
 // services/registers.ts — aqui só o contrato tRPC e as queries de leitura.
 
-// Um documento casa com o documento padrão de um campo quando tem o mesmo nome,
-// tolerando o sufixo por item da convenção do catálogo ("Nome - <item>", RF11).
-// Exato ou prefixo "<nome> - " evita que "NR10 Básico" case com "NR10 Básico
-// Reciclagem" (que é o padrão de outro campo).
-function docMatchesDefault(docName: string, label: string) {
-  const a = docName.trim().toLowerCase();
-  const b = label.trim().toLowerCase();
-  return a === b || a.startsWith(`${b} - `);
+// Um documento casa com o documento padrão de um campo quando tem o mesmo nome
+// (sem acento/caixa), tolerando o sufixo por item da convenção do catálogo
+// ("Nome - <item>", RF11). Casa contra o label exibido E o defaultDocName (nome
+// do catálogo, quando difere). Exato ou prefixo "<nome> - " evita que "NR10
+// Básico" case com "NR10 Básico Reciclagem" (que é o padrão de outro campo).
+function docMatchesField(docName: string, field: RegisterField) {
+  const doc = normalizeText(docName).trim();
+  const names = [field.label, field.defaultDocName].filter((name): name is string => Boolean(name));
+  return names.some((name) => {
+    const n = normalizeText(name).trim();
+    return doc === n || doc.startsWith(`${n} - `);
+  });
 }
 
 export const registersRouter = router({
@@ -358,7 +364,7 @@ export const registersRouter = router({
             (!field.requires || item.metadata?.[field.requires.fieldKey] === field.requires.value),
         )
         .flatMap((field) => {
-          const match = subtreeDocs.find((doc) => docMatchesDefault(doc.name, field.label));
+          const match = subtreeDocs.find((doc) => docMatchesField(doc.name, field));
           if (!match) return [];
           return [
             {

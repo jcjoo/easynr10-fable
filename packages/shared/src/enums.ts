@@ -405,6 +405,11 @@ export interface RegisterField {
   /** Rótulo curto só para o cabeçalho da tabela (nome completo vai no tooltip
    * e nos botões/diálogos) — evita colunas largas com rótulos longos. */
   shortLabel?: string;
+  /** Nome do documento padrão no catálogo (RF11) para o auto-vínculo, quando
+   * difere do `label` exibido (ex.: catálogo "Certificado Treinamento NR10
+   * Básico" vs. label "Certificado de Treinamento NR10 Básico"). O match usa
+   * label E defaultDocName, sem acento/caixa, tolerando o sufixo " - <item>". */
+  defaultDocName?: string;
   kind?: 'document' | 'select';
   code?: boolean;
   options?: { value: string; label: string }[];
@@ -429,18 +434,21 @@ export const defaultRegisterFields: Record<RegisterTarget, RegisterField[]> = {
       key: 'treinamento_nr10_basico',
       label: 'Certificado de Treinamento NR10 Básico',
       shortLabel: 'NR10 Básico',
+      defaultDocName: 'Certificado Treinamento NR10 Básico',
       kind: 'document',
     },
     {
       key: 'treinamento_nr10_basico_reciclagem',
       label: 'Certificado de Treinamento NR10 Básico Reciclagem',
       shortLabel: 'NR10 Básico recic.',
+      defaultDocName: 'Certificado Treinamento NR10 Básico Reciclagem',
       kind: 'document',
     },
     {
       key: 'treinamento_nr10_sep',
       label: 'Certificado de Treinamento NR10 SEP',
       shortLabel: 'NR10 SEP',
+      defaultDocName: 'Certificado Treinamento NR10 SEP',
       kind: 'document',
       requires: sepRequires,
     },
@@ -448,6 +456,7 @@ export const defaultRegisterFields: Record<RegisterTarget, RegisterField[]> = {
       key: 'treinamento_nr10_sep_reciclagem',
       label: 'Certificado de Treinamento NR10 SEP Reciclagem',
       shortLabel: 'NR10 SEP recic.',
+      defaultDocName: 'Certificado Treinamento NR10 SEP Reciclagem',
       kind: 'document',
       requires: sepRequires,
     },
@@ -455,6 +464,7 @@ export const defaultRegisterFields: Record<RegisterTarget, RegisterField[]> = {
       key: 'autorizacao_trabalho',
       label: 'Autorização de Trabalho',
       shortLabel: 'Autorização',
+      defaultDocName: 'Autorização de Trabalho NR10',
       kind: 'document',
     },
   ],
@@ -468,6 +478,7 @@ export const defaultRegisterFields: Record<RegisterTarget, RegisterField[]> = {
       key: 'certificado_calibracao',
       label: 'Certificado de Calibração',
       shortLabel: 'Cert. calibração',
+      defaultDocName: 'Certificados de Calibração',
       kind: 'document',
     },
   ],

@@ -442,6 +442,17 @@ export function RegisterPage({ module }: { module: RegisterModule }) {
           {canLink && documentFields.length > 1 && (
             <LinkDocsMenu fields={documentFields} onPick={(field) => openLinkDialog(field)} />
           )}
+          {canLink && documentFields.length > 0 && (
+            <Button
+              variant="secondary"
+              title="Procura documentos com o nome padrão na pasta de cada item e vincula automaticamente"
+              disabled={links.isFetching}
+              onClick={() => links.refetch()}
+            >
+              <Sparkles aria-hidden className="size-4" />
+              {links.isFetching ? 'Buscando…' : 'Buscar vínculos'}
+            </Button>
+          )}
           {canManageItems && (
             <Button onClick={() => openEditor('new')}>
               {isEmployees ? (

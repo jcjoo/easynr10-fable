@@ -107,6 +107,11 @@ export function UploadDocumentDialog({
       queryClient.invalidateQueries({
         queryKey: trpc.documents.listByFolder.queryKey({ unitId, folderId }),
       });
+      // Re-avalia o auto-vínculo dos cadastros: se o documento tem o nome de um
+      // documento padrão na pasta de um item, passa a aparecer vinculado lá.
+      queryClient.invalidateQueries({
+        queryKey: trpc.registers.documentLinks.queryKey({ unitId }),
+      });
       onClose();
     } catch {
       setError('Falha ao enviar o documento — tente de novo.');
