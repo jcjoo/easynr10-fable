@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from 'react';
+import { Children, isValidElement, useState, type ReactNode } from 'react';
 import { Link, useRouterState } from '@tanstack/react-router';
 import { useQuery } from '@tanstack/react-query';
 import {
@@ -98,7 +98,42 @@ function useCollapsed(id: string) {
       localStorage.setItem(key, current ? 'fechada' : 'aberta');
       return !current;
     });
-  return { open, toggle };
+  const expand = () => {
+    localStorage.setItem(key, 'aberta');
+    setOpen(true);
+  };
+  return { open, toggle, expand };
+}
+
+interface NavTarget {
+  to: string;
+  params?: Record<string, string>;
+  search?: Record<string, string>;
+}
+
+// Primeiro descendente navegável (DFS) — atravessa fragments e seções
+// aninhadas. Usado para o cabeçalho de seção "cair" no primeiro filho válido
+// (ex.: Avaliação da Conformidade → Visão Geral).
+function findFirstNav(children: ReactNode): NavTarget | null {
+  let found: NavTarget | null = null;
+  Children.forEach(children, (child) => {
+    if (found || !isValidElement(child)) return;
+    const props = child.props as {
+      to?: string;
+      params?: Record<string, string>;
+      search?: Record<string, string>;
+      children?: ReactNode;
+    };
+    if (typeof props.to === 'string') {
+      found = { to: props.to, params: props.params, search: props.search };
+      return;
+    }
+    if (props.children != null) {
+      const nested = findFirstNav(props.children);
+      if (nested) found = nested;
+    }
+  });
+  return found;
 }
 
 // Pai recolhível — MESMA linguagem visual em todos os níveis (padrão do item
@@ -117,26 +152,54 @@ function Section({
   depth?: 1;
   children: ReactNode;
 }) {
-  const { open, toggle } = useCollapsed(id);
+  const { open, toggle, expand } = useCollapsed(id);
+  // Sem navegação própria: o cabeçalho cai no primeiro filho navegável (e
+  // expande). A seta continua recolhendo/expandindo (padrão do item P.I.E).
+  const target = findFirstNav(children);
+  const rowClass = `group flex cursor-pointer items-center gap-2.5 rounded-ctl py-1.5 pr-3 text-left
+    font-ui text-sm font-medium text-ink-soft hover:bg-line/60 hover:text-ink
+    ${depth ? 'pl-5' : 'mt-1 pl-0.5'}`;
+  const iconChevron = (
+    <>
+      <ChevronRight
+        aria-hidden
+        className={`size-3 transition-transform ${open ? 'rotate-90' : ''}`}
+      />
+      <Icon aria-hidden className="size-4 shrink-0" />
+    </>
+  );
   return (
     <>
-      <button
-        type="button"
-        aria-expanded={open}
-        onClick={toggle}
-        className={`flex cursor-pointer items-center gap-2.5 rounded-ctl py-1.5 pr-3 text-left
-          font-ui text-sm font-medium text-ink-soft hover:bg-line/60 hover:text-ink
-          ${depth ? 'pl-5' : 'mt-1 pl-0.5'}`}
-      >
-        <span className="flex shrink-0 items-center">
-          <ChevronRight
-            aria-hidden
-            className={`size-3 transition-transform ${open ? 'rotate-90' : ''}`}
-          />
-          <Icon aria-hidden className="size-4 shrink-0" />
-        </span>
-        <span className="truncate">{label}</span>
-      </button>
+      {target ? (
+        // Texto navega ao 1º filho + expande; a seta+ícone recolhem (padrão P.I.E).
+        <Link
+          to={target.to}
+          params={target.params}
+          search={target.search}
+          onClick={expand}
+          className={rowClass}
+        >
+          <button
+            type="button"
+            aria-expanded={open}
+            aria-label={open ? `Recolher ${label}` : `Expandir ${label}`}
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              toggle();
+            }}
+            className="flex shrink-0 cursor-pointer items-center"
+          >
+            {iconChevron}
+          </button>
+          <span className="truncate">{label}</span>
+        </Link>
+      ) : (
+        <button type="button" aria-expanded={open} onClick={toggle} className={rowClass}>
+          <span className="flex shrink-0 items-center">{iconChevron}</span>
+          <span className="truncate">{label}</span>
+        </button>
+      )}
       {open ? (
         children
       ) : (
