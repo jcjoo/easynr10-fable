@@ -23,6 +23,18 @@ export const auth = betterAuth({
   emailAndPassword: {
     enabled: true,
   },
+  // Rate limit SEMPRE ligado (o padrão do better-auth só liga em produção,
+  // e o compose não define NODE_ENV): teto por IP contra força bruta, com o
+  // login por senha mais estrito. Armazenamento em memória basta para uma
+  // instância; multi-instância exigiria secondaryStorage.
+  rateLimit: {
+    enabled: true,
+    window: 60,
+    max: 120,
+    customRules: {
+      '/sign-in/email': { window: 60, max: 10 },
+    },
+  },
   session: {
     // Cópia assinada da sessão em cookie de vida curta: o getSession de cada
     // request tRPC resolve sem consultar o banco. Revogação demora até maxAge.

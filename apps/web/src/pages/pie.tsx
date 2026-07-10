@@ -310,12 +310,17 @@ export function PiePage() {
   const [preview, setPreview] = useState<DocumentPreview | null>(null);
   const previewUrl = useMutation(trpc.documents.previewUrl.mutationOptions());
   async function openPreview(doc: DocumentRow, versionId?: string) {
-    const { url, mimeType } = await previewUrl.mutateAsync({
-      unitId,
-      documentId: doc.id,
-      versionId,
-    });
-    setPreview({ documentId: doc.id, name: doc.name, url, mimeType });
+    try {
+      const { url, mimeType } = await previewUrl.mutateAsync({
+        unitId,
+        documentId: doc.id,
+        versionId,
+      });
+      setPreview({ documentId: doc.id, name: doc.name, url, mimeType });
+    } catch {
+      // Documento só-referência (sem arquivo enviado) → estado "sem conteúdo".
+      setPreview({ documentId: doc.id, name: doc.name, url: null, mimeType: null });
+    }
   }
 
   function openEdit(doc: DocumentRow) {

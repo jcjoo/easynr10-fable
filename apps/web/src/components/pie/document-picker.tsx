@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Check, ChevronRight, Search } from 'lucide-react';
-import { normalizeText } from '@easynr10/shared';
+import { normalizeText, type DiagnosticStatus } from '@easynr10/shared';
 import { trpc } from '@/lib/trpc';
 import { useUnitPermissions } from '@/lib/use-unit-permissions';
 import { Dialog } from '@/components/ui/dialog';
@@ -16,6 +16,7 @@ import { FileTypeIcon, FolderIcon } from '@/components/ui/icons';
 export interface PickedDocument {
   id: string;
   name: string;
+  adherence: DiagnosticStatus | null;
 }
 
 interface FolderNode {
@@ -203,7 +204,7 @@ export function DocumentPickerDialog({
               key={doc.id}
               type="button"
               onClick={() => {
-                onSelect({ id: doc.id, name: doc.name });
+                onSelect({ id: doc.id, name: doc.name, adherence: doc.adherence ?? null });
                 onClose();
               }}
               className={itemClass}

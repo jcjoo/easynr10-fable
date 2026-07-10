@@ -5,7 +5,7 @@
 import { expect } from 'bun:test';
 import { and, eq, isNull } from 'drizzle-orm';
 import { schema } from '@easynr10/db';
-import type { DocumentGroup, RequirementType } from '@easynr10/shared';
+import type { DiagnosticStatus, DocumentGroup, RequirementType } from '@easynr10/shared';
 import { db } from '../src/db';
 import { auth } from '../src/auth';
 import { appRouter } from '../src/routers';
@@ -127,7 +127,12 @@ export async function seedDocument(
   caller: Caller,
   unitId: string,
   folderId: string,
-  options: { name?: string; expiresAt?: string | null; warnDaysBefore?: number | null } = {},
+  options: {
+    name?: string;
+    expiresAt?: string | null;
+    warnDaysBefore?: number | null;
+    adherence?: DiagnosticStatus | null;
+  } = {},
 ) {
   const created = await caller.documents.confirmUpload({
     unitId,
@@ -138,6 +143,7 @@ export async function seedDocument(
     sizeBytes: 4,
     expiresAt: options.expiresAt ?? null,
     warnDaysBefore: options.warnDaysBefore ?? null,
+    adherence: options.adherence ?? null,
   });
   return created!;
 }

@@ -120,7 +120,7 @@ const UPLOAD_URL_TTL_S = 10 * 60;
 const DOWNLOAD_URL_TTL_S = 5 * 60;
 
 export function buildStorageKey(unitId: string, fileName: string) {
-  const safeName = fileName.replace(/[^\w.\-]+/g, '_').slice(0, 120);
+  const safeName = fileName.replace(/[^\w.-]+/g, '_').slice(0, 120);
   return `units/${unitId}/${crypto.randomUUID()}/${safeName}`;
 }
 

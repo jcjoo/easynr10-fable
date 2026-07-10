@@ -12,7 +12,7 @@ import {
 } from '@easynr10/shared';
 import { auth } from './auth';
 import { db } from './db';
-import { env } from './env';
+import { escapeHtml, htmlToPdf } from './services/pdf';
 import { actionPlanRows, documentSituationRows, nonConformityRows } from './services/reports';
 
 // Exportação de relatórios (RF22) por rota HTTP própria: download com o
@@ -20,6 +20,8 @@ import { actionPlanRows, documentSituationRows, nonConformityRows } from './serv
 // CSV gerado aqui; PDF via Gotenberg (HTML → /forms/chromium/convert/html).
 
 const { appRole, company, membership, unit } = schema;
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 interface Column {
   label: string;
@@ -157,21 +159,20 @@ function applyFilters(
   });
 }
 
+// Neutraliza CSV/formula injection: célula iniciada por =,+,-,@ (ou tab/CR)
+// vira fórmula ao abrir no Excel/Sheets. O apóstrofo à frente força texto.
+function neutralizeFormula(value: string) {
+  return /^[=+\-@\t\r]/.test(value) ? `'${value}` : value;
+}
+
 // CSV com BOM e ';' (Excel pt-BR abre direto com colunas separadas).
 function toCsv(columns: readonly Column[], rows: Record<string, unknown>[]) {
-  const escape = (value: string) => `"${value.replaceAll('"', '""')}"`;
+  const escape = (value: string) => `"${neutralizeFormula(value).replaceAll('"', '""')}"`;
   const lines = [
     columns.map((col) => escape(col.label)).join(';'),
     ...rows.map((row) => columns.map((col) => escape(col.value(row))).join(';')),
   ];
   return Buffer.from('\uFEFF' + lines.join('\r\n'));
-}
-
-function escapeHtml(value: string) {
-  return value
-    .replaceAll('&', '&amp;')
-    .replaceAll('<', '&lt;')
-    .replaceAll('>', '&gt;');
 }
 
 function toHtml(
@@ -212,19 +213,6 @@ ${body}
 </body></html>`;
 }
 
-async function toPdf(html: string) {
-  const form = new FormData();
-  form.append('files', new Blob([html], { type: 'text/html' }), 'index.html');
-  const response = await fetch(`${env.GOTENBERG_URL}/forms/chromium/convert/html`, {
-    method: 'POST',
-    body: form,
-  });
-  if (!response.ok) {
-    throw new Error(`Gotenberg respondeu ${response.status}: ${await response.text()}`);
-  }
-  return Buffer.from(await response.arrayBuffer());
-}
-
 export function registerReportExport(app: Hono) {
   app.get('/api/reports/export', async (c) => {
     const query = c.req.query();
@@ -232,7 +220,16 @@ export function registerReportExport(app: Hono) {
     const format = query.format;
     const unitId = query.unitId;
 
-    if (!type || !(type in reportDefs) || !unitId || (format !== 'csv' && format !== 'pdf')) {
+    // unitId precisa ser UUID: valor malformado chegaria ao Postgres e viraria
+    // 500 (invalid input syntax for type uuid) em vez de um 400 honesto.
+    const isUuid = (value: string | undefined): value is string =>
+      Boolean(value) && UUID_RE.test(value!);
+    if (
+      !type ||
+      !(type in reportDefs) ||
+      !isUuid(unitId) ||
+      (format !== 'csv' && format !== 'pdf')
+    ) {
       return c.json({ error: 'Parâmetros inválidos' }, 400);
     }
 
@@ -278,7 +275,7 @@ export function registerReportExport(app: Hono) {
     }
 
     const subtitle = `${unitRow.companyName} — ${unitRow.unitName} · gerado em ${new Date().toLocaleDateString('pt-BR')}`;
-    const pdf = await toPdf(toHtml(def.title, subtitle, def.columns, rows));
+    const pdf = await htmlToPdf(toHtml(def.title, subtitle, def.columns, rows));
     return c.body(pdf, 200, {
       'content-type': 'application/pdf',
       'content-disposition': `attachment; filename="${fileBase}.pdf"`,

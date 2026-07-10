@@ -3,7 +3,13 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useParams } from '@tanstack/react-router';
 import { ArrowLeft, FileText, Plus, Text, Trash2, Users } from 'lucide-react';
 import type { RegisterTarget, RequirementType } from '@easynr10/shared';
-import { registerTargetLabels, registerTargets, requirementTypes } from '@easynr10/shared';
+import {
+  defaultRegisterFields,
+  registerTargetLabels,
+  registerTargets,
+  requirementTypeLabels,
+  requirementTypes,
+} from '@easynr10/shared';
 import { trpc } from '@/lib/trpc';
 import { useUnitPermissions } from '@/lib/use-unit-permissions';
 import { Button } from '@/components/ui/button';
@@ -15,17 +21,19 @@ import { SelectField } from '@/components/ui/select';
 // Configuração de um item de adequação (RF13.1), porte do itemDetail do
 // legado: status do item, orientação da unidade e requisitos de evidência.
 
-const typeLabels: Record<RequirementType, string> = {
-  document: 'Documento',
-  opinion: 'Parecer',
-  group: 'Grupo',
-};
+const typeLabels = requirementTypeLabels;
 
 const typeIcons: Record<RequirementType, typeof FileText> = {
   document: FileText,
   opinion: Text,
-  group: Users,
+  cadastro: Users,
 };
+
+// Colunas de documento (kind=document) de um cadastro-alvo — o requisito
+// cadastro expande usando os vínculos dessa coluna.
+function documentColumns(target: RegisterTarget) {
+  return defaultRegisterFields[target].filter((field) => field.kind === 'document');
+}
 
 export function DiagnosticoItemPage() {
   const { companyId, unitId, adequacyItemId } = useParams({
@@ -44,7 +52,6 @@ export function DiagnosticoItemPage() {
   const requirements = useQuery(
     trpc.adequacy.requirements.queryOptions({ unitId, adequacyItemId }),
   );
-  const defaultDocuments = useQuery(trpc.defaultDocuments.list.queryOptions());
 
   // — Status + orientação —
   const [isActive, setIsActive] = useState(true);
@@ -95,12 +102,12 @@ export function DiagnosticoItemPage() {
   const [type, setType] = useState<RequirementType>('document');
   const [question, setQuestion] = useState('');
   const [targetGroup, setTargetGroup] = useState<RegisterTarget | ''>('');
-  const [defaultDocumentId, setDefaultDocumentId] = useState('');
+  const [fieldKey, setFieldKey] = useState('');
   const [confirmRemoveAll, setConfirmRemoveAll] = useState(false);
 
   const canAdd =
     question.trim().length > 0 &&
-    (type !== 'group' || (targetGroup && defaultDocumentId)) &&
+    (type !== 'cadastro' || (targetGroup && fieldKey)) &&
     !addRequirement.isPending;
 
   return (
@@ -206,16 +213,18 @@ export function DiagnosticoItemPage() {
                     <Icon aria-hidden className="size-3.5" /> {typeLabels[req.type]}
                   </p>
                   <p className="mt-0.5 text-sm font-medium">{req.question}</p>
-                  {req.type === 'group' && (
+                  {req.type === 'cadastro' && (
                     <div className="mt-1 flex flex-wrap gap-1.5">
                       {req.targetGroup && (
                         <span className="rounded-full bg-idle-soft px-2 py-0.5 text-micro text-idle">
                           {registerTargetLabels[req.targetGroup]}
                         </span>
                       )}
-                      {req.defaultDocumentName && (
+                      {req.targetGroup && req.fieldKey && (
                         <span className="rounded-full bg-idle-soft px-2 py-0.5 text-micro text-idle">
-                          busca: {req.defaultDocumentName}
+                          coluna:{' '}
+                          {documentColumns(req.targetGroup).find((f) => f.key === req.fieldKey)
+                            ?.label ?? req.fieldKey}
                         </span>
                       )}
                     </div>
@@ -249,8 +258,8 @@ export function DiagnosticoItemPage() {
               adequacyItemId,
               type,
               question: question.trim(),
-              targetGroup: type === 'group' && targetGroup ? targetGroup : null,
-              defaultDocumentId: type === 'group' ? defaultDocumentId : null,
+              targetGroup: type === 'cadastro' && targetGroup ? targetGroup : null,
+              fieldKey: type === 'cadastro' && fieldKey ? fieldKey : null,
             });
           }}
           className="space-y-3 rounded-card border border-dashed border-line-strong bg-paper p-4"
@@ -270,11 +279,11 @@ export function DiagnosticoItemPage() {
               ))}
             </SelectField>
             <Field
-              label={type === 'group' ? 'Pergunta (por membro do grupo)' : 'Descrição'}
+              label={type === 'cadastro' ? 'Pergunta (por item do cadastro)' : 'Descrição'}
               value={question}
               onChange={(e) => setQuestion(e.target.value)}
               placeholder={
-                type === 'group'
+                type === 'cadastro'
                   ? 'Ex.: Certificado de treinamento NR-10'
                   : 'Ex.: Laudo técnico atualizado das instalações'
               }
@@ -285,15 +294,18 @@ export function DiagnosticoItemPage() {
             </Button>
           </div>
 
-          {type === 'group' && (
+          {type === 'cadastro' && (
             <div className="flex flex-wrap gap-3 rounded-card border border-action/20 bg-action-soft/40 p-3">
               <SelectField
-                label="Grupo alvo"
+                label="Cadastro alvo"
                 value={targetGroup}
-                onChange={(e) => setTargetGroup(e.target.value as RegisterTarget | '')}
+                onChange={(e) => {
+                  setTargetGroup(e.target.value as RegisterTarget | '');
+                  setFieldKey('');
+                }}
                 className="min-w-52 flex-1"
               >
-                <option value="">Selecionar grupo…</option>
+                <option value="">Selecionar cadastro…</option>
                 {registerTargets.map((target) => (
                   <option key={target} value={target}>
                     {registerTargetLabels[target]}
@@ -301,17 +313,20 @@ export function DiagnosticoItemPage() {
                 ))}
               </SelectField>
               <SelectField
-                label="Documento padrão (termo da busca automática)"
-                value={defaultDocumentId}
-                onChange={(e) => setDefaultDocumentId(e.target.value)}
+                label="Coluna de documento"
+                value={fieldKey}
+                onChange={(e) => setFieldKey(e.target.value)}
                 className="min-w-52 flex-1"
+                disabled={!targetGroup}
+                hint={!targetGroup ? 'Escolha o cadastro primeiro' : undefined}
               >
-                <option value="">Selecionar documento…</option>
-                {defaultDocuments.data?.map((doc) => (
-                  <option key={doc.id} value={doc.id}>
-                    {doc.name}
-                  </option>
-                ))}
+                <option value="">Selecionar coluna…</option>
+                {targetGroup &&
+                  documentColumns(targetGroup).map((field) => (
+                    <option key={field.key} value={field.key}>
+                      {field.label}
+                    </option>
+                  ))}
               </SelectField>
             </div>
           )}

@@ -7,8 +7,9 @@ import { Button } from '@/components/ui/button';
 export interface DocumentPreview {
   documentId: string;
   name: string;
-  url: string;
-  mimeType: string;
+  // url/mimeType nulos = documento sem arquivo enviado (só referência).
+  url: string | null;
+  mimeType: string | null;
 }
 
 export function DocumentPreviewDialog({
@@ -29,7 +30,12 @@ export function DocumentPreviewDialog({
     >
       {preview && (
         <div className="flex flex-col gap-3">
-          {preview.mimeType === 'application/pdf' || preview.mimeType.startsWith('text/') ? (
+          {!preview.url || !preview.mimeType ? (
+            <p className="py-10 text-center text-sm text-muted">
+              Este documento é só uma referência — nenhum arquivo foi enviado ainda. Envie um
+              arquivo no P.I.E para poder visualizá-lo.
+            </p>
+          ) : preview.mimeType === 'application/pdf' || preview.mimeType.startsWith('text/') ? (
             <iframe
               src={preview.url}
               title={preview.name}
@@ -53,9 +59,11 @@ export function DocumentPreviewDialog({
             <Button type="button" variant="secondary" onClick={onClose}>
               Fechar
             </Button>
-            <Button type="button" onClick={() => onDownload(preview.documentId)}>
-              Baixar
-            </Button>
+            {preview.url && (
+              <Button type="button" onClick={() => onDownload(preview.documentId)}>
+                Baixar
+              </Button>
+            )}
           </div>
         </div>
       )}

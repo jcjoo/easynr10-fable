@@ -1,6 +1,6 @@
 import { TRPCError } from '@trpc/server';
 import { and, eq, inArray, isNull } from 'drizzle-orm';
-import { notDeleted, schema, type Db } from '@easynr10/db';
+import { notDeleted, schema, type Db, type DbOrTx } from '@easynr10/db';
 import type { FolderSchemaNode } from '@easynr10/db/schema';
 
 const { folder, folderSchema, document, employee, equipment, registerDocumentLink } = schema;
@@ -59,7 +59,7 @@ export async function removeFolderSubtree(db: Db, unitId: string, rootFolderId: 
 // estruturas (folder-schemas) e pelos cadastros (pasta do item pode nascer
 // com uma estrutura dentro).
 
-export async function findUnitSchemaOrThrow(db: Db, unitId: string, schemaId: string) {
+export async function findUnitSchemaOrThrow(db: DbOrTx, unitId: string, schemaId: string) {
   const found = await db.query.folderSchema.findFirst({
     where: and(
       eq(folderSchema.id, schemaId),
@@ -76,7 +76,7 @@ export async function findUnitSchemaOrThrow(db: Db, unitId: string, schemaId: st
 // Cria as pastas da estrutura sob parentId, pulando as que já existem no
 // mesmo nível (idempotente).
 export async function ensureFolderStructure(
-  db: Db,
+  db: DbOrTx,
   unitId: string,
   nodes: FolderSchemaNode[],
   parentId: string | null,

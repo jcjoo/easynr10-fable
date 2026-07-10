@@ -1,9 +1,10 @@
 import { TRPCError } from '@trpc/server';
 import { and, asc, eq, inArray } from 'drizzle-orm';
-import { notDeleted, schema } from '@easynr10/db';
+import { notDeleted, schema, type Db } from '@easynr10/db';
 import {
   customFieldCreateSchema,
   defaultRegisterFields,
+  documentLinkAdherenceSchema,
   documentLinkSchema,
   documentUnlinkSchema,
   employeeImportSchema,
@@ -17,6 +18,13 @@ import {
 } from '@easynr10/shared';
 import { z } from 'zod';
 import { router, unitAction } from '../trpc';
+import {
+  buildLogoKey,
+  imageMimes,
+  imageMimeFromKey,
+  presignPreview,
+  presignUpload,
+} from '../s3';
 import { findUnitSchemaOrThrow, removeFolderSubtree } from '../services/folders';
 import { ensureRegisterSkeleton } from '../services/register-folders';
 import {
@@ -64,6 +72,27 @@ function docMatchesField(docName: string, field: RegisterField) {
     const n = normalizeText(name).trim();
     return doc === n || doc.startsWith(`${n} - `);
   });
+}
+
+// Isolamento de tenant nos vínculos: os itens a (des)vincular precisam ser da
+// unidade da procedure. Sem isso, um membro de uma unidade conseguiria criar/
+// remover vínculos apontando para colaboradores/equipamentos de outra.
+async function assertItemsInUnit(
+  db: Db,
+  unitId: string,
+  kind: 'employee' | 'equipment',
+  ids: string[],
+) {
+  if (ids.length === 0) return;
+  const table = kind === 'employee' ? employee : equipment;
+  const label = kind === 'employee' ? 'Colaborador' : 'Equipamento';
+  const found = await db
+    .select({ id: table.id })
+    .from(table)
+    .where(and(eq(table.unitId, unitId), inArray(table.id, ids), notDeleted(table)));
+  if (found.length !== new Set(ids).size) {
+    throw new TRPCError({ code: 'NOT_FOUND', message: `${label} não encontrado nesta unidade` });
+  }
 }
 
 export const registersRouter = router({
@@ -313,6 +342,8 @@ export const registersRouter = router({
         fieldKey: registerDocumentLink.fieldKey,
         documentId: registerDocumentLink.documentId,
         documentName: document.name,
+        documentFolderId: document.folderId,
+        adherence: registerDocumentLink.adherence,
         expiresAt: document.expiresAt,
         warnDaysBefore: document.warnDaysBefore,
       })
@@ -360,6 +391,7 @@ export const registersRouter = router({
           id: document.id,
           folderId: document.folderId,
           name: document.name,
+          adherence: document.adherence,
           expiresAt: document.expiresAt,
           warnDaysBefore: document.warnDaysBefore,
         })
@@ -431,6 +463,9 @@ export const registersRouter = router({
               fieldKey: field.key,
               documentId: match.id,
               documentName: match.name,
+              documentFolderId: match.folderId,
+              // Auto-vínculo não persiste nota própria: usa a do documento.
+              adherence: match.adherence,
               expiresAt: match.expiresAt,
               warnDaysBefore: match.warnDaysBefore,
               auto: true,
@@ -447,7 +482,7 @@ export const registersRouter = router({
     .mutation(async ({ ctx, input }) => {
       // Documento precisa ser da unidade.
       const [doc] = await ctx.db
-        .select({ id: document.id })
+        .select({ id: document.id, adherence: document.adherence })
         .from(document)
         .innerJoin(folder, eq(document.folderId, folder.id))
         .where(
@@ -460,6 +495,14 @@ export const registersRouter = router({
       if (!doc) {
         throw new TRPCError({ code: 'NOT_FOUND', message: 'Documento não encontrado' });
       }
+
+      // Nota por item: a informada para o item ou, por padrão, a do documento.
+      const adherenceFor = (id: string) =>
+        input.adherences && id in input.adherences ? input.adherences[id]! : doc.adherence;
+
+      // Itens também precisam ser da unidade (não só o documento).
+      await assertItemsInUnit(ctx.db, input.unitId, 'employee', input.employeeIds);
+      await assertItemsInUnit(ctx.db, input.unitId, 'equipment', input.equipmentIds);
 
       // Mesmo fluxo para os dois alvos: substitui o vínculo ativo do campo
       // (máx. 1 documento por item+campo) e insere os novos.
@@ -486,6 +529,7 @@ export const registersRouter = router({
             fieldKey: input.fieldKey,
             employeeId: kind === 'employee' ? id : null,
             equipmentId: kind === 'equipment' ? id : null,
+            adherence: adherenceFor(id),
           })),
         );
       }
@@ -495,6 +539,13 @@ export const registersRouter = router({
   unlinkDocument: unitAction('cadastros.vinculos')
     .input(documentUnlinkSchema)
     .mutation(async ({ ctx, input }) => {
+      // O schema garante exatamente um alvo; aqui garantimos que é da unidade.
+      await assertItemsInUnit(
+        ctx.db,
+        input.unitId,
+        input.employeeId ? 'employee' : 'equipment',
+        [(input.employeeId ?? input.equipmentId)!],
+      );
       await ctx.db
         .update(registerDocumentLink)
         .set({ deletedAt: new Date() })
@@ -502,11 +553,117 @@ export const registersRouter = router({
           and(
             input.employeeId
               ? eq(registerDocumentLink.employeeId, input.employeeId)
-              : eq(registerDocumentLink.equipmentId, input.equipmentId ?? ''),
+              : eq(registerDocumentLink.equipmentId, input.equipmentId!),
             eq(registerDocumentLink.fieldKey, input.fieldKey),
             notDeleted(registerDocumentLink),
           ),
         );
       return { success: true };
+    }),
+
+  // Edita a nota de um vínculo já existente (uma linha item+campo).
+  setLinkAdherence: unitAction('cadastros.vinculos')
+    .input(documentLinkAdherenceSchema)
+    .mutation(async ({ ctx, input }) => {
+      await assertItemsInUnit(
+        ctx.db,
+        input.unitId,
+        input.employeeId ? 'employee' : 'equipment',
+        [(input.employeeId ?? input.equipmentId)!],
+      );
+      await ctx.db
+        .update(registerDocumentLink)
+        .set({ adherence: input.adherence })
+        .where(
+          and(
+            input.employeeId
+              ? eq(registerDocumentLink.employeeId, input.employeeId)
+              : eq(registerDocumentLink.equipmentId, input.equipmentId!),
+            eq(registerDocumentLink.fieldKey, input.fieldKey),
+            notDeleted(registerDocumentLink),
+          ),
+        );
+      return { success: true };
+    }),
+
+  // — Foto opcional do item de cadastro (mesmo fluxo do logo da empresa) —
+  photoUploadUrl: unitAction('cadastros.itens')
+    .input(z.object({ unitId: z.uuid(), mimeType: z.enum(imageMimes) }))
+    .mutation(async ({ input }) => {
+      const storageKey = buildLogoKey(`units/${input.unitId}/register-photos`, input.mimeType);
+      return { storageKey, uploadUrl: await presignUpload(storageKey, input.mimeType) };
+    }),
+
+  setItemPhoto: unitAction('cadastros.itens')
+    .input(
+      z
+        .object({
+          unitId: z.uuid(),
+          employeeId: z.uuid().nullish(),
+          equipmentId: z.uuid().nullish(),
+          photoKey: z.string().max(512).nullable(),
+        })
+        .refine((v) => Boolean(v.employeeId) !== Boolean(v.equipmentId), {
+          message: 'Informe um colaborador OU um equipamento',
+        }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const [row] = input.employeeId
+        ? await ctx.db
+            .update(employee)
+            .set({ photoKey: input.photoKey })
+            .where(
+              and(
+                eq(employee.id, input.employeeId),
+                eq(employee.unitId, input.unitId),
+                notDeleted(employee),
+              ),
+            )
+            .returning({ id: employee.id })
+        : await ctx.db
+            .update(equipment)
+            .set({ photoKey: input.photoKey })
+            .where(
+              and(
+                eq(equipment.id, input.equipmentId!),
+                eq(equipment.unitId, input.unitId),
+                notDeleted(equipment),
+              ),
+            )
+            .returning({ id: equipment.id });
+      if (!row) throw new TRPCError({ code: 'NOT_FOUND', message: 'Item não encontrado' });
+      return { success: true };
+    }),
+
+  itemPhotoUrl: unitAction('cadastros.ler')
+    .input(
+      z
+        .object({
+          unitId: z.uuid(),
+          employeeId: z.uuid().nullish(),
+          equipmentId: z.uuid().nullish(),
+        })
+        .refine((v) => Boolean(v.employeeId) !== Boolean(v.equipmentId), {
+          message: 'Informe um colaborador OU um equipamento',
+        }),
+    )
+    .query(async ({ ctx, input }) => {
+      const found = input.employeeId
+        ? await ctx.db.query.employee.findFirst({
+            where: and(
+              eq(employee.id, input.employeeId),
+              eq(employee.unitId, input.unitId),
+              notDeleted(employee),
+            ),
+          })
+        : await ctx.db.query.equipment.findFirst({
+            where: and(
+              eq(equipment.id, input.equipmentId!),
+              eq(equipment.unitId, input.unitId),
+              notDeleted(equipment),
+            ),
+          });
+      if (!found?.photoKey) return null;
+      return presignPreview(found.photoKey, 'foto', imageMimeFromKey(found.photoKey));
     }),
 });

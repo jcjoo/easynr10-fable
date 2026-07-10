@@ -10,13 +10,13 @@ import {
 } from '@easynr10/shared';
 import { z } from 'zod';
 import { publicProcedure, router, unitAction } from '../trpc';
-import { presignPreview } from '../s3';
+import { presignPreview, purgeObjects } from '../s3';
 import {
   findAuthorizationByToken,
   findUnitAuthorization,
   signAuthorization,
 } from '../services/authorizations';
-import { purgeDocuments } from '../services/purge';
+import { purgeDocumentsTx } from '../services/purge';
 
 const { activity, authorization, authorizationEvent, document, documentVersion, employee } =
   schema;
@@ -124,13 +124,18 @@ export const authorizationsRouter = router({
     .mutation(async ({ ctx, input }) => {
       const bundle = await findUnitAuthorization(ctx.db, input.unitId, input.authorizationId);
       const row = bundle.authorization;
-      await ctx.db.transaction(async (tx) => {
-        await tx
-          .delete(authorizationEvent)
-          .where(eq(authorizationEvent.authorizationId, row.id));
+      // Registro, trilha e PDF somem JUNTOS, na mesma transação — sem a janela
+      // em que a autorização já saiu mas o documento órfão segue visível no PIE.
+      const storageKeys = await ctx.db.transaction(async (tx) => {
+        await tx.delete(authorizationEvent).where(eq(authorizationEvent.authorizationId, row.id));
+        // purgeDocumentsTx zera authorization.document_id (FK) antes de apagar o
+        // documento; a autorização em si sai logo abaixo.
+        const keys = row.documentId ? await purgeDocumentsTx(tx, [row.documentId]) : [];
         await tx.delete(authorization).where(eq(authorization.id, row.id));
+        return keys;
       });
-      if (row.documentId) await purgeDocuments(ctx.db, [row.documentId]);
+      // Storage fora da transação (não participa do rollback do banco).
+      await purgeObjects(storageKeys);
       return { success: true };
     }),
 

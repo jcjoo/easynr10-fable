@@ -90,13 +90,18 @@ export interface Nr10GroupSummary {
 // Média ponderada da aderência (mesma conta da aderência geral do painel):
 // só itens avaliados entram; sem avaliação não é nota zero, é ausência.
 export function weightedAdherencePercent(
-  rows: { importanceWeight: number; status: DiagnosticStatus | null }[],
+  rows: { importanceWeight: number; status: DiagnosticStatus | null; score?: number | null }[],
 ): number | null {
   const evaluated = rows.filter((row) => row.status !== null);
   const weightSum = evaluated.reduce((sum, row) => sum + row.importanceWeight, 0);
   if (weightSum === 0) return null;
+  // Nota do item = média exata das evidências (score 0..100). Fallback ao score
+  // do status para linhas antigas sem score.
   const scoreSum = evaluated.reduce(
-    (sum, row) => sum + row.importanceWeight * diagnosticStatusScore[row.status!],
+    (sum, row) =>
+      sum +
+      row.importanceWeight *
+        (row.score != null ? row.score / 100 : diagnosticStatusScore[row.status!]),
     0,
   );
   return Math.round((scoreSum / weightSum) * 100);

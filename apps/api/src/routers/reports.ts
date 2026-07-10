@@ -55,10 +55,14 @@ export const reportsRouter = router({
           ),
         );
 
-      const latest = new Map<string, DiagnosticStatus>();
+      const latest = new Map<string, { status: DiagnosticStatus; score: number | null }>();
       if (items.length > 0) {
         const rows = await ctx.db
-          .select({ adequacyItemId: diagnostic.adequacyItemId, status: diagnostic.status })
+          .select({
+            adequacyItemId: diagnostic.adequacyItemId,
+            status: diagnostic.status,
+            score: diagnostic.score,
+          })
           .from(diagnostic)
           .where(
             and(
@@ -71,7 +75,9 @@ export const reportsRouter = router({
           )
           .orderBy(desc(diagnostic.createdAt));
         for (const row of rows) {
-          if (!latest.has(row.adequacyItemId)) latest.set(row.adequacyItemId, row.status);
+          if (!latest.has(row.adequacyItemId)) {
+            latest.set(row.adequacyItemId, { status: row.status, score: row.score });
+          }
         }
       }
 
@@ -80,7 +86,8 @@ export const reportsRouter = router({
           .filter((item) => item.unitId === row.id)
           .map((item) => ({
             importanceWeight: item.importanceWeight,
-            status: latest.get(item.id) ?? null,
+            status: latest.get(item.id)?.status ?? null,
+            score: latest.get(item.id)?.score ?? null,
           }));
         return {
           unitId: row.id,

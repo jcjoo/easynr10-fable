@@ -49,6 +49,7 @@ export async function adequacySnapshot(db: Db, unitId: string) {
     .select({
       adequacyItemId: diagnostic.adequacyItemId,
       status: diagnostic.status,
+      score: diagnostic.score,
       deadline: diagnostic.deadline,
       responsible: diagnostic.responsible,
       recommendedAction: diagnostic.recommendedAction,
@@ -76,6 +77,7 @@ export async function adequacySnapshot(db: Db, unitId: string) {
     return {
       ...item,
       status: last?.status ?? null,
+      score: last?.score ?? null,
       deadline: last?.deadline ?? null,
       responsible: last?.responsible ?? null,
       recommendedAction: last?.recommendedAction ?? null,

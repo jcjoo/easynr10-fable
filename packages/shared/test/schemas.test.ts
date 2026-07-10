@@ -38,14 +38,14 @@ describe('requirementCreateSchema', () => {
     question: 'Existe laudo?',
   };
 
-  test('tipo group exige alvo e documento padrão', () => {
-    expect(() => requirementCreateSchema.parse({ ...base, type: 'group' })).toThrow();
+  test('tipo cadastro exige alvo e coluna de documento', () => {
+    expect(() => requirementCreateSchema.parse({ ...base, type: 'cadastro' })).toThrow();
     expect(
       requirementCreateSchema.parse({
         ...base,
-        type: 'group',
+        type: 'cadastro',
         targetGroup: 'epi',
-        defaultDocumentId: crypto.randomUUID(),
+        fieldKey: 'ca',
       }).targetGroup,
     ).toBe('epi');
   });

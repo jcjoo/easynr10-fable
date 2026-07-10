@@ -1,11 +1,13 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { FileText, Upload, X } from 'lucide-react';
+import type { DiagnosticStatus } from '@easynr10/shared';
 import { trpc } from '@/lib/trpc';
 import { Button } from '@/components/ui/button';
 import { Dialog } from '@/components/ui/dialog';
 import { Field } from '@/components/ui/field';
 import { SelectField } from '@/components/ui/select';
+import { AdherencePicker } from '@/components/ui/adherence-picker';
 
 const ACCEPT = '.pdf,.jpg,.jpeg,.png,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.zip,.rar,.dwg';
 
@@ -35,6 +37,7 @@ export function UploadDocumentDialog({
   const [label, setLabel] = useState('');
   const [expiresAt, setExpiresAt] = useState('');
   const [warnDays, setWarnDays] = useState('');
+  const [adherence, setAdherence] = useState<DiagnosticStatus | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -47,6 +50,7 @@ export function UploadDocumentDialog({
       setLabel('');
       setExpiresAt('');
       setWarnDays('');
+      setAdherence(null);
       setError(null);
     }
   }, [open]);
@@ -103,6 +107,7 @@ export function UploadDocumentDialog({
         expiresAt: expiresAt || null,
         warnDaysBefore: warnDays ? Number(warnDays) : null,
         documentGroup: withoutReference ? null : (selected?.documentGroup ?? null),
+        adherence,
       });
       queryClient.invalidateQueries({
         queryKey: trpc.documents.listByFolder.queryKey({ unitId, folderId }),
@@ -188,6 +193,14 @@ export function UploadDocumentDialog({
             onChange={(e) => setWarnDays(e.target.value)}
             className="flex-1"
           />
+        </div>
+
+        <div className="flex flex-col gap-1.5">
+          <span className="font-ui text-caption font-semibold">Aderência (opcional)</span>
+          <AdherencePicker value={adherence} onChange={setAdherence} size="sm" />
+          <p className="text-xs text-muted">
+            Vira a nota inicial ao vincular este documento num cadastro e nas evidências.
+          </p>
         </div>
 
         {/* Dropzone */}

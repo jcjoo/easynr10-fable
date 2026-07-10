@@ -16,8 +16,18 @@ const app = new Hono();
 app.use(logger());
 app.use('/api/*', cors({ origin: env.FRONTEND_URL, credentials: true }));
 
-// Rotas do better-auth (login, logout, sessão, OAuth…).
-app.on(['GET', 'POST'], '/api/auth/*', (c) => auth.handler(c.req.raw));
+// Rotas do better-auth (login, logout, sessão, OAuth…). O auto-registro
+// público fica bloqueado: contas são criadas SÓ pelo admin (users.create /
+// createForCompany / bootstrap-admin), que chama `auth.api.signUpEmail`
+// server-side — em processo, sem passar por este handler HTTP. Bloquear aqui
+// (em vez de `disableSignUp`) fecha o endpoint público sem quebrar a criação
+// interna, que passaria pela mesma guarda do better-auth.
+app.on(['GET', 'POST'], '/api/auth/*', (c) => {
+  if (c.req.path.startsWith('/api/auth/sign-up')) {
+    return c.json({ error: 'Cadastro público desabilitado' }, 403);
+  }
+  return auth.handler(c.req.raw);
+});
 
 // Rotas tRPC.
 app.on(['GET', 'POST'], '/api/trpc/*', (c) =>

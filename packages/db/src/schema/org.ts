@@ -1,5 +1,6 @@
 import {
   boolean,
+  index,
   jsonb,
   pgTable,
   primaryKey,
@@ -83,5 +84,9 @@ export const membership = pgTable(
       .references(() => appRole.id),
     ...audit,
   },
-  (t) => [primaryKey({ columns: [t.unitId, t.userId] })],
+  (t) => [
+    primaryKey({ columns: [t.unitId, t.userId] }),
+    // A PK cobre buscas por unidade; "unidades de um usuário" filtra por user_id.
+    index('idx_membership_user').on(t.userId),
+  ],
 );

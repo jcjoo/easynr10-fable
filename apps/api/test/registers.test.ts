@@ -3,7 +3,7 @@
 // campos personalizados e vínculos campo→documento.
 import { describe, expect, test } from 'bun:test';
 import { registerBasePath } from '@easynr10/shared';
-import { seedDocument, setupUnit, uniqueName } from './helpers';
+import { expectTRPCError, seedDocument, setupUnit, uniqueName } from './helpers';
 
 type FolderRow = { id: string; name: string; parentId: string | null };
 
@@ -338,5 +338,100 @@ describe('registers', () => {
     const base = [...registerBasePath.colaboradores, name].join('/');
     expect(paths.has(`${base}/Certificados`)).toBe(true);
     expect(paths.has(`${base}/Certificados/Vencidos`)).toBe(true);
+  });
+});
+
+describe('registers — isolamento de tenant e robustez', () => {
+  test('linkDocument rejeita item de OUTRA unidade', async () => {
+    const a = await setupUnit();
+    const b = await setupUnit();
+    const folder = (await a.adminCaller.folders.create({
+      unitId: a.unit.id,
+      parentId: null,
+      name: uniqueName('Docs'),
+    }))!;
+    const doc = await seedDocument(a.adminCaller, a.unit.id, folder.id, { name: 'CA' });
+    const epiB = (await b.adminCaller.registers.upsertEquipment({
+      unitId: b.unit.id,
+      name: uniqueName('Capacete'),
+      type: 'epi',
+      metadata: {},
+    }))!;
+    // Documento é da unidade A, mas o equipamento é da B → barra.
+    await expectTRPCError(
+      a.adminCaller.registers.linkDocument({
+        unitId: a.unit.id,
+        fieldKey: 'ca',
+        documentId: doc.id,
+        employeeIds: [],
+        equipmentIds: [epiB.id],
+      }),
+      'NOT_FOUND',
+    );
+  });
+
+  test('unlinkDocument rejeita item de OUTRA unidade', async () => {
+    const a = await setupUnit();
+    const b = await setupUnit();
+    const epiB = (await b.adminCaller.registers.upsertEquipment({
+      unitId: b.unit.id,
+      name: uniqueName('Luva'),
+      type: 'epi',
+      metadata: {},
+    }))!;
+    await expectTRPCError(
+      a.adminCaller.registers.unlinkDocument({
+        unitId: a.unit.id,
+        fieldKey: 'ca',
+        equipmentId: epiB.id,
+      }),
+      'NOT_FOUND',
+    );
+  });
+
+  test('unlinkDocument exige exatamente um alvo', async () => {
+    const { adminCaller, unit } = await setupUnit();
+    await expectTRPCError(
+      adminCaller.registers.unlinkDocument({ unitId: unit.id, fieldKey: 'ca' }),
+      'BAD_REQUEST',
+    );
+  });
+
+  test('nome de equipamento é único entre tipos (upsert e import)', async () => {
+    const { adminCaller, unit } = await setupUnit();
+    const name = uniqueName('Multiuso');
+    await adminCaller.registers.upsertEquipment({ unitId: unit.id, name, type: 'epi', metadata: {} });
+    // Mesmo nome em OUTRO tipo: o índice único é por unidade cruzando tipos.
+    await expectTRPCError(
+      adminCaller.registers.upsertEquipment({ unitId: unit.id, name, type: 'ferramenta', metadata: {} }),
+      'CONFLICT',
+    );
+    // Import barra antes de escrever (nada de import pela metade).
+    await expectTRPCError(
+      adminCaller.registers.importEquipment({
+        unitId: unit.id,
+        type: 'ferramenta',
+        items: [{ name, metadata: {} }],
+      }),
+      'CONFLICT',
+    );
+  });
+
+  test('renomear item renomeia a pasta dele no P.I.E', async () => {
+    const { adminCaller, unit } = await setupUnit();
+    const created = (await adminCaller.registers.upsertEmployee({
+      unitId: unit.id,
+      name: uniqueName('Antigo'),
+      metadata: {},
+    }))!;
+    const novo = uniqueName('Novo');
+    await adminCaller.registers.upsertEmployee({
+      unitId: unit.id,
+      employeeId: created.id,
+      name: novo,
+      metadata: {},
+    });
+    const folders: FolderRow[] = await adminCaller.folders.list({ unitId: unit.id });
+    expect(pathOf(folders, created.folderId)).toEqual([...registerBasePath.colaboradores, novo]);
   });
 });

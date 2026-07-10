@@ -6,6 +6,8 @@ interface DialogProps {
   open: boolean;
   onClose: () => void;
   title: string;
+  /** Chip opcional ao lado do título (ex.: código da norma no diagnóstico). */
+  titleBadge?: ReactNode;
   children: ReactNode;
   /** md = formulários simples (default); lg = fluxos densos (diagnóstico);
    *  xl = conteúdo grande (preview de documento). */
@@ -19,7 +21,7 @@ const sizeClasses = {
 };
 
 // Camada flutuante: única superfície com sombra (guia — raio & elevação).
-export function Dialog({ open, onClose, title, children, size = 'md' }: DialogProps) {
+export function Dialog({ open, onClose, title, titleBadge, children, size = 'md' }: DialogProps) {
   useEffect(() => {
     if (!open) return;
     function onKeyDown(event: KeyboardEvent) {
@@ -49,7 +51,10 @@ export function Dialog({ open, onClose, title, children, size = 'md' }: DialogPr
         className={`flex max-h-[calc(100dvh-2rem)] w-full min-w-0 flex-col ${sizeClasses[size]} rounded-card border border-line-strong bg-surface shadow-pop`}
       >
         <div className="flex shrink-0 items-center justify-between border-b border-line px-5 py-3.5">
-          <h2 className="font-ui text-base font-semibold">{title}</h2>
+          <h2 className="flex min-w-0 items-center gap-2.5 font-ui text-base font-semibold">
+            <span className="truncate">{title}</span>
+            {titleBadge}
+          </h2>
           <button
             type="button"
             onClick={onClose}

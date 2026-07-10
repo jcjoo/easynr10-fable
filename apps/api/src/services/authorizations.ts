@@ -9,8 +9,8 @@ import {
   type EpiSheetDetails,
   type WorkPermitDetails,
 } from '@easynr10/shared';
-import { env } from '../env';
 import { buildStorageKey, putObject } from '../s3';
+import { escapeHtml, htmlToPdf } from './pdf';
 import { createItemFolder } from './register-folders';
 
 const { authorization, authorizationEvent, document, documentVersion, employee, unit, company } =
@@ -70,14 +70,6 @@ export async function findAuthorizationByToken(db: Db, token: string) {
     throw new TRPCError({ code: 'NOT_FOUND', message: 'Link de assinatura inválido' });
   }
   return bundle;
-}
-
-function escapeHtml(value: string) {
-  return value
-    .replaceAll('&', '&amp;')
-    .replaceAll('<', '&lt;')
-    .replaceAll('>', '&gt;')
-    .replaceAll('"', '&quot;');
 }
 
 const formatDateTime = (value: Date) =>
@@ -245,19 +237,6 @@ ${detailsHtml(bundle)}
 </section>
 
 </body></html>`;
-}
-
-async function htmlToPdf(html: string) {
-  const form = new FormData();
-  form.append('files', new Blob([html], { type: 'text/html' }), 'index.html');
-  const response = await fetch(`${env.GOTENBERG_URL}/forms/chromium/convert/html`, {
-    method: 'POST',
-    body: form,
-  });
-  if (!response.ok) {
-    throw new Error(`Gotenberg respondeu ${response.status}: ${await response.text()}`);
-  }
-  return new Uint8Array(await response.arrayBuffer());
 }
 
 // Assina a autorização: registra os eventos, gera o PDF e o arquiva como

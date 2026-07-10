@@ -347,8 +347,53 @@ export function compareNormCodes(a: string, b: string) {
   return 0;
 }
 
-export const requirementTypes = ['document', 'opinion', 'group'] as const;
+export const requirementTypes = ['document', 'opinion', 'cadastro'] as const;
 export type RequirementType = (typeof requirementTypes)[number];
+
+export const requirementTypeLabels: Record<RequirementType, string> = {
+  document: 'Documento',
+  opinion: 'Parecer técnico',
+  cadastro: 'Cadastro',
+};
+
+// — Aderência calculada pelas evidências (mudança de 10/07/2026) —
+// A aderência (documento, vínculo, evidência) usa a mesma escala de 5 níveis
+// do diagnóstico. A nota do item = média das notas das evidências, cada
+// evidência com peso 1; numa evidência tipo cadastro, cada item pesa 1/N.
+// Item/evidência/documento SEM nota conta como Inexistente (0).
+
+export interface AdherenceEvidence {
+  type: RequirementType;
+  adherence?: DiagnosticStatus | null;
+  items?: { adherence?: DiagnosticStatus | null }[];
+}
+
+// Nota (0..1) de uma evidência. Cadastro = média dos itens (sem nota ⇒ 0);
+// documento/parecer = a própria aderência (sem nota ⇒ 0).
+export function evidenceAdherenceScore(evidence: AdherenceEvidence): number {
+  if (evidence.type === 'cadastro') {
+    const items = evidence.items ?? [];
+    if (items.length === 0) return 0;
+    const sum = items.reduce(
+      (total, item) => total + (item.adherence ? diagnosticStatusScore[item.adherence] : 0),
+      0,
+    );
+    return sum / items.length;
+  }
+  return evidence.adherence ? diagnosticStatusScore[evidence.adherence] : 0;
+}
+
+// Nota (0..1) do item = média das evidências (peso 1 cada). Sem evidências ⇒ 0.
+export function diagnosticAdherenceScore(evidences: AdherenceEvidence[]): number {
+  if (evidences.length === 0) return 0;
+  return evidences.reduce((total, ev) => total + evidenceAdherenceScore(ev), 0) / evidences.length;
+}
+
+// Status derivado do percentual (0..100) pela faixa de aderência — usado para
+// prioridade da ação, distribuição e labels quando o valor vem de um cálculo.
+export function scoreToStatus(percent: number): DiagnosticStatus {
+  return adherenceBand(percent).status;
+}
 
 export const equipmentTypes = ['eletrico', 'ferramenta', 'epi', 'epc'] as const;
 export type EquipmentType = (typeof equipmentTypes)[number];

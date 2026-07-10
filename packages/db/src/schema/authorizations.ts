@@ -1,4 +1,4 @@
-import { jsonb, pgTable, text, timestamp, uniqueIndex, uuid, varchar } from 'drizzle-orm/pg-core';
+import { index, jsonb, pgTable, text, timestamp, uniqueIndex, uuid, varchar } from 'drizzle-orm/pg-core';
 import type { AuthorizationDetails } from '@easynr10/shared';
 import { audit, id, whereActive } from './helpers';
 import { authorizationEventType, authorizationStatus, authorizationType } from './enums';
@@ -34,7 +34,13 @@ export const authorization = pgTable(
       .references(() => user.id),
     ...audit,
   },
-  (t) => [uniqueIndex('uq_authorization_sign_token').on(t.signToken)],
+  (t) => [
+    uniqueIndex('uq_authorization_sign_token').on(t.signToken),
+    // Listagem por unidade+tipo; joins por colaborador/documento.
+    index('idx_authorization_unit').on(t.unitId),
+    index('idx_authorization_employee').on(t.employeeId),
+    index('idx_authorization_document').on(t.documentId),
+  ],
 );
 
 // Catálogo de atividades da unidade: opções do checklist da Autorização de
@@ -55,14 +61,19 @@ export const activity = pgTable(
 
 // Trilha de auditoria: eventos imutáveis (sem update/soft-delete), impressos
 // na ficha final do PDF assinado.
-export const authorizationEvent = pgTable('authorization_event', {
-  id: id(),
-  authorizationId: uuid('authorization_id')
-    .notNull()
-    .references(() => authorization.id),
-  type: authorizationEventType('type').notNull(),
-  // Quem fez: nome do operador (criada/cancelada) ou do colaborador
-  // (assinada); "assinada" registra também o meio (presencial/link).
-  actor: varchar('actor', { length: 255 }).notNull(),
-  createdAt: audit.createdAt,
-});
+export const authorizationEvent = pgTable(
+  'authorization_event',
+  {
+    id: id(),
+    authorizationId: uuid('authorization_id')
+      .notNull()
+      .references(() => authorization.id),
+    type: authorizationEventType('type').notNull(),
+    // Quem fez: nome do operador (criada/cancelada) ou do colaborador
+    // (assinada); "assinada" registra também o meio (presencial/link).
+    actor: varchar('actor', { length: 255 }).notNull(),
+    createdAt: audit.createdAt,
+  },
+  // Trilha de uma autorização (leitura + geração do PDF).
+  (t) => [index('idx_authorization_event_authorization').on(t.authorizationId)],
+);

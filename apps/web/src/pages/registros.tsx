@@ -6,9 +6,12 @@ import {
   ChevronDown,
   ChevronRight,
   FileSpreadsheet,
+  FileText,
+  Image as ImageIcon,
   Link2,
   Pencil,
   Plus,
+  Replace,
   Settings2,
   Sparkles,
   Trash2,
@@ -25,6 +28,9 @@ import {
   registerBasePath,
   registerTargetLabels,
   normalizeText,
+  diagnosticStatusScore,
+  scoreToStatus,
+  type DiagnosticStatus,
   type EquipmentType,
   type RegisterField,
   type RegisterModule,
@@ -40,8 +46,15 @@ import { FolderIcon } from '@/components/ui/icons';
 import { Page, PageTitle } from '@/components/ui/page';
 import { SelectField } from '@/components/ui/select';
 import { DocumentPickerDialog } from '@/components/pie/document-picker';
+import {
+  DocumentPreviewDialog,
+  type DocumentPreview,
+} from '@/components/pie/document-preview-dialog';
+import { AdherencePicker } from '@/components/ui/adherence-picker';
+import { StatusPill, adherenceDots, statusPillLabel } from '@/components/ui/status-pill';
+import { ItemSheetDialog } from '@/components/registros/item-sheet-dialog';
 import { ImportDialog } from '@/components/registros/import-dialog';
-import { Menu, type MenuPosition } from '@/components/ui/row-menu';
+import { Menu, type MenuItem, type MenuPosition } from '@/components/ui/row-menu';
 import {
   PlainTh,
   SortableTh,
@@ -73,6 +86,8 @@ interface DocLink {
   fieldKey: string;
   documentId: string;
   documentName: string;
+  documentFolderId: string | null;
+  adherence: DiagnosticStatus | null;
   expiresAt: string | null;
   warnDaysBefore: number | null;
   // Vínculo derivado do nome do documento na pasta do item (não persistido).
@@ -245,6 +260,9 @@ export function RegisterPage({
     editor.open(row);
     setName(row === 'new' ? '' : row.name);
     setMetadata(row === 'new' ? {} : (row.metadata ?? {}));
+    setPhotoFile(null);
+    setPhotoDirty(false);
+    setSaveError(null);
     const rowType = row === 'new' ? equipmentTab : (row.type ?? equipmentTab);
     setEditType(rowType);
     // Estrutura padrão do grupo vem pré-selecionada (mas segue opcional).
@@ -272,42 +290,135 @@ export function RegisterPage({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [novo]);
 
-  const closeEditorAndRefresh = () => {
-    editor.close();
-    invalidate();
-  };
-  const upsertEmployee = useDialogMutation(
-    trpc.registers.upsertEmployee.mutationOptions(),
-    closeEditorAndRefresh,
-  );
-  const upsertEquipment = useDialogMutation(
-    trpc.registers.upsertEquipment.mutationOptions(),
-    closeEditorAndRefresh,
-  );
-  const upsert = isEmployees ? upsertEmployee : upsertEquipment;
+  const upsertEmployee = useMutation(trpc.registers.upsertEmployee.mutationOptions());
+  const upsertEquipment = useMutation(trpc.registers.upsertEquipment.mutationOptions());
+  const photoUploadUrl = useMutation(trpc.registers.photoUploadUrl.mutationOptions());
+  const setItemPhoto = useMutation(trpc.registers.setItemPhoto.mutationOptions());
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
-  function save(event: React.FormEvent) {
-    event.preventDefault();
-    if (!name.trim()) return;
-    const base = {
+  // Foto opcional do item. photoDirty = usuário trocou/removeu a foto atual.
+  const [photoFile, setPhotoFile] = useState<File | null>(null);
+  const [photoDirty, setPhotoDirty] = useState(false);
+  const photoObjectUrl = useMemo(
+    () => (photoFile ? URL.createObjectURL(photoFile) : null),
+    [photoFile],
+  );
+  useEffect(
+    () => () => {
+      if (photoObjectUrl) URL.revokeObjectURL(photoObjectUrl);
+    },
+    [photoObjectUrl],
+  );
+  const editingId = editing !== 'new' && editing ? editing.id : null;
+  const currentPhoto = useQuery({
+    ...trpc.registers.itemPhotoUrl.queryOptions({
       unitId,
-      name: name.trim(),
-      metadata,
-      folderSchemaId: editing === 'new' && folderSchemaId ? folderSchemaId : null,
-    };
-    if (isEmployees) {
-      upsertEmployee.mutate({
-        ...base,
-        employeeId: editing !== 'new' && editing ? editing.id : undefined,
-      });
-    } else {
-      upsertEquipment.mutate({
-        ...base,
-        type: editType,
-        equipmentId: editing !== 'new' && editing ? editing.id : undefined,
-      });
+      employeeId: isEmployees ? editingId : null,
+      equipmentId: isEmployees ? null : editingId,
+    }),
+    enabled: editor.isOpen && Boolean(editingId),
+  });
+  // Preview: foto nova staged, ou (sem mudança) a atual do servidor.
+  const photoPreviewSrc = photoDirty ? photoObjectUrl : (currentPhoto.data ?? null);
+  const allowedPhotoMimes = ['image/png', 'image/jpeg', 'image/webp'] as const;
+
+  async function save(event: React.FormEvent) {
+    event.preventDefault();
+    if (!name.trim() || saving) return;
+    setSaving(true);
+    setSaveError(null);
+    try {
+      const base = {
+        unitId,
+        name: name.trim(),
+        metadata,
+        folderSchemaId: editing === 'new' && folderSchemaId ? folderSchemaId : null,
+      };
+      const item = isEmployees
+        ? await upsertEmployee.mutateAsync({
+            ...base,
+            employeeId: editing !== 'new' && editing ? editing.id : undefined,
+          })
+        : await upsertEquipment.mutateAsync({
+            ...base,
+            type: editType,
+            equipmentId: editing !== 'new' && editing ? editing.id : undefined,
+          });
+      if (photoDirty && item) {
+        let photoKey: string | null = null;
+        if (photoFile) {
+          const mimeType = allowedPhotoMimes.find((mime) => mime === photoFile.type);
+          if (!mimeType) throw new Error('Formato de imagem não suportado (use PNG, JPG ou WebP).');
+          const { storageKey, uploadUrl } = await photoUploadUrl.mutateAsync({ unitId, mimeType });
+          const put = await fetch(uploadUrl, {
+            method: 'PUT',
+            body: photoFile,
+            headers: { 'Content-Type': mimeType },
+          });
+          if (!put.ok) throw new Error('Falha ao enviar a foto.');
+          photoKey = storageKey;
+        }
+        await setItemPhoto.mutateAsync({
+          unitId,
+          employeeId: isEmployees ? item.id : null,
+          equipmentId: isEmployees ? null : item.id,
+          photoKey,
+        });
+        queryClient.invalidateQueries({
+          queryKey: trpc.registers.itemPhotoUrl.queryKey({
+            unitId,
+            employeeId: isEmployees ? item.id : null,
+            equipmentId: isEmployees ? null : item.id,
+          }),
+        });
+      }
+      editor.close();
+      invalidate();
+    } catch (error) {
+      setSaveError(
+        error instanceof Error ? error.message : 'Não foi possível salvar. Tente de novo.',
+      );
+    } finally {
+      setSaving(false);
     }
   }
+
+  // — Ficha do item (clique no nome) —
+  const fichaDialog = useDialogTarget<RegisterRow>();
+
+  // — Menu de contexto (clique direito na linha) —
+  const [rowMenu, setRowMenu] = useState<{ position: MenuPosition; row: RegisterRow } | null>(null);
+  const rowMenuItems = (row: RegisterRow): MenuItem[] => [
+    { label: 'Ver ficha', onSelect: () => fichaDialog.open(row) },
+    ...(row.folderId
+      ? [
+          {
+            label: 'Abrir pasta no P.I.E',
+            onSelect: () =>
+              navigate({
+                to: '/$companyId/$unitId/pie',
+                params: { companyId, unitId },
+                search: { pasta: row.folderId! },
+              }),
+          },
+        ]
+      : []),
+    ...(canLink
+      ? documentFields
+          .filter((field) => fieldApplies(field, row.metadata))
+          .map((field) => ({
+            label: `Vincular ${field.shortLabel ?? field.label}`,
+            onSelect: () => openLinkDialog(field, row.id),
+          }))
+      : []),
+    ...(canManageItems
+      ? [
+          { label: 'Editar', onSelect: () => openEditor(row) },
+          { label: 'Excluir', danger: true, onSelect: () => deleteDialog.open(row) },
+        ]
+      : []),
+  ];
 
   // — Excluir item —
   const deleteDialog = useDialogTarget<RegisterRow>();
@@ -360,15 +471,60 @@ export function RegisterPage({
   const linkDialog = useDialogTarget<{ field: RegisterField; preselected?: string }>();
   const [linkDocumentId, setLinkDocumentId] = useState('');
   const [linkDocumentName, setLinkDocumentName] = useState('');
+  // Aderência do documento escolhido = nota default de cada item selecionado.
+  const [linkDocAdherence, setLinkDocAdherence] = useState<DiagnosticStatus | null>(null);
   const [docPickerOpen, setDocPickerOpen] = useState(false);
   const [linkSelection, setLinkSelection] = useState<Set<string>>(new Set());
+  // Nota escolhida por item no modal (id do item → nota); item ausente usa o default.
+  const [linkNotas, setLinkNotas] = useState<Record<string, DiagnosticStatus | null>>({});
   const linkDocument = useDialogMutation(trpc.registers.linkDocument.mutationOptions(), () => {
     linkDialog.close();
     invalidateLinks();
   });
+  // Confirmação antes de desvincular um documento de um item.
+  const unlinkConfirm = useDialogTarget<{
+    fieldKey: string;
+    fieldLabel: string;
+    itemName: string;
+    documentName: string;
+    employeeId: string | null;
+    equipmentId: string | null;
+  }>();
   const unlinkDocument = useMutation(
-    trpc.registers.unlinkDocument.mutationOptions({ onSuccess: invalidateLinks }),
+    trpc.registers.unlinkDocument.mutationOptions({
+      onSuccess: () => {
+        unlinkConfirm.close();
+        invalidateLinks();
+      },
+    }),
   );
+
+  // — Preview do documento vinculado (mesmo dialog do P.I.E) —
+  const [preview, setPreview] = useState<DocumentPreview | null>(null);
+  const previewUrl = useMutation(trpc.documents.previewUrl.mutationOptions());
+  const downloadUrl = useMutation(trpc.documents.downloadUrl.mutationOptions());
+  async function openPreview(documentId: string, name: string) {
+    try {
+      const { url, mimeType } = await previewUrl.mutateAsync({ unitId, documentId });
+      setPreview({ documentId, name, url, mimeType });
+    } catch {
+      // Documento só-referência (sem arquivo enviado) → estado "sem conteúdo".
+      setPreview({ documentId, name, url: null, mimeType: null });
+    }
+  }
+  async function downloadDocument(documentId: string) {
+    const { url } = await downloadUrl.mutateAsync({ unitId, documentId });
+    window.open(url, '_blank');
+  }
+
+  // Abre a pasta do documento vinculado no P.I.E (Ctrl/⌘+clique no nome).
+  function goToDocumentFolder(folderId: string) {
+    navigate({
+      to: '/$companyId/$unitId/pie',
+      params: { companyId, unitId },
+      search: { pasta: folderId },
+    });
+  }
 
   function openLinkDialog(field: RegisterField, preselected?: string) {
     linkDialog.open({ field, preselected });
@@ -378,6 +534,10 @@ export function RegisterPage({
       : undefined;
     setLinkDocumentId(currentLink?.documentId ?? '');
     setLinkDocumentName(currentLink?.documentName ?? '');
+    setLinkDocAdherence(currentLink?.adherence ?? null);
+    setLinkNotas(
+      preselected && currentLink ? { [preselected]: currentLink.adherence } : {},
+    );
   }
 
   // — Importação por planilha (dialog em components/registros/import-dialog) —
@@ -409,9 +569,24 @@ export function RegisterPage({
     }
     return value ? normalizeText(value) : null;
   };
+  // Aderência média do item = média das notas dos documentos vinculados
+  // (coluna kind=document aplicável, sem nota ⇒ Inexistente). Null sem vínculos.
+  const itemAdherence = (row: RegisterRow): { percent: number; status: DiagnosticStatus } | null => {
+    const notas: number[] = [];
+    for (const field of documentFields) {
+      if (!fieldApplies(field, row.metadata)) continue;
+      const link = linkByItemField.get(`${row.id}:${field.key}`);
+      if (link) notas.push(link.adherence ? diagnosticStatusScore[link.adherence] : 0);
+    }
+    if (notas.length === 0) return null;
+    const percent = Math.round((notas.reduce((a, b) => a + b, 0) / notas.length) * 100);
+    return { percent, status: scoreToStatus(percent) };
+  };
+
   const accessors: Record<string, (row: RegisterRow) => SortValue> = {
     nome: (row) => normalizeText(row.name),
     pasta: (row) => (row.folderName ? normalizeText(row.folderName) : null),
+    aderencia: (row) => itemAdherence(row)?.percent ?? null,
     ...Object.fromEntries(
       allFields.map((field) => [`campo:${field.key}`, fieldAccessor(field)]),
     ),
@@ -498,6 +673,11 @@ export function RegisterPage({
                   label: field.shortLabel ?? field.label,
                   title: field.shortLabel ? field.label : undefined,
                 })),
+                {
+                  key: 'aderencia',
+                  label: 'Aderência',
+                  title: 'Média das notas dos documentos vinculados',
+                },
                 { key: 'pasta', label: 'Pasta', title: undefined as string | undefined },
               ].map(({ key, label, title }) => (
                 <SortableTh
@@ -516,15 +696,31 @@ export function RegisterPage({
           <tbody>
             {rows.length === 0 && (
               <tr>
-                <td colSpan={3 + allFields.length} className="px-3.5 py-12 text-center text-muted">
+                <td colSpan={4 + allFields.length} className="px-3.5 py-12 text-center text-muted">
                   Nenhum item cadastrado — os requisitos de evidência tipo grupo expandem os
                   itens deste cadastro.
                 </td>
               </tr>
             )}
             {sorted.map((row) => (
-              <tr key={row.id} className="group hover:bg-paper">
-                <Td className="font-medium">{row.name}</Td>
+              <tr
+                key={row.id}
+                onContextMenu={(e) => {
+                  e.preventDefault();
+                  setRowMenu({ position: { top: e.clientY, left: e.clientX }, row });
+                }}
+                className="group hover:bg-paper"
+              >
+                <Td className="font-medium">
+                  <button
+                    type="button"
+                    onClick={() => fichaDialog.open(row)}
+                    title={`Abrir a ficha de ${row.name}`}
+                    className="cursor-pointer text-left hover:text-action hover:underline"
+                  >
+                    {row.name}
+                  </button>
+                </Td>
                 {allFields.map((field) => {
                   // Colunas condicionadas (ex.: SEP) não se aplicam ao item.
                   if (!fieldApplies(field, row.metadata)) {
@@ -559,22 +755,45 @@ export function RegisterPage({
                                   ? 'Vínculo automático — documento com o nome padrão na pasta do item'
                                   : undefined
                               }
-                              className={`inline-flex max-w-56 items-center gap-1 rounded-full py-0.5 pl-2.5 ${canLink && !link.auto ? 'pr-1' : 'pr-2.5'} font-ui text-label font-semibold ${expiryTone(link)}`}
+                              className={`inline-flex items-center gap-1 rounded-full px-1 py-0.5 font-ui text-label font-semibold ${expiryTone(link)}`}
                             >
                               {link.auto && (
                                 <Sparkles aria-hidden className="size-3 shrink-0 opacity-70" />
                               )}
-                              {canLink ? (
+                              {link.adherence && (
+                                <span
+                                  aria-hidden
+                                  title={`Nota: ${statusPillLabel(link.adherence)}`}
+                                  className={`size-2 shrink-0 rounded-full ${adherenceDots[link.adherence]}`}
+                                />
+                              )}
+                              <button
+                                type="button"
+                                title={`${link.documentName} — clique para visualizar${
+                                  link.documentFolderId ? ' · Ctrl+clique abre a pasta no P.I.E' : ''
+                                }`}
+                                aria-label={`Visualizar ${link.documentName}`}
+                                onClick={(e) => {
+                                  if ((e.ctrlKey || e.metaKey) && link.documentFolderId) {
+                                    goToDocumentFolder(link.documentFolderId);
+                                  } else {
+                                    void openPreview(link.documentId, link.documentName);
+                                  }
+                                }}
+                                className="cursor-pointer rounded-full p-0.5 hover:bg-ink/10"
+                              >
+                                <FileText aria-hidden className="size-3.5" />
+                              </button>
+                              {canLink && (
                                 <button
                                   type="button"
                                   title={`Trocar documento de ${field.label}`}
+                                  aria-label={`Trocar ${field.label} de ${row.name}`}
                                   onClick={() => openLinkDialog(field, row.id)}
-                                  className="cursor-pointer truncate hover:underline"
+                                  className="cursor-pointer rounded-full p-0.5 hover:bg-ink/10"
                                 >
-                                  {link.documentName}
+                                  <Replace aria-hidden className="size-3" />
                                 </button>
-                              ) : (
-                                <span className="truncate">{link.documentName}</span>
                               )}
                               {canLink && !link.auto && (
                                 <button
@@ -582,9 +801,11 @@ export function RegisterPage({
                                   title="Desvincular"
                                   aria-label={`Desvincular ${field.label} de ${row.name}`}
                                   onClick={() =>
-                                    unlinkDocument.mutate({
-                                      unitId,
+                                    unlinkConfirm.open({
                                       fieldKey: field.key,
+                                      fieldLabel: field.label,
+                                      itemName: row.name,
+                                      documentName: link.documentName,
                                       employeeId: isEmployees ? row.id : null,
                                       equipmentId: isEmployees ? null : row.id,
                                     })
@@ -616,6 +837,19 @@ export function RegisterPage({
                     </Td>
                   );
                 })}
+                <Td>
+                  {(() => {
+                    const avg = itemAdherence(row);
+                    return avg ? (
+                      <span className="inline-flex items-center gap-1.5 whitespace-nowrap">
+                        <StatusPill status={avg.status} />
+                        <span className="font-mono text-caption text-muted">{avg.percent}%</span>
+                      </span>
+                    ) : (
+                      <span className="text-muted">—</span>
+                    );
+                  })()}
+                </Td>
                 <Td>
                   {row.folderId ? (
                     <Link
@@ -686,6 +920,47 @@ export function RegisterPage({
             </SelectField>
           )}
           <Field label="Nome" value={name} onChange={(e) => setName(e.target.value)} autoFocus />
+
+          {/* Foto opcional do item */}
+          <div className="flex flex-col gap-1.5">
+            <span className="font-ui text-caption font-semibold">Foto (opcional)</span>
+            <div className="flex items-center gap-3">
+              <div className="flex size-16 shrink-0 items-center justify-center overflow-hidden rounded-card border border-line bg-paper">
+                {photoPreviewSrc ? (
+                  <img src={photoPreviewSrc} alt="Foto do item" className="size-full object-cover" />
+                ) : (
+                  <ImageIcon aria-hidden className="size-5 text-muted" />
+                )}
+              </div>
+              <label className="cursor-pointer rounded-ctl border border-line-strong px-2.5 py-1.5 font-ui text-label font-medium hover:border-action">
+                {photoPreviewSrc ? 'Trocar foto' : 'Escolher foto'}
+                <input
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp"
+                  className="hidden"
+                  onChange={(e) => {
+                    const picked = e.target.files?.[0] ?? null;
+                    setPhotoFile(picked);
+                    setPhotoDirty(true);
+                    e.target.value = '';
+                  }}
+                />
+              </label>
+              {photoPreviewSrc && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPhotoFile(null);
+                    setPhotoDirty(true);
+                  }}
+                  className="cursor-pointer font-ui text-label font-medium text-muted hover:text-bad"
+                >
+                  Remover
+                </button>
+              )}
+            </div>
+          </div>
+
           {editorFields.map((field) => {
             // Documentos sem código não têm texto no editor — vinculam-se pela
             // lista. Documentos com código (ex.: CA) mostram o input do código.
@@ -752,17 +1027,17 @@ export function RegisterPage({
               </SelectField>
             </div>
           )}
-          {upsert.error && (
+          {saveError && (
             <p role="alert" className="text-sm text-bad">
-              {upsert.error.message}
+              {saveError}
             </p>
           )}
           <div className="flex justify-end gap-2">
             <Button type="button" variant="secondary" onClick={editor.close}>
               Cancelar
             </Button>
-            <Button type="submit" disabled={!name.trim() || upsert.isPending}>
-              {upsert.isPending ? 'Salvando…' : 'Salvar'}
+            <Button type="submit" disabled={!name.trim() || saving}>
+              {saving ? 'Salvando…' : 'Salvar'}
             </Button>
           </div>
         </form>
@@ -791,6 +1066,12 @@ export function RegisterPage({
               {linkDocumentName || 'Selecionar documento…'}
             </button>
           </div>
+
+          <p className="text-xs text-muted">
+            A nota de aderência é <strong>por item</strong> — ao marcar cada item, escolha a nota
+            dele ao lado (ex.: o mesmo laudo cobre 10 ferramentas, mas duas estão com problema).
+            Sem escolher, o item herda a aderência do documento.
+          </p>
 
           <div className="rounded-card border border-line">
             <div className="flex items-center justify-between border-b border-line px-3 py-2">
@@ -823,12 +1104,16 @@ export function RegisterPage({
                 const current = linkDialog.target
                   ? linkByItemField.get(`${row.id}:${linkDialog.target.field.key}`)
                   : undefined;
+                const checked = linkSelection.has(row.id);
                 return (
-                  <li key={row.id}>
-                    <label className="flex cursor-pointer items-center gap-2 rounded-ctl px-1.5 py-1 text-sm hover:bg-paper">
+                  <li
+                    key={row.id}
+                    className="flex items-center gap-2 rounded-ctl px-1.5 py-1 text-sm hover:bg-paper"
+                  >
+                    <label className="flex min-w-0 flex-1 cursor-pointer items-center gap-2">
                       <input
                         type="checkbox"
-                        checked={linkSelection.has(row.id)}
+                        checked={checked}
                         onChange={(e) =>
                           setLinkSelection((state) => {
                             const next = new Set(state);
@@ -839,13 +1124,27 @@ export function RegisterPage({
                         }
                         className="size-4 accent-[var(--color-action)]"
                       />
-                      <span className="flex-1">{row.name}</span>
+                      <span className="truncate">{row.name}</span>
                       {current && (
                         <span className="truncate text-label text-muted">
                           atual: {current.documentName}
                         </span>
                       )}
                     </label>
+                    {checked && (
+                      <AdherencePicker
+                        value={
+                          row.id in linkNotas
+                            ? (linkNotas[row.id] as DiagnosticStatus | null)
+                            : linkDocAdherence
+                        }
+                        onChange={(value) =>
+                          setLinkNotas((state) => ({ ...state, [row.id]: value }))
+                        }
+                        size="sm"
+                        ariaLabel={`Nota de ${row.name}`}
+                      />
+                    )}
                   </li>
                 );
               })}
@@ -872,6 +1171,13 @@ export function RegisterPage({
                   documentId: linkDocumentId,
                   employeeIds: isEmployees ? [...linkSelection] : [],
                   equipmentIds: isEmployees ? [] : [...linkSelection],
+                  // Nota por item: a escolhida ou o default do documento.
+                  adherences: Object.fromEntries(
+                    [...linkSelection].map((id) => [
+                      id,
+                      id in linkNotas ? (linkNotas[id] as DiagnosticStatus | null) : linkDocAdherence,
+                    ]),
+                  ),
                 })
               }
             >
@@ -893,8 +1199,41 @@ export function RegisterPage({
         onSelect={(doc) => {
           setLinkDocumentId(doc.id);
           setLinkDocumentName(doc.name);
+          // Nota do documento = default de cada item (sobrescrevível por item).
+          setLinkDocAdherence(doc.adherence);
         }}
       />
+
+      <DocumentPreviewDialog
+        preview={preview}
+        onClose={() => setPreview(null)}
+        onDownload={(documentId) => void downloadDocument(documentId)}
+      />
+
+      <ItemSheetDialog
+        open={fichaDialog.isOpen}
+        onClose={fichaDialog.close}
+        unitId={unitId}
+        companyId={companyId}
+        isEmployees={isEmployees}
+        item={fichaDialog.target}
+        fields={allFields}
+        documentFields={documentFields}
+        getLink={(fieldKey) =>
+          fichaDialog.target
+            ? linkByItemField.get(`${fichaDialog.target.id}:${fieldKey}`)
+            : undefined
+        }
+        onPreview={(documentId, name) => void openPreview(documentId, name)}
+      />
+
+      {rowMenu && (
+        <Menu
+          position={rowMenu.position}
+          items={rowMenuItems(rowMenu.row)}
+          onClose={() => setRowMenu(null)}
+        />
+      )}
 
       <ImportDialog
         open={importOpen}
@@ -1057,6 +1396,48 @@ export function RegisterPage({
                 }
               >
                 {removeField.isPending ? 'Removendo…' : 'Remover campo'}
+              </Button>
+            </div>
+          </div>
+        </Dialog>
+      )}
+      {/* — Confirmação de desvínculo de documento — */}
+      {unlinkConfirm.target && (
+        <Dialog
+          open={unlinkConfirm.isOpen}
+          onClose={unlinkConfirm.close}
+          title="Desvincular documento"
+        >
+          <div className="flex flex-col gap-4">
+            <p className="text-sm">
+              Desvincular <strong>{unlinkConfirm.target.documentName}</strong> de{' '}
+              <strong>{unlinkConfirm.target.fieldLabel}</strong> de{' '}
+              <strong>{unlinkConfirm.target.itemName}</strong>? O documento continua no P.I.E — só
+              o vínculo (e a nota deste item) é removido.
+            </p>
+            {unlinkDocument.error && (
+              <p role="alert" className="text-sm text-bad">
+                {unlinkDocument.error.message}
+              </p>
+            )}
+            <div className="flex justify-end gap-2">
+              <Button type="button" variant="secondary" onClick={unlinkConfirm.close}>
+                Cancelar
+              </Button>
+              <Button
+                type="button"
+                variant="danger"
+                disabled={unlinkDocument.isPending}
+                onClick={() =>
+                  unlinkDocument.mutate({
+                    unitId,
+                    fieldKey: unlinkConfirm.target!.fieldKey,
+                    employeeId: unlinkConfirm.target!.employeeId,
+                    equipmentId: unlinkConfirm.target!.equipmentId,
+                  })
+                }
+              >
+                {unlinkDocument.isPending ? 'Desvinculando…' : 'Desvincular'}
               </Button>
             </div>
           </div>

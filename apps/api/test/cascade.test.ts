@@ -62,7 +62,6 @@ async function buildTree() {
   await adminCaller.adequacy.diagnose({
     unitId: unit.id,
     adequacyItemId: item.id,
-    status: 'inexistente',
     deadline: isoDaysFromNow(10),
     evidences: [{ type: 'opinion', question: 'Parecer?', items: [{ label: 'P', answer: 'ok' }] }],
   });

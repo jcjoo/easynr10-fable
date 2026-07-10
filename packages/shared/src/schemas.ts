@@ -97,6 +97,8 @@ export const documentConfirmSchema = z.object({
   warnDaysBefore: z.number().int().positive().nullish(),
   // Grupo herdado do documento padrão selecionado (referência por nome, como no legado).
   documentGroup: z.enum(documentGroups).nullish(),
+  // Aderência opcional do documento (nota que propaga para vínculos/evidências).
+  adherence: z.enum(diagnosticStatuses).nullish(),
 });
 export type DocumentConfirmInput = z.infer<typeof documentConfirmSchema>;
 
@@ -106,6 +108,7 @@ export const documentUpdateSchema = z.object({
   name: z.string().trim().min(1).max(255).optional(),
   expiresAt: z.iso.date().nullable().optional(),
   warnDaysBefore: z.number().int().positive().nullable().optional(),
+  adherence: z.enum(diagnosticStatuses).nullable().optional(),
 });
 export type DocumentUpdateInput = z.infer<typeof documentUpdateSchema>;
 
@@ -134,6 +137,8 @@ export type DocumentVersionConfirmInput = z.infer<
 export const evidenceInputSchema = z.object({
   type: z.enum(requirementTypes),
   question: z.string().trim().min(1),
+  // Nota da evidência (document/opinion). Em cadastro a nota vem dos itens.
+  adherence: z.enum(diagnosticStatuses).nullish(),
   items: z
     .array(
       z.object({
@@ -142,16 +147,19 @@ export const evidenceInputSchema = z.object({
         documentId: z.uuid().nullish(),
         employeeId: z.uuid().nullish(),
         equipmentId: z.uuid().nullish(),
+        // Nota do item (usada nos itens de cadastro).
+        adherence: z.enum(diagnosticStatuses).nullish(),
       }),
     )
     .min(1),
 });
 export type EvidenceInput = z.infer<typeof evidenceInputSchema>;
 
+// A aderência do item NÃO é mais escolhida à mão: é calculada pela média das
+// notas das evidências (peso 1 cada). O status/score são derivados no servidor.
 export const diagnosticCreateSchema = z.object({
   unitId: z.uuid(),
   adequacyItemId: z.uuid(),
-  status: z.enum(diagnosticStatuses),
   deadline: z.iso.date().nullish(),
   responsible: z.string().trim().max(255).nullish(),
   recommendedAction: z.string().trim().nullish(),
@@ -168,8 +176,9 @@ export const adequacyItemUpdateSchema = z.object({
 });
 export type AdequacyItemUpdateInput = z.infer<typeof adequacyItemUpdateSchema>;
 
-// Requisito tipo group exige um alvo fixo (colaboradores/tipo de equipamento)
-// e documento padrão (termo da sugestão automática).
+// Requisito tipo cadastro aponta para um dos 5 cadastros (colaboradores/tipo de
+// equipamento) e uma coluna de documento vinculado (fieldKey). No diagnóstico
+// expande na lista de itens do cadastro com os documentos e notas vinculados.
 export const requirementCreateSchema = z
   .object({
     unitId: z.uuid(),
@@ -177,13 +186,13 @@ export const requirementCreateSchema = z
     type: z.enum(requirementTypes),
     question: z.string().trim().min(1),
     targetGroup: z.enum(registerTargets).nullish(),
-    defaultDocumentId: z.uuid().nullish(),
+    fieldKey: z.string().trim().max(120).nullish(),
   })
   .refine(
     (value) =>
-      value.type !== "group" || (value.targetGroup && value.defaultDocumentId),
+      value.type !== "cadastro" || (value.targetGroup && value.fieldKey),
     {
-      message: "Requisito de grupo exige o grupo alvo e o documento padrão",
+      message: "Requisito de cadastro exige o cadastro alvo e a coluna de documento",
     },
   );
 export type RequirementCreateInput = z.infer<typeof requirementCreateSchema>;
@@ -238,18 +247,41 @@ export const documentLinkSchema = z
     documentId: z.uuid(),
     employeeIds: z.array(z.uuid()).default([]),
     equipmentIds: z.array(z.uuid()).default([]),
+    // Nota POR item (id do item → nota). Item ausente do mapa ⇒ o servidor
+    // copia a aderência do documento como default.
+    adherences: z.record(z.uuid(), z.enum(diagnosticStatuses).nullable()).optional(),
   })
   .refine((value) => value.employeeIds.length + value.equipmentIds.length > 0, {
     message: "Selecione ao menos um item para vincular",
   });
 export type DocumentLinkInput = z.infer<typeof documentLinkSchema>;
 
-export const documentUnlinkSchema = z.object({
-  unitId: z.uuid(),
-  fieldKey: z.string().trim().min(1).max(120),
-  employeeId: z.uuid().nullish(),
-  equipmentId: z.uuid().nullish(),
-});
+// Edita a nota de um vínculo já existente (uma linha item+campo).
+export const documentLinkAdherenceSchema = z
+  .object({
+    unitId: z.uuid(),
+    fieldKey: z.string().trim().min(1).max(120),
+    employeeId: z.uuid().nullish(),
+    equipmentId: z.uuid().nullish(),
+    adherence: z.enum(diagnosticStatuses).nullable(),
+  })
+  .refine((value) => Boolean(value.employeeId) !== Boolean(value.equipmentId), {
+    message: "Informe um colaborador OU um equipamento",
+  });
+export type DocumentLinkAdherenceInput = z.infer<typeof documentLinkAdherenceSchema>;
+
+export const documentUnlinkSchema = z
+  .object({
+    unitId: z.uuid(),
+    fieldKey: z.string().trim().min(1).max(120),
+    employeeId: z.uuid().nullish(),
+    equipmentId: z.uuid().nullish(),
+  })
+  // Exatamente um alvo: sem isso o router cairia em eq(equipmentId, '') e o
+  // Postgres estouraria (string vazia em coluna uuid).
+  .refine((value) => Boolean(value.employeeId) !== Boolean(value.equipmentId), {
+    message: "Informe um colaborador OU um equipamento",
+  });
 export type DocumentUnlinkInput = z.infer<typeof documentUnlinkSchema>;
 
 // Importação por planilha (linhas já mapeadas no cliente via de-para).

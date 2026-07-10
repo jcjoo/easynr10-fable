@@ -1,10 +1,16 @@
 // Adequação: geração dos itens pelo catálogo, requisitos (cópia lazy do
 // catálogo + CRUD), diagnóstico com evidências snapshot e plano de ação.
 import { describe, expect, test } from 'bun:test';
-import { isNull } from 'drizzle-orm';
+import { eq, isNull } from 'drizzle-orm';
 import { schema } from '@easynr10/db';
 import { db } from '../src/db';
-import { expectTRPCError, isoDaysFromNow, seedNorm, setupUnit } from './helpers';
+import {
+  expectTRPCError,
+  isoDaysFromNow,
+  seedDocument,
+  seedNorm,
+  setupUnit,
+} from './helpers';
 
 async function activeNormCount() {
   const rows = await db
@@ -100,10 +106,10 @@ describe('adequacy: diagnóstico e plano de ação', () => {
     const good = items.find((row) => row.normCode === normOk.code)!;
 
     const deadline = isoDaysFromNow(30);
+    // Aderência calculada: parecer sem nota ⇒ Inexistente (0) ⇒ gera ação.
     await adminCaller.adequacy.diagnose({
       unitId: unit.id,
       adequacyItemId: bad.id,
-      status: 'inexistente',
       deadline,
       responsible: 'Fulano',
       evidences: [
@@ -114,11 +120,19 @@ describe('adequacy: diagnóstico e plano de ação', () => {
         },
       ],
     });
+    // Parecer com nota Plena ⇒ score 100 ⇒ Plena ⇒ não gera ação.
     await adminCaller.adequacy.diagnose({
       unitId: unit.id,
       adequacyItemId: good.id,
-      status: 'plena',
       deadline,
+      evidences: [
+        {
+          type: 'opinion',
+          question: 'Parecer?',
+          adherence: 'plena',
+          items: [{ label: 'Parecer técnico', answer: 'Tudo certo' }],
+        },
+      ],
     });
 
     const actions = await adminCaller.adequacy.actionItems({ unitId: unit.id });
@@ -134,6 +148,9 @@ describe('adequacy: diagnóstico e plano de ação', () => {
       adequacyItemId: bad.id,
     });
     expect(history).toHaveLength(1);
+    // Status/score calculados pela média das evidências (sem status manual).
+    expect(history[0]?.status).toBe('inexistente');
+    expect(history[0]?.score).toBe(0);
     const evidences = await adminCaller.adequacy.diagnosticEvidences({
       unitId: unit.id,
       diagnosticId: history[0]!.id,
@@ -164,7 +181,7 @@ describe('adequacy: diagnóstico e plano de ação', () => {
     );
   });
 
-  test('expandGroupRequirement gera um item de prova por membro do grupo', async () => {
+  test('expandCadastroRequirement lista os itens do cadastro com o documento e a nota vinculados', async () => {
     const { adminCaller, unit } = await setupUnit();
     const norm = await seedNorm();
     await adminCaller.adequacy.generate({ unitId: unit.id });
@@ -172,17 +189,12 @@ describe('adequacy: diagnóstico e plano de ação', () => {
       (row) => row.normCode === norm.code,
     )!;
 
-    // Documento padrão do catálogo (termo da sugestão) + membros do grupo.
-    const [defaultDoc] = await db
-      .insert(schema.defaultDocument)
-      .values({ name: `Certificado ${crypto.randomUUID().slice(0, 8)}`, documentGroup: 'equipamentos' })
-      .returning();
-    await adminCaller.registers.upsertEquipment({
+    const luvaA = (await adminCaller.registers.upsertEquipment({
       unitId: unit.id,
       name: 'Luva A',
       type: 'epi',
       metadata: {},
-    });
+    }))!;
     await adminCaller.registers.upsertEquipment({
       unitId: unit.id,
       name: 'Luva B',
@@ -190,16 +202,31 @@ describe('adequacy: diagnóstico e plano de ação', () => {
       metadata: {},
     });
 
+    // Documento com aderência na pasta da Luva A, vinculado na coluna 'ca'.
+    const eqA = await db.query.equipment.findFirst({
+      where: eq(schema.equipment.id, luvaA.id),
+    });
+    const doc = await seedDocument(adminCaller, unit.id, eqA!.folderId!, {
+      name: 'CA Luva A',
+      adherence: 'suficiente',
+    });
+    await adminCaller.registers.linkDocument({
+      unitId: unit.id,
+      fieldKey: 'ca',
+      documentId: doc.id,
+      equipmentIds: [luvaA.id],
+    });
+
     const requirement = (await adminCaller.adequacy.addRequirement({
       unitId: unit.id,
       adequacyItemId: item.id,
-      type: 'group',
+      type: 'cadastro',
       question: 'CA válido',
       targetGroup: 'epi',
-      defaultDocumentId: defaultDoc!.id,
+      fieldKey: 'ca',
     }))!;
 
-    const expanded = await adminCaller.adequacy.expandGroupRequirement({
+    const expanded = await adminCaller.adequacy.expandCadastroRequirement({
       unitId: unit.id,
       requirementId: requirement.id,
     });
@@ -208,5 +235,12 @@ describe('adequacy: diagnóstico e plano de ação', () => {
       'CA válido de Luva B',
     ]);
     expect(expanded.every((row) => row.equipmentId)).toBe(true);
+    // Luva A tem documento e nota (herdada do documento); Luva B, não.
+    const rowA = expanded.find((row) => row.label === 'CA válido de Luva A')!;
+    const rowB = expanded.find((row) => row.label === 'CA válido de Luva B')!;
+    expect(rowA.documentId).toBe(doc.id);
+    expect(rowA.adherence).toBe('suficiente');
+    expect(rowB.documentId).toBeNull();
+    expect(rowB.adherence).toBeNull();
   });
 });

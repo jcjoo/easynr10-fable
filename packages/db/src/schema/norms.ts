@@ -1,8 +1,7 @@
-import { boolean, integer, pgTable, text, uniqueIndex, uuid, varchar } from 'drizzle-orm/pg-core';
+import { boolean, index, integer, pgTable, text, uniqueIndex, uuid, varchar } from 'drizzle-orm/pg-core';
 import { audit, id, whereActive } from './helpers';
 import { documentGroup, registerTarget, requirementType } from './enums';
 import { unit } from './org';
-import { defaultDocument } from './pie';
 
 export const norm = pgTable(
   'norm',
@@ -19,15 +18,20 @@ export const norm = pgTable(
 );
 
 // Requisito de evidência do catálogo (modelo copiado para o item de adequação).
-export const normRequirement = pgTable('norm_requirement', {
-  id: id(),
-  normId: uuid('norm_id')
-    .notNull()
-    .references(() => norm.id),
-  type: requirementType('type').notNull(),
-  question: text('question').notNull(),
-  ...audit,
-});
+export const normRequirement = pgTable(
+  'norm_requirement',
+  {
+    id: id(),
+    normId: uuid('norm_id')
+      .notNull()
+      .references(() => norm.id),
+    type: requirementType('type').notNull(),
+    question: text('question').notNull(),
+    ...audit,
+  },
+  // Requisitos do catálogo copiados por norma ao configurar o item.
+  (t) => [index('idx_norm_requirement_norm').on(t.normId)],
+);
 
 export const adequacyItem = pgTable(
   'adequacy_item',
@@ -47,18 +51,24 @@ export const adequacyItem = pgTable(
   (t) => [uniqueIndex('uq_adequacy_item_unit_norm').on(t.unitId, t.normId).where(whereActive(t))],
 );
 
-// Requisito configurado no item (RF13.1); tipo group aponta para um alvo
-// fixo de cadastro (colaboradores ou tipo de equipamento).
-export const adequacyItemRequirement = pgTable('adequacy_item_requirement', {
-  id: id(),
-  adequacyItemId: uuid('adequacy_item_id')
-    .notNull()
-    .references(() => adequacyItem.id),
-  type: requirementType('type').notNull(),
-  question: text('question').notNull(),
-  targetGroup: registerTarget('target_group'),
-  // Nome de documento padrão do catálogo — termo de busca da sugestão
-  // automática nos requisitos tipo group (como no legado).
-  defaultDocumentId: uuid('default_document_id').references(() => defaultDocument.id),
-  ...audit,
-});
+// Requisito configurado no item (RF13.1); tipo cadastro aponta para um dos 5
+// cadastros (colaboradores/tipo de equipamento) + a coluna de documento
+// vinculado (field_key) de onde sai a lista de itens e suas notas.
+export const adequacyItemRequirement = pgTable(
+  'adequacy_item_requirement',
+  {
+    id: id(),
+    adequacyItemId: uuid('adequacy_item_id')
+      .notNull()
+      .references(() => adequacyItem.id),
+    type: requirementType('type').notNull(),
+    question: text('question').notNull(),
+    targetGroup: registerTarget('target_group'),
+    // Coluna de documento do cadastro (ex.: 'ca', 'treinamento_nr10_basico') —
+    // casa com o field_key do register_document_link.
+    fieldKey: varchar('field_key', { length: 120 }),
+    ...audit,
+  },
+  // Requisitos por item de adequação (leitura da tela + cascata).
+  (t) => [index('idx_adequacy_item_requirement_item').on(t.adequacyItemId)],
+);

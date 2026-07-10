@@ -22,17 +22,22 @@ async function buildFixture() {
   const itemHeavy = await seedAdequacyItem(unit.id, heavy.id);
   const itemLight = await seedAdequacyItem(unit.id, light.id);
 
+  // Aderência calculada: parecer Parcial ⇒ score 50 (peso 4); Plena ⇒ 100 (peso 1).
   await adminCaller.adequacy.diagnose({
     unitId: unit.id,
     adequacyItemId: itemHeavy.id,
-    status: 'parcial',
     deadline: isoDaysFromNow(-1), // ação já vencida
     responsible: 'Fulano',
+    evidences: [
+      { type: 'opinion', question: 'Parecer?', adherence: 'parcial', items: [{ label: 'P' }] },
+    ],
   });
   await adminCaller.adequacy.diagnose({
     unitId: unit.id,
     adequacyItemId: itemLight.id,
-    status: 'plena',
+    evidences: [
+      { type: 'opinion', question: 'Parecer?', adherence: 'plena', items: [{ label: 'P' }] },
+    ],
   });
 
   const folder = (await adminCaller.folders.create({

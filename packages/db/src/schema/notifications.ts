@@ -1,4 +1,4 @@
-import { pgTable, primaryKey, text, timestamp, uuid, varchar } from 'drizzle-orm/pg-core';
+import { index, pgTable, primaryKey, text, timestamp, uuid, varchar } from 'drizzle-orm/pg-core';
 import { audit, id } from './helpers';
 import { unit } from './org';
 import { user } from './auth';
@@ -23,5 +23,9 @@ export const userNotification = pgTable(
     readAt: timestamp('read_at', { withTimezone: true }),
     ...audit,
   },
-  (t) => [primaryKey({ columns: [t.notificationId, t.userId] })],
+  (t) => [
+    primaryKey({ columns: [t.notificationId, t.userId] }),
+    // "Notificações do usuário" filtra por user_id (a PK cobre por notificação).
+    index('idx_user_notification_user').on(t.userId),
+  ],
 );

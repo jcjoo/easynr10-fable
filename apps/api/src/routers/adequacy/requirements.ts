@@ -1,5 +1,5 @@
 import { TRPCError } from '@trpc/server';
-import { and, asc, eq, ilike, inArray } from 'drizzle-orm';
+import { and, asc, eq } from 'drizzle-orm';
 import { notDeleted, schema } from '@easynr10/db';
 import { requirementCreateSchema } from '@easynr10/shared';
 import { z } from 'zod';
@@ -9,14 +9,13 @@ import { ensureItemRequirements, findUnitAdequacyItem } from './shared';
 const {
   adequacyItem,
   adequacyItemRequirement,
-  defaultDocument,
   document,
   employee,
   equipment,
-  folder,
+  registerDocumentLink,
 } = schema;
 
-// Requisitos de evidência do item (§7.6, RF13): CRUD + expansão de grupo.
+// Requisitos de evidência do item (§7.6, RF13): CRUD + expansão de cadastro.
 
 export const requirementProcedures = {
   // Requisitos de evidência do item (copiados do catálogo no primeiro acesso).
@@ -31,14 +30,9 @@ export const requirementProcedures = {
           type: adequacyItemRequirement.type,
           question: adequacyItemRequirement.question,
           targetGroup: adequacyItemRequirement.targetGroup,
-          defaultDocumentId: adequacyItemRequirement.defaultDocumentId,
-          defaultDocumentName: defaultDocument.name,
+          fieldKey: adequacyItemRequirement.fieldKey,
         })
         .from(adequacyItemRequirement)
-        .leftJoin(
-          defaultDocument,
-          eq(adequacyItemRequirement.defaultDocumentId, defaultDocument.id),
-        )
         .where(
           and(
             eq(adequacyItemRequirement.adequacyItemId, item.id),
@@ -56,8 +50,8 @@ export const requirementProcedures = {
         adequacyItemId: item.id,
         type: input.type,
         question: input.question,
-        targetGroup: input.type === 'group' ? input.targetGroup : null,
-        defaultDocumentId: input.type === 'group' ? input.defaultDocumentId : null,
+        targetGroup: input.type === 'cadastro' ? input.targetGroup : null,
+        fieldKey: input.type === 'cadastro' ? input.fieldKey : null,
       })
       .returning();
     return created;
@@ -103,9 +97,10 @@ export const requirementProcedures = {
       return { success: true };
     }),
 
-  // Expande um requisito tipo group: um item de prova por membro do grupo,
-  // com sugestão de documento pela pasta do item (legado: EvidencyGroupStrategy).
-  expandGroupRequirement: unitAction('diagnostico.ler')
+  // Expande um requisito tipo cadastro: um item de prova por item do cadastro-alvo,
+  // com o documento e a nota já vinculados naquela coluna (field_key). Item sem
+  // vínculo entra sem documento (nota vazia ⇒ Inexistente no cálculo).
+  expandCadastroRequirement: unitAction('diagnostico.ler')
     .input(z.object({ requirementId: z.uuid() }))
     .query(async ({ ctx, input }) => {
       const [requirement] = await ctx.db
@@ -113,14 +108,10 @@ export const requirementProcedures = {
           id: adequacyItemRequirement.id,
           question: adequacyItemRequirement.question,
           targetGroup: adequacyItemRequirement.targetGroup,
-          searchTerm: defaultDocument.name,
+          fieldKey: adequacyItemRequirement.fieldKey,
         })
         .from(adequacyItemRequirement)
         .innerJoin(adequacyItem, eq(adequacyItemRequirement.adequacyItemId, adequacyItem.id))
-        .leftJoin(
-          defaultDocument,
-          eq(adequacyItemRequirement.defaultDocumentId, defaultDocument.id),
-        )
         .where(
           and(
             eq(adequacyItemRequirement.id, input.requirementId),
@@ -128,23 +119,24 @@ export const requirementProcedures = {
             notDeleted(adequacyItemRequirement),
           ),
         );
-      if (!requirement?.targetGroup) {
-        throw new TRPCError({ code: 'NOT_FOUND', message: 'Requisito de grupo não encontrado' });
+      if (!requirement?.targetGroup || !requirement.fieldKey) {
+        throw new TRPCError({ code: 'NOT_FOUND', message: 'Requisito de cadastro não encontrado' });
       }
+      const fieldKey = requirement.fieldKey;
 
-      // Membros do alvo fixo: colaboradores ou equipamentos de um tipo.
+      // Itens do cadastro-alvo: colaboradores ou equipamentos de um tipo.
       const members =
         requirement.targetGroup === 'colaboradores'
           ? (
               await ctx.db
-                .select({ id: employee.id, name: employee.name, folderId: employee.folderId })
+                .select({ id: employee.id, name: employee.name })
                 .from(employee)
                 .where(and(eq(employee.unitId, input.unitId), notDeleted(employee)))
                 .orderBy(asc(employee.name))
             ).map((row) => ({ ...row, kind: 'employee' as const }))
           : (
               await ctx.db
-                .select({ id: equipment.id, name: equipment.name, folderId: equipment.folderId })
+                .select({ id: equipment.id, name: equipment.name })
                 .from(equipment)
                 .where(
                   and(
@@ -156,49 +148,39 @@ export const requirementProcedures = {
                 .orderBy(asc(equipment.name))
             ).map((row) => ({ ...row, kind: 'equipment' as const }));
 
-      // Subárvores de pastas para a busca do documento sugerido.
-      const allFolders = await ctx.db
-        .select({ id: folder.id, parentId: folder.parentId })
-        .from(folder)
-        .where(and(eq(folder.unitId, input.unitId), notDeleted(folder)));
-      const byParent = new Map<string, string[]>();
-      for (const node of allFolders) {
-        if (node.parentId) {
-          byParent.set(node.parentId, [...(byParent.get(node.parentId) ?? []), node.id]);
-        }
-      }
-      const subtree = (rootId: string) => {
-        const ids = [rootId];
-        for (let i = 0; i < ids.length; i++) ids.push(...(byParent.get(ids[i]!) ?? []));
-        return ids;
-      };
-
-      const term = requirement.searchTerm?.trim();
-      return Promise.all(
-        members.map(async (member) => {
-          let suggestion: { id: string; name: string } | null = null;
-          if (member.folderId && term) {
-            const [match] = await ctx.db
-              .select({ id: document.id, name: document.name })
-              .from(document)
-              .where(
-                and(
-                  inArray(document.folderId, subtree(member.folderId)),
-                  ilike(document.name, `%${term}%`),
-                  notDeleted(document),
-                ),
-              )
-              .limit(1);
-            suggestion = match ?? null;
-          }
-          return {
-            employeeId: member.kind === 'employee' ? member.id : null,
-            equipmentId: member.kind === 'equipment' ? member.id : null,
-            label: `${requirement.question} de ${member.name}`,
-            suggestedDocumentId: suggestion?.id ?? null,
-            suggestedDocumentName: suggestion?.name ?? null,
-          };
-        }),
+      // Vínculos ativos daquela coluna, por item, com o documento e a nota.
+      const links = await ctx.db
+        .select({
+          employeeId: registerDocumentLink.employeeId,
+          equipmentId: registerDocumentLink.equipmentId,
+          documentId: registerDocumentLink.documentId,
+          documentName: document.name,
+          adherence: registerDocumentLink.adherence,
+        })
+        .from(registerDocumentLink)
+        .innerJoin(document, eq(registerDocumentLink.documentId, document.id))
+        .where(
+          and(
+            eq(registerDocumentLink.fieldKey, fieldKey),
+            notDeleted(registerDocumentLink),
+            notDeleted(document),
+          ),
+        );
+      const linkByItem = new Map(
+        links.map((link) => [link.employeeId ?? link.equipmentId, link]),
       );
+
+      return members.map((member) => {
+        const link = linkByItem.get(member.id);
+        return {
+          employeeId: member.kind === 'employee' ? member.id : null,
+          equipmentId: member.kind === 'equipment' ? member.id : null,
+          label: `${requirement.question} de ${member.name}`,
+          documentId: link?.documentId ?? null,
+          documentName: link?.documentName ?? null,
+          // Nota default = a do vínculo (que nasceu da aderência do documento).
+          adherence: link?.adherence ?? null,
+        };
+      });
     }),
 };

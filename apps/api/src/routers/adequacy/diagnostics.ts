@@ -1,7 +1,11 @@
 import { TRPCError } from '@trpc/server';
 import { and, asc, desc, eq, inArray } from 'drizzle-orm';
 import { notDeleted, schema } from '@easynr10/db';
-import { diagnosticCreateSchema } from '@easynr10/shared';
+import {
+  diagnosticAdherenceScore,
+  diagnosticCreateSchema,
+  scoreToStatus,
+} from '@easynr10/shared';
 import { z } from 'zod';
 import { unitAction } from '../../trpc';
 import { findUnitAdequacyItem } from './shared';
@@ -20,6 +24,7 @@ export const diagnosticProcedures = {
         .select({
           id: diagnostic.id,
           status: diagnostic.status,
+          score: diagnostic.score,
           deadline: diagnostic.deadline,
           responsible: diagnostic.responsible,
           recommendedAction: diagnostic.recommendedAction,
@@ -33,43 +38,54 @@ export const diagnosticProcedures = {
         .orderBy(desc(diagnostic.createdAt));
     }),
 
-  // Novo diagnóstico; aderência abaixo de Plena com prazo gera ação (RF16).
+  // Novo diagnóstico; a aderência do item é CALCULADA pela média das notas das
+  // evidências (peso 1 cada). Abaixo de Plena com prazo gera ação (RF16).
   diagnose: unitAction('diagnostico.avaliar').input(diagnosticCreateSchema).mutation(async ({ ctx, input }) => {
     const item = await findUnitAdequacyItem(ctx.db, input.unitId, input.adequacyItemId);
+    const evidences = input.evidences ?? [];
+    const score = Math.round(diagnosticAdherenceScore(evidences) * 100);
+    const status = scoreToStatus(score);
     return ctx.db.transaction(async (tx) => {
       const [created] = await tx
         .insert(diagnostic)
         .values({
           adequacyItemId: item.id,
           authorId: ctx.session.user.id,
-          status: input.status,
+          status,
+          score,
           deadline: input.deadline ?? null,
           responsible: input.responsible ?? null,
           recommendedAction: input.recommendedAction ?? null,
           technicalOpinion: input.technicalOpinion ?? null,
         })
         .returning();
-      if (input.status !== 'plena' && input.deadline) {
+      if (status !== 'plena' && input.deadline) {
         await tx.insert(actionItem).values({
           diagnosticId: created!.id,
           deadline: input.deadline,
         });
       }
-      // Evidências snapshot (§7.6): type/question copiados do requisito no
-      // momento do diagnóstico + itens de prova.
-      for (const ev of input.evidences ?? []) {
+      // Evidências snapshot (§7.6): type/question/nota copiados do requisito no
+      // momento do diagnóstico + itens de prova (com nota nos itens de cadastro).
+      for (const ev of evidences) {
         const [createdEvidence] = await tx
           .insert(evidence)
-          .values({ diagnosticId: created!.id, type: ev.type, question: ev.question })
+          .values({
+            diagnosticId: created!.id,
+            type: ev.type,
+            question: ev.question,
+            adherence: ev.adherence ?? null,
+          })
           .returning();
         await tx.insert(evidenceItem).values(
-          ev.items.map((item) => ({
+          ev.items.map((evItem) => ({
             evidenceId: createdEvidence!.id,
-            label: item.label,
-            answer: item.answer ?? null,
-            documentId: item.documentId ?? null,
-            employeeId: item.employeeId ?? null,
-            equipmentId: item.equipmentId ?? null,
+            label: evItem.label,
+            answer: evItem.answer ?? null,
+            documentId: evItem.documentId ?? null,
+            employeeId: evItem.employeeId ?? null,
+            equipmentId: evItem.equipmentId ?? null,
+            adherence: evItem.adherence ?? null,
           })),
         );
       }
@@ -92,7 +108,12 @@ export const diagnosticProcedures = {
         throw new TRPCError({ code: 'NOT_FOUND', message: 'Diagnóstico não encontrado' });
       }
       const evidences = await ctx.db
-        .select({ id: evidence.id, type: evidence.type, question: evidence.question })
+        .select({
+          id: evidence.id,
+          type: evidence.type,
+          question: evidence.question,
+          adherence: evidence.adherence,
+        })
         .from(evidence)
         .where(and(eq(evidence.diagnosticId, found.id), notDeleted(evidence)))
         .orderBy(asc(evidence.createdAt));
@@ -106,6 +127,7 @@ export const diagnosticProcedures = {
           answer: evidenceItem.answer,
           documentId: evidenceItem.documentId,
           documentName: document.name,
+          adherence: evidenceItem.adherence,
         })
         .from(evidenceItem)
         .leftJoin(document, eq(evidenceItem.documentId, document.id))

@@ -97,6 +97,7 @@ export const documentsRouter = router({
           id: document.id,
           name: document.name,
           folderId: document.folderId,
+          adherence: document.adherence,
           expiresAt: document.expiresAt,
           warnDaysBefore: document.warnDaysBefore,
           version: documentVersion.number,
@@ -142,6 +143,7 @@ export const documentsRouter = router({
           expiresAt: input.expiresAt ?? null,
           warnDaysBefore: input.warnDaysBefore ?? null,
           documentGroup: input.documentGroup ?? null,
+          adherence: input.adherence ?? null,
         })
         .returning();
       const [version] = await tx
@@ -242,6 +244,7 @@ export const documentsRouter = router({
         ...(input.warnDaysBefore !== undefined
           ? { warnDaysBefore: input.warnDaysBefore }
           : {}),
+        ...(input.adherence !== undefined ? { adherence: input.adherence } : {}),
       })
       .where(eq(document.id, doc.id))
       .returning();

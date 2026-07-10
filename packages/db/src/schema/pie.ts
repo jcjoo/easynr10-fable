@@ -2,6 +2,7 @@ import {
   bigint,
   boolean,
   date,
+  index,
   integer,
   jsonb,
   pgTable,
@@ -12,7 +13,7 @@ import {
   type AnyPgColumn,
 } from 'drizzle-orm/pg-core';
 import { audit, id, whereActive } from './helpers';
-import { documentGroup } from './enums';
+import { diagnosticStatus, documentGroup } from './enums';
 import { unit } from './org';
 import { user } from './auth';
 
@@ -51,19 +52,27 @@ export const folder = pgTable(
   ],
 );
 
-export const document = pgTable('document', {
-  id: id(),
-  folderId: uuid('folder_id')
-    .notNull()
-    .references(() => folder.id),
-  // FK circular com document_version; a constraint é criada na migration.
-  currentVersionId: uuid('current_version_id').references((): AnyPgColumn => documentVersion.id),
-  name: varchar('name', { length: 255 }).notNull(),
-  documentGroup: documentGroup('document_group'),
-  expiresAt: date('expires_at'),
-  warnDaysBefore: integer('warn_days_before'),
-  ...audit,
-});
+export const document = pgTable(
+  'document',
+  {
+    id: id(),
+    folderId: uuid('folder_id')
+      .notNull()
+      .references(() => folder.id),
+    // FK circular com document_version; a constraint é criada na migration.
+    currentVersionId: uuid('current_version_id').references((): AnyPgColumn => documentVersion.id),
+    name: varchar('name', { length: 255 }).notNull(),
+    documentGroup: documentGroup('document_group'),
+    // Aderência opcional (escala do diagnóstico) — nota que propaga para
+    // vínculos no cadastro e evidências no diagnóstico.
+    adherence: diagnosticStatus('adherence'),
+    expiresAt: date('expires_at'),
+    warnDaysBefore: integer('warn_days_before'),
+    ...audit,
+  },
+  // Listagem por pasta e cascata por subárvore filtram por folder_id.
+  (t) => [index('idx_document_folder').on(t.folderId)],
+);
 
 // Catálogo global de documentos padrão (RF11) — nomes esperados no prontuário,
 // portados do seed do sistema legado. Sufixo " - *" = nome por item

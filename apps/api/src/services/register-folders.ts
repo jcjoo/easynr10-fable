@@ -1,5 +1,5 @@
 import { and, eq, isNull } from 'drizzle-orm';
-import { notDeleted, schema, type Db } from '@easynr10/db';
+import { notDeleted, schema, type Db, type DbOrTx } from '@easynr10/db';
 import { registerBasePath, registerTargets, type RegisterTarget } from '@easynr10/shared';
 import { ensureFolderStructure, findUnitSchemaOrThrow } from './folders';
 
@@ -9,7 +9,7 @@ const { folder } = schema;
 //   Colaboradores/Lista de Colaboradores/[nome]/[estrutura opcional]
 //   Equipamentos/<Tipo>/Lista de <Tipo>/[nome]/[estrutura opcional]
 
-async function findOrCreateChild(db: Db, unitId: string, parentId: string | null, name: string) {
+async function findOrCreateChild(db: DbOrTx, unitId: string, parentId: string | null, name: string) {
   const existing = await db.query.folder.findFirst({
     where: and(
       eq(folder.unitId, unitId),
@@ -23,7 +23,7 @@ async function findOrCreateChild(db: Db, unitId: string, parentId: string | null
   return created!.id;
 }
 
-async function ensureGroupPath(db: Db, unitId: string, target: RegisterTarget) {
+async function ensureGroupPath(db: DbOrTx, unitId: string, target: RegisterTarget) {
   let parentId: string | null = null;
   for (const name of registerBasePath[target]) {
     parentId = await findOrCreateChild(db, unitId, parentId, name);
@@ -39,9 +39,37 @@ export async function ensureRegisterSkeleton(db: Db, unitId: string) {
   }
 }
 
+// Mantém a pasta do item no PIE em sincronia com o nome do item — a convenção
+// "Lista de <Grupo>/<nome>" (e a sugestão automática de evidências por
+// subárvore) depende disso. Best-effort: no-op se o nome já bate; se já houver
+// uma pasta irmã com o novo nome (uq_folder_unit_parent_name), não renomeia
+// para não estourar a constraint — o vínculo por id segue intacto de qualquer
+// forma.
+export async function renameItemFolder(
+  db: DbOrTx,
+  unitId: string,
+  folderId: string,
+  name: string,
+) {
+  const current = await db.query.folder.findFirst({
+    where: and(eq(folder.id, folderId), eq(folder.unitId, unitId), notDeleted(folder)),
+  });
+  if (!current || current.name === name) return;
+  const clash = await db.query.folder.findFirst({
+    where: and(
+      eq(folder.unitId, unitId),
+      current.parentId === null ? isNull(folder.parentId) : eq(folder.parentId, current.parentId),
+      eq(folder.name, name),
+      notDeleted(folder),
+    ),
+  });
+  if (clash) return;
+  await db.update(folder).set({ name }).where(eq(folder.id, folderId));
+}
+
 // Pasta do item dentro da lista do grupo + estrutura opcional dentro dela.
 export async function createItemFolder(
-  db: Db,
+  db: DbOrTx,
   unitId: string,
   target: RegisterTarget,
   itemName: string,

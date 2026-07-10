@@ -1,6 +1,6 @@
-import { jsonb, pgTable, uniqueIndex, uuid, varchar } from 'drizzle-orm/pg-core';
+import { index, jsonb, pgTable, uniqueIndex, uuid, varchar } from 'drizzle-orm/pg-core';
 import { audit, id, whereActive } from './helpers';
-import { equipmentType, nivelAutorizacao, registerTarget } from './enums';
+import { diagnosticStatus, equipmentType, nivelAutorizacao, registerTarget } from './enums';
 import { unit } from './org';
 import { document, folder, folderSchema } from './pie';
 
@@ -22,6 +22,8 @@ export const employee = pgTable(
     name: varchar('name', { length: 255 }).notNull(),
     // Nível de autorização NR-10 (Básico | Básico + SEP) — coluna default.
     nivelAutorizacao: nivelAutorizacao('nivel_autorizacao'),
+    // Foto opcional do item (key do objeto no S3).
+    photoKey: varchar('photo_key', { length: 512 }),
     // Pasta do colaborador no PIE (RF18.3) — base da sugestão de evidências.
     folderId: uuid('folder_id').references(() => folder.id),
     metadata: jsonb('metadata').$type<Record<string, string>>().notNull().default({}),
@@ -39,6 +41,8 @@ export const equipment = pgTable(
       .references(() => unit.id),
     name: varchar('name', { length: 255 }).notNull(),
     type: equipmentType('type').notNull(),
+    // Foto opcional do item (key do objeto no S3).
+    photoKey: varchar('photo_key', { length: 512 }),
     folderId: uuid('folder_id').references(() => folder.id),
     metadata: jsonb('metadata').$type<Record<string, string>>().notNull().default({}),
     ...audit,
@@ -144,6 +148,9 @@ export const registerDocumentLink = pgTable(
     employeeId: uuid('employee_id').references(() => employee.id),
     equipmentId: uuid('equipment_id').references(() => equipment.id),
     fieldKey: varchar('field_key', { length: 120 }).notNull(),
+    // Nota do vínculo (escala do diagnóstico); nasce da aderência do documento
+    // e é a nota default do item nas evidências tipo cadastro.
+    adherence: diagnosticStatus('adherence'),
     ...audit,
   },
   (t) => [
@@ -153,5 +160,7 @@ export const registerDocumentLink = pgTable(
     uniqueIndex('uq_register_doc_link_equipment_field')
       .on(t.equipmentId, t.fieldKey)
       .where(whereActive(t)),
+    // Vínculos de um documento (purge e limpeza na exclusão de pasta).
+    index('idx_register_doc_link_document').on(t.documentId),
   ],
 );
