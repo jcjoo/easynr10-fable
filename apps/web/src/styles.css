@@ -128,3 +128,18 @@
 @utility tabular {
   font-variant-numeric: tabular-nums;
 }
+
+/* Entrada dos dialogs: fade no overlay, fade+assentar no card (140ms).
+   Consumidas via animate-[…]; motion-reduce:animate-none desliga. */
+@keyframes overlay-in {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes dialog-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px) scale(0.98);
+  }
+}

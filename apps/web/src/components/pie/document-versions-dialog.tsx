@@ -2,8 +2,8 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Upload } from 'lucide-react';
 import { trpc } from '@/lib/trpc';
 import { formatBytes, formatDateTime } from '@/lib/format';
-import { Button } from '@/components/ui/button';
 import { Dialog } from '@/components/ui/dialog';
+import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { useDialogTarget } from '@/lib/use-dialog-mutation';
 
 // Histórico de versões do documento (RF09.2): enviar nova versão (o upload em
@@ -66,7 +66,12 @@ export function DocumentVersionsDialog({
   );
 
   return (
-    <Dialog open={Boolean(target)} onClose={onClose} title={`Histórico — ${target?.name ?? ''}`}>
+    <Dialog
+      open={Boolean(target)}
+      onClose={onClose}
+      title="Histórico de versões"
+      description={target?.name}
+    >
       {canUpload && (
         <button
           type="button"
@@ -152,44 +157,27 @@ export function DocumentVersionsDialog({
       )}
 
       {purgeConfirm.target && (
-        <Dialog
+        <ConfirmDialog
           open={purgeConfirm.isOpen}
           onClose={purgeConfirm.close}
           title="Excluir versão do histórico"
+          actionLabel="Excluir versão"
+          pendingLabel="Excluindo…"
+          pending={removeVersion.isPending}
+          error={removeVersion.error?.message}
+          onConfirm={() =>
+            target &&
+            removeVersion.mutate({
+              unitId,
+              documentId: target.id,
+              versionId: purgeConfirm.target!.id,
+            })
+          }
         >
-          <div className="flex flex-col gap-4">
-            <p className="text-sm">
-              Apagar a versão <strong>v{purgeConfirm.target.number}</strong> de{' '}
-              <strong>{target?.name}</strong> do histórico? O arquivo desta versão é removido do
-              sistema — <strong>sem recuperação</strong>. As demais versões continuam intactas.
-            </p>
-            {removeVersion.error && (
-              <p role="alert" className="text-sm text-bad">
-                {removeVersion.error.message}
-              </p>
-            )}
-            <div className="flex justify-end gap-2">
-              <Button type="button" variant="secondary" onClick={purgeConfirm.close}>
-                Cancelar
-              </Button>
-              <Button
-                type="button"
-                variant="danger"
-                disabled={removeVersion.isPending}
-                onClick={() =>
-                  target &&
-                  removeVersion.mutate({
-                    unitId,
-                    documentId: target.id,
-                    versionId: purgeConfirm.target!.id,
-                  })
-                }
-              >
-                {removeVersion.isPending ? 'Excluindo…' : 'Excluir versão'}
-              </Button>
-            </div>
-          </div>
-        </Dialog>
+          O arquivo da versão <strong>v{purgeConfirm.target.number}</strong> de{' '}
+          <strong>{target?.name}</strong> é removido do sistema —{' '}
+          <strong>sem recuperação</strong>. As demais versões continuam intactas.
+        </ConfirmDialog>
       )}
     </Dialog>
   );

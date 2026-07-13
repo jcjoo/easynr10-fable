@@ -5,6 +5,7 @@ import { registerTargetLabels, type EquipmentType, type RegisterField } from '@e
 import { trpc } from '@/lib/trpc';
 import { Button } from '@/components/ui/button';
 import { Dialog } from '@/components/ui/dialog';
+import { AlertStrip } from '@/components/ui/alert-strip';
 import { SelectField } from '@/components/ui/select';
 
 // Importação de cadastros por planilha (.xlsx/.csv lidos no cliente via
@@ -117,8 +118,26 @@ export function ImportDialog({
   }
 
   return (
-    <Dialog open={open} onClose={handleClose} title="Importar planilha">
-      <div className="flex max-h-[70vh] flex-col gap-4 overflow-y-auto pr-1">
+    <Dialog
+      open={open}
+      onClose={handleClose}
+      title="Importar planilha"
+      footer={
+        <>
+          <Button type="button" variant="secondary" onClick={handleClose}>
+            Fechar
+          </Button>
+          <Button
+            type="button"
+            disabled={mapping['__name'] === undefined || sheetRows.length === 0 || importing}
+            onClick={runImport}
+          >
+            {importing ? 'Importando…' : 'Importar'}
+          </Button>
+        </>
+      }
+    >
+      <div className="flex flex-col gap-4">
         <p className="text-sm text-muted">
           Envie um arquivo .xlsx ou .csv com cabeçalho na primeira linha e faça o de-para das
           colunas. Itens com nome já existente são atualizados.
@@ -175,22 +194,10 @@ export function ImportDialog({
 
         {importResult && <p className="text-sm font-medium text-ok">{importResult}</p>}
         {(importEmployees.error || importEquipment.error) && (
-          <p role="alert" className="text-sm text-bad">
+          <AlertStrip>
             {importEmployees.error?.message ?? importEquipment.error?.message}
-          </p>
+          </AlertStrip>
         )}
-        <div className="flex justify-end gap-2">
-          <Button type="button" variant="secondary" onClick={handleClose}>
-            Fechar
-          </Button>
-          <Button
-            type="button"
-            disabled={mapping['__name'] === undefined || sheetRows.length === 0 || importing}
-            onClick={runImport}
-          >
-            {importing ? 'Importando…' : 'Importar'}
-          </Button>
-        </div>
       </div>
     </Dialog>
   );

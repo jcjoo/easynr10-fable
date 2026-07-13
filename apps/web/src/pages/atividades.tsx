@@ -9,6 +9,8 @@ import { useUnitPermissions } from '@/lib/use-unit-permissions';
 import { useDialogMutation, useDialogTarget } from '@/lib/use-dialog-mutation';
 import { Button } from '@/components/ui/button';
 import { Dialog } from '@/components/ui/dialog';
+import { AlertStrip } from '@/components/ui/alert-strip';
+import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { Field } from '@/components/ui/field';
 import { Page, PageTitle } from '@/components/ui/page';
 import { Td } from '@/components/ui/table';
@@ -198,11 +200,7 @@ export function AtividadesPage() {
             placeholder="Ex.: Manutenção em painel elétrico energizado"
             autoFocus
           />
-          {upsert.error && (
-            <p role="alert" className="text-sm text-bad">
-              {upsert.error.message}
-            </p>
-          )}
+          {upsert.error && <AlertStrip>{upsert.error.message}</AlertStrip>}
           <div className="flex justify-end gap-2">
             <Button type="button" variant="secondary" onClick={() => setDialogOpen(false)}>
               Cancelar
@@ -215,34 +213,21 @@ export function AtividadesPage() {
       </Dialog>
 
       {/* — Excluir — */}
-      <Dialog open={removeDialog.isOpen} onClose={removeDialog.close} title="Excluir atividade">
-        <div className="flex flex-col gap-4">
-          <p className="text-sm">
-            Excluir a atividade <strong>{removeDialog.target?.name}</strong>? Ela deixa de aparecer
-            no checklist de novas autorizações de trabalho; autorizações já geradas não são afetadas.
-          </p>
-          {remove.error && (
-            <p role="alert" className="text-sm text-bad">
-              {remove.error.message}
-            </p>
-          )}
-          <div className="flex justify-end gap-2">
-            <Button type="button" variant="secondary" onClick={removeDialog.close}>
-              Voltar
-            </Button>
-            <Button
-              type="button"
-              variant="danger"
-              disabled={remove.isPending}
-              onClick={() =>
-                removeDialog.target && remove.mutate({ unitId, activityId: removeDialog.target.id })
-              }
-            >
-              {remove.isPending ? 'Excluindo…' : 'Excluir'}
-            </Button>
-          </div>
-        </div>
-      </Dialog>
+      <ConfirmDialog
+        open={removeDialog.isOpen}
+        onClose={removeDialog.close}
+        title="Excluir atividade"
+        actionLabel="Excluir atividade"
+        pendingLabel="Excluindo…"
+        pending={remove.isPending}
+        error={remove.error?.message}
+        onConfirm={() =>
+          removeDialog.target && remove.mutate({ unitId, activityId: removeDialog.target.id })
+        }
+      >
+        A atividade <strong>{removeDialog.target?.name}</strong> deixa de aparecer no checklist de
+        novas autorizações de trabalho; autorizações já geradas não são afetadas.
+      </ConfirmDialog>
     </Page>
   );
 }

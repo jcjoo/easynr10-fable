@@ -44,6 +44,7 @@ export const documentsRouter = router({
         .select({
           id: document.id,
           name: document.name,
+          adherence: document.adherence,
           expiresAt: document.expiresAt,
           warnDaysBefore: document.warnDaysBefore,
           version: documentVersion.number,

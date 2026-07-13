@@ -25,6 +25,7 @@ import { formatDate } from '@/lib/format';
 import { Button } from '@/components/ui/button';
 import { Page, PageTitle } from '@/components/ui/page';
 import { Dialog } from '@/components/ui/dialog';
+import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { Field } from '@/components/ui/field';
 import { FileTypeIcon, FolderIcon } from '@/components/ui/icons';
 import { Menu, RowMenu, type MenuItem, type MenuPosition } from '@/components/ui/row-menu';
@@ -47,11 +48,14 @@ import {
 import {
   DEFAULT_WARN_DAYS,
   daysUntilExpiry,
+  diagnosticStatusScore,
   normalizeText,
   registerBasePath,
   registerTargets,
+  type DiagnosticStatus,
   type RegisterTarget,
 } from '@easynr10/shared';
+import { adherenceDots, statusPillLabel } from '@/components/ui/status-pill';
 import { RegisterPage } from './registros';
 
 // Pasta "Lista de <Grupo>" ganha o ícone do cadastro respectivo (mesmo da
@@ -84,6 +88,9 @@ interface FolderNode {
 interface DocumentRow {
   id: string;
   name: string;
+  // Nota de aderência do documento (dada no upload, na edição ou propagada
+  // pela evidência de documento do diagnóstico).
+  adherence: DiagnosticStatus | null;
   expiresAt: string | null;
   warnDaysBefore: number | null;
   version: number | null;
@@ -377,6 +384,7 @@ export function PiePage() {
     nome: (doc) => normalizeText(doc.name),
     local: (doc) =>
       doc.folderId ? normalizeText(folderById.get(doc.folderId)?.name ?? '') : null,
+    nota: (doc) => (doc.adherence ? diagnosticStatusScore[doc.adherence] : null),
     venc: (doc) => doc.expiresAt,
     criacao: (doc) => new Date(doc.createdAt).getTime(),
   };
@@ -542,11 +550,13 @@ export function PiePage() {
                   ? [
                       ['nome', 'Nome'],
                       ['local', 'Local'],
+                      ['nota', 'Aderência'],
                       ['venc', 'Vencimento'],
                       ['criacao', 'Data criação'],
                     ]
                   : [
                       ['nome', 'Nome'],
+                      ['nota', 'Aderência'],
                       ['venc', 'Vencimento'],
                       ['criacao', 'Data criação'],
                     ]) as [string, string][]
@@ -566,7 +576,7 @@ export function PiePage() {
           <tbody>
             {docsOnly && !subtreeDocuments.isLoading && docRows.length === 0 && (
               <tr>
-                <td colSpan={5} className="px-3.5 py-12 text-center text-muted">
+                <td colSpan={6} className="px-3.5 py-12 text-center text-muted">
                   {venc && rawDocuments.length > 0
                     ? 'Nenhum documento corresponde ao filtro de vencimento.'
                     : 'Nenhum documento abaixo desta pasta.'}
@@ -576,7 +586,7 @@ export function PiePage() {
 
             {!docsOnly && venc && rawDocuments.length > 0 && docRows.length === 0 && (
               <tr>
-                <td colSpan={4} className="px-3.5 py-12 text-center text-muted">
+                <td colSpan={5} className="px-3.5 py-12 text-center text-muted">
                   Nenhum documento corresponde ao filtro de vencimento.
                 </td>
               </tr>
@@ -584,7 +594,7 @@ export function PiePage() {
 
             {!docsOnly && !creating && children.length === 0 && (documents.data?.length ?? 0) === 0 && (
               <tr>
-                <td colSpan={4} className="px-3.5 py-12 text-center">
+                <td colSpan={5} className="px-3.5 py-12 text-center">
                   {pasta ? (
                     <span className="text-muted">
                       {canUploadDoc || canCreateFolder
@@ -645,6 +655,7 @@ export function PiePage() {
                   </Link>
                 </Td>
                 <Td className="text-muted">—</Td>
+                <Td className="text-muted">—</Td>
                 <Td className="tabular font-mono text-caption">
                   {formatDate(node.createdAt)}
                 </Td>
@@ -701,7 +712,7 @@ export function PiePage() {
             {/* Input inline de nova pasta — entra logo depois da última pasta */}
             {!docsOnly && creating && (
               <tr>
-                <td colSpan={4} className="border-b border-line px-3.5 py-2">
+                <td colSpan={5} className="border-b border-line px-3.5 py-2">
                   <form
                     onSubmit={(e) => {
                       e.preventDefault();
@@ -783,6 +794,19 @@ export function PiePage() {
                       )}
                     </Td>
                   )}
+                  <Td>
+                    {doc.adherence ? (
+                      <span className="inline-flex items-center gap-1.5 text-caption text-ink-soft">
+                        <span
+                          aria-hidden
+                          className={`size-2 shrink-0 rounded-full ${adherenceDots[doc.adherence]}`}
+                        />
+                        {statusPillLabel(doc.adherence)}
+                      </span>
+                    ) : (
+                      <span className="text-caption text-muted">sem nota</span>
+                    )}
+                  </Td>
                   <Td>
                     <ExpiryPill expiresAt={doc.expiresAt} warnDaysBefore={doc.warnDaysBefore} />
                   </Td>
@@ -911,28 +935,39 @@ export function PiePage() {
         </form>
       </Dialog>
 
-      <Dialog
+      <ConfirmDialog
         open={deleteDialog.isOpen}
         onClose={() => {
           deleteDialog.close();
           setPurgeChecked(false);
         }}
         title="Excluir documento"
+        actionLabel={purgeChecked ? 'Excluir definitivamente' : 'Excluir documento'}
+        pendingLabel="Excluindo…"
+        pending={removeDocument.isPending || purgeDocument.isPending}
+        error={removeDocument.error?.message ?? purgeDocument.error?.message}
+        onConfirm={() => {
+          if (!deleteDialog.target) return;
+          const input = { unitId, documentId: deleteDialog.target.id };
+          if (purgeChecked) purgeDocument.mutate(input);
+          else removeDocument.mutate(input);
+          setPurgeChecked(false);
+        }}
       >
-        <div className="flex flex-col gap-4">
-          <p className="text-sm">
+        <div className="flex flex-col gap-3">
+          <p>
             Excluir <strong>{deleteDialog.target?.name}</strong>?{' '}
             {purgeChecked
               ? 'Documento, histórico de versões e arquivos serão APAGADOS do sistema.'
               : 'O histórico de versões será mantido no registro do prontuário.'}
           </p>
           {canPurge && (
-            <label className="flex cursor-pointer items-start gap-2 rounded-ctl border border-line bg-paper p-3 text-sm">
+            <label className="flex cursor-pointer items-start gap-2 rounded-ctl border border-line bg-paper p-3">
               <input
                 type="checkbox"
                 checked={purgeChecked}
                 onChange={(e) => setPurgeChecked(e.target.checked)}
-                className="mt-0.5 size-4 accent-[var(--color-bad)]"
+                className="mt-0.5 size-4 accent-bad"
               />
               <span>
                 <strong>Excluir definitivamente</strong> — apaga também o histórico de versões e
@@ -940,73 +975,25 @@ export function PiePage() {
               </span>
             </label>
           )}
-          {(removeDocument.error || purgeDocument.error) && (
-            <p role="alert" className="text-sm text-bad">
-              {removeDocument.error?.message ?? purgeDocument.error?.message}
-            </p>
-          )}
-          <div className="flex justify-end gap-2">
-            <Button
-              type="button"
-              variant="secondary"
-              onClick={() => {
-                deleteDialog.close();
-                setPurgeChecked(false);
-              }}
-            >
-              Cancelar
-            </Button>
-            <Button
-              type="button"
-              variant="danger"
-              disabled={removeDocument.isPending || purgeDocument.isPending}
-              onClick={() => {
-                if (!deleteDialog.target) return;
-                const input = { unitId, documentId: deleteDialog.target.id };
-                if (purgeChecked) purgeDocument.mutate(input);
-                else removeDocument.mutate(input);
-                setPurgeChecked(false);
-              }}
-            >
-              {purgeChecked ? 'Excluir definitivamente' : 'Excluir'}
-            </Button>
-          </div>
         </div>
-      </Dialog>
+      </ConfirmDialog>
 
-      <Dialog
+      <ConfirmDialog
         open={deleteFolderDialog.isOpen}
         onClose={() => deleteFolderDialog.close()}
         title="Excluir pasta"
+        actionLabel="Excluir pasta"
+        pendingLabel="Excluindo…"
+        pending={removeFolder.isPending}
+        error={removeFolder.error?.message}
+        onConfirm={() =>
+          deleteFolderDialog.target &&
+          removeFolder.mutate({ unitId, folderId: deleteFolderDialog.target.id })
+        }
       >
-        <div className="flex flex-col gap-4">
-          <p className="text-sm">
-            Excluir a pasta <strong>{deleteFolderDialog.target?.name}</strong>? Subpastas e documentos
-            dentro dela serão excluídos junto.
-          </p>
-          {removeFolder.error && (
-            <p role="alert" className="text-sm text-bad">
-              {removeFolder.error.message}
-            </p>
-          )}
-          <div className="flex justify-end gap-2">
-            <Button type="button" variant="secondary" onClick={() => deleteFolderDialog.close()}>
-              Cancelar
-            </Button>
-            <Button
-              type="button"
-              variant="danger"
-              disabled={removeFolder.isPending}
-              onClick={() =>
-                deleteFolderDialog.target &&
-                removeFolder.mutate({ unitId, folderId: deleteFolderDialog.target.id })
-              }
-            >
-              Excluir
-            </Button>
-          </div>
-        </div>
-      </Dialog>
+        Subpastas e documentos dentro de <strong>{deleteFolderDialog.target?.name}</strong> serão
+        excluídos junto com a pasta.
+      </ConfirmDialog>
 
       <DocumentVersionsDialog
         unitId={unitId}
@@ -1038,6 +1025,7 @@ export function PiePage() {
           onClose={() => setUploadOpen(false)}
           unitId={unitId}
           folderId={pasta}
+          folderName={path.at(-1)?.name}
         />
       )}
 

@@ -6,6 +6,7 @@ import { trpc } from '@/lib/trpc';
 import { useUnitPermissions } from '@/lib/use-unit-permissions';
 import { Button } from '@/components/ui/button';
 import { Dialog } from '@/components/ui/dialog';
+import { AlertStrip } from '@/components/ui/alert-strip';
 import { Field } from '@/components/ui/field';
 import { Menu, type MenuPosition } from '@/components/ui/row-menu';
 import { FolderPickerDialog, type PickedFolder } from '@/components/pie/folder-picker';
@@ -101,7 +102,7 @@ export function NewMenu({ companyId, unitId }: { companyId: string; unitId: stri
               ? [{ label: 'Criar pasta', onSelect: () => setPickingParent(true) }]
               : []),
             ...(allow('pie.documento.enviar')
-              ? [{ label: 'Adicionar documentos', onSelect: () => setPickingDocFolder(true) }]
+              ? [{ label: 'Enviar documento', onSelect: () => setPickingDocFolder(true) }]
               : []),
             ...(allow('diagnostico.avaliar')
               ? [{ label: 'Criar diagnóstico', onSelect: () => setPickingItem(true) }]
@@ -154,13 +155,13 @@ export function NewMenu({ companyId, unitId }: { companyId: string; unitId: stri
         />
       )}
 
-      {/* Adicionar documentos */}
+      {/* Enviar documento */}
       <FolderPickerDialog
         unitId={unitId}
         open={pickingDocFolder}
         onClose={() => setPickingDocFolder(false)}
         onSelect={goToUploadFolder}
-        title="Adicionar documentos — escolha a pasta"
+        title="Enviar documento — escolha a pasta"
         confirmLabel="Enviar aqui"
       />
       {uploadFolder?.id && (
@@ -169,6 +170,7 @@ export function NewMenu({ companyId, unitId }: { companyId: string; unitId: stri
           onClose={() => setUploadFolder(null)}
           unitId={unitId}
           folderId={uploadFolder.id}
+          folderName={uploadFolder.name}
         />
       )}
 
@@ -205,11 +207,7 @@ export function NewMenu({ companyId, unitId }: { companyId: string; unitId: stri
             onChange={(e) => setFolderName(e.target.value)}
             autoFocus
           />
-          {createFolder.error && (
-            <p role="alert" className="text-sm text-bad">
-              {createFolder.error.message}
-            </p>
-          )}
+          {createFolder.error && <AlertStrip>{createFolder.error.message}</AlertStrip>}
           <div className="flex justify-end gap-2">
             <Button type="button" variant="secondary" onClick={() => setNewFolderParent(null)}>
               Cancelar

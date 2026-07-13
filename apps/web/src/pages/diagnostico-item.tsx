@@ -14,6 +14,7 @@ import { trpc } from '@/lib/trpc';
 import { useUnitPermissions } from '@/lib/use-unit-permissions';
 import { Button } from '@/components/ui/button';
 import { Dialog } from '@/components/ui/dialog';
+import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { Field } from '@/components/ui/field';
 import { Page, PageTitle } from '@/components/ui/page';
 import { SelectField } from '@/components/ui/select';
@@ -157,7 +158,7 @@ export function DiagnosticoItemPage() {
             checked={isActive}
             disabled={!canConfigure}
             onChange={(e) => setIsActive(e.target.checked)}
-            className="size-4 accent-[var(--color-action)]"
+            className="size-4 accent-action"
           />
           {isActive ? 'Ativo' : 'Fora de escopo'}
         </label>
@@ -339,31 +340,19 @@ export function DiagnosticoItemPage() {
         )}
       </div>
 
-      <Dialog
+      <ConfirmDialog
         open={confirmRemoveAll}
         onClose={() => setConfirmRemoveAll(false)}
         title="Remover todos os requisitos"
+        actionLabel="Remover requisitos"
+        pendingLabel="Removendo…"
+        pending={removeAll.isPending}
+        error={removeAll.error?.message}
+        onConfirm={() => removeAll.mutate({ unitId, adequacyItemId })}
       >
-        <div className="flex flex-col gap-4">
-          <p className="text-sm">
-            Remover os <strong>{requirements.data?.length ?? 0} requisitos</strong> deste item?
-            Diagnósticos já realizados não são alterados.
-          </p>
-          <div className="flex justify-end gap-2">
-            <Button type="button" variant="secondary" onClick={() => setConfirmRemoveAll(false)}>
-              Cancelar
-            </Button>
-            <Button
-              type="button"
-              variant="danger"
-              disabled={removeAll.isPending}
-              onClick={() => removeAll.mutate({ unitId, adequacyItemId })}
-            >
-              Remover todos
-            </Button>
-          </div>
-        </div>
-      </Dialog>
+        Os <strong>{requirements.data?.length ?? 0} requisitos</strong> deste item são removidos.
+        Diagnósticos já realizados não são alterados.
+      </ConfirmDialog>
     </Page>
   );
 }

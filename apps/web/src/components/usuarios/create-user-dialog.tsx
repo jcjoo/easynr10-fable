@@ -4,6 +4,7 @@ import { userRoles, type UserRole } from '@easynr10/shared';
 import { trpc } from '@/lib/trpc';
 import { Button } from '@/components/ui/button';
 import { Dialog } from '@/components/ui/dialog';
+import { AlertStrip } from '@/components/ui/alert-strip';
 import { Field } from '@/components/ui/field';
 import { SelectField } from '@/components/ui/select';
 
@@ -76,11 +77,7 @@ export function CreateUserDialog({ open, onClose }: { open: boolean; onClose: ()
             ))}
           </SelectField>
         </div>
-        {create.error && (
-          <p role="alert" className="text-sm text-bad">
-            {create.error.message}
-          </p>
-        )}
+        {create.error && <AlertStrip>{create.error.message}</AlertStrip>}
         <div className="flex justify-end gap-2">
           <Button type="button" variant="secondary" onClick={onClose}>
             Cancelar

@@ -251,7 +251,7 @@ export function RolesManager({ companyId, unitId }: { companyId: string; unitId?
                     disabled={selected.inUse > 0 || removeRole.isPending}
                     onClick={() => removeRole.mutate({ roleId: selected.id })}
                   >
-                    <Trash2 aria-hidden className="size-4" /> Excluir
+                    <Trash2 aria-hidden className="size-4" /> Excluir papel
                   </Button>
                 )}
               </div>
@@ -286,7 +286,7 @@ export function RolesManager({ companyId, unitId }: { companyId: string; unitId?
                         }}
                         disabled={readOnly}
                         onChange={() => toggleGroup(selected, group, !allEnabled)}
-                        className="size-4 accent-[var(--color-action)]"
+                        className="size-4 accent-action"
                       />
                       <span className="font-ui text-sm font-bold">{group}</span>
                       <span className="font-mono text-micro text-muted">
@@ -312,7 +312,7 @@ export function RolesManager({ companyId, unitId }: { companyId: string; unitId?
                                 checked={enabled}
                                 disabled={readOnly}
                                 onChange={() => togglePermission(selected, entry.action)}
-                                className="mt-0.5 size-4 accent-[var(--color-action)]"
+                                className="mt-0.5 size-4 accent-action"
                               />
                               <span className="flex-1">
                                 <span className="flex flex-wrap items-center gap-2">

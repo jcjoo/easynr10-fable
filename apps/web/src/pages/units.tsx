@@ -4,7 +4,7 @@ import { Link, useParams } from '@tanstack/react-router';
 import { trpc } from '@/lib/trpc';
 import { useSession } from '@/lib/auth-client';
 import { Button } from '@/components/ui/button';
-import { Dialog } from '@/components/ui/dialog';
+import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { RowMenu } from '@/components/ui/row-menu';
 import { Page, PageTitle } from '@/components/ui/page';
 
@@ -112,36 +112,19 @@ export function UnitsPage() {
         ))}
       </ul>
 
-      <Dialog
+      <ConfirmDialog
         open={Boolean(deleteTarget)}
         onClose={() => setDeleteTarget(null)}
         title="Excluir unidade"
+        actionLabel="Excluir unidade"
+        pendingLabel="Excluindo…"
+        pending={removeUnit.isPending}
+        error={removeUnit.error?.message}
+        onConfirm={() => deleteTarget && removeUnit.mutate({ id: deleteTarget.id })}
       >
-        <div className="flex flex-col gap-4">
-          <p className="text-sm">
-            Excluir <strong>{deleteTarget?.name}</strong>? O prontuário, diagnósticos e plano de
-            ação dela deixarão de aparecer no sistema.
-          </p>
-          {removeUnit.error && (
-            <p role="alert" className="text-sm text-bad">
-              {removeUnit.error.message}
-            </p>
-          )}
-          <div className="flex justify-end gap-2">
-            <Button type="button" variant="secondary" onClick={() => setDeleteTarget(null)}>
-              Cancelar
-            </Button>
-            <Button
-              type="button"
-              variant="danger"
-              disabled={removeUnit.isPending}
-              onClick={() => deleteTarget && removeUnit.mutate({ id: deleteTarget.id })}
-            >
-              Excluir
-            </Button>
-          </div>
-        </div>
-      </Dialog>
+        O prontuário, os diagnósticos e o plano de ação de <strong>{deleteTarget?.name}</strong>{' '}
+        deixam de aparecer no sistema.
+      </ConfirmDialog>
     </Page>
   );
 }

@@ -4,7 +4,7 @@ import { Link } from '@tanstack/react-router';
 import { trpc } from '@/lib/trpc';
 import { useSession } from '@/lib/auth-client';
 import { Button } from '@/components/ui/button';
-import { Dialog } from '@/components/ui/dialog';
+import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { RowMenu } from '@/components/ui/row-menu';
 import { Page, PageTitle } from '@/components/ui/page';
 
@@ -109,36 +109,19 @@ export function CompaniesPage() {
         ))}
       </ul>
 
-      <Dialog
+      <ConfirmDialog
         open={Boolean(deleteTarget)}
         onClose={() => setDeleteTarget(null)}
         title="Excluir empresa"
+        actionLabel="Excluir empresa"
+        pendingLabel="Excluindo…"
+        pending={removeCompany.isPending}
+        error={removeCompany.error?.message}
+        onConfirm={() => deleteTarget && removeCompany.mutate({ id: deleteTarget.id })}
       >
-        <div className="flex flex-col gap-4">
-          <p className="text-sm">
-            Excluir <strong>{deleteTarget?.name}</strong>? As unidades e os prontuários dela
-            deixarão de aparecer no sistema.
-          </p>
-          {removeCompany.error && (
-            <p role="alert" className="text-sm text-bad">
-              {removeCompany.error.message}
-            </p>
-          )}
-          <div className="flex justify-end gap-2">
-            <Button type="button" variant="secondary" onClick={() => setDeleteTarget(null)}>
-              Cancelar
-            </Button>
-            <Button
-              type="button"
-              variant="danger"
-              disabled={removeCompany.isPending}
-              onClick={() => deleteTarget && removeCompany.mutate({ id: deleteTarget.id })}
-            >
-              Excluir
-            </Button>
-          </div>
-        </div>
-      </Dialog>
+        As unidades e os prontuários de <strong>{deleteTarget?.name}</strong> deixam de aparecer
+        no sistema.
+      </ConfirmDialog>
     </Page>
   );
 }

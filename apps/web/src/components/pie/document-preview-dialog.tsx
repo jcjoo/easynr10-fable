@@ -25,8 +25,23 @@ export function DocumentPreviewDialog({
     <Dialog
       open={Boolean(preview)}
       onClose={onClose}
-      title={preview?.name ?? 'Visualizar documento'}
+      title="Visualizar documento"
+      description={preview?.name}
       size="xl"
+      footer={
+        preview ? (
+          <>
+            <Button type="button" variant="secondary" onClick={onClose}>
+              Fechar
+            </Button>
+            {preview.url && (
+              <Button type="button" onClick={() => onDownload(preview.documentId)}>
+                Baixar
+              </Button>
+            )}
+          </>
+        ) : undefined
+      }
     >
       {preview && (
         <div className="flex flex-col gap-3">
@@ -55,16 +70,6 @@ export function DocumentPreviewDialog({
               baixe para abrir no aplicativo adequado.
             </p>
           )}
-          <div className="flex justify-end gap-2">
-            <Button type="button" variant="secondary" onClick={onClose}>
-              Fechar
-            </Button>
-            {preview.url && (
-              <Button type="button" onClick={() => onDownload(preview.documentId)}>
-                Baixar
-              </Button>
-            )}
-          </div>
         </div>
       )}
     </Dialog>

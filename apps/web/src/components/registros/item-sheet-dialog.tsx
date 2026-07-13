@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
-import { ChevronRight, ImageOff } from 'lucide-react';
+import { ChevronRight, FileText, ImageOff } from 'lucide-react';
 import {
   diagnosticStatusScore,
   equipmentTypeLabels,
@@ -106,7 +106,7 @@ export function ItemSheetDialog({
   return (
     <Dialog open={open} onClose={onClose} title={item?.name ?? 'Ficha'} size="lg">
       {item && (
-        <div className="flex max-h-[72vh] flex-col gap-5 overflow-y-auto pr-1">
+        <div className="flex flex-col gap-5">
           <div className="flex flex-wrap items-start gap-4">
             <div className="flex size-28 shrink-0 items-center justify-center overflow-hidden rounded-card border border-line bg-paper">
               {photo.data ? (
@@ -179,10 +179,11 @@ export function ItemSheetDialog({
                         <button
                           type="button"
                           onClick={() => onPreview(link.documentId, link.documentName)}
-                          className="max-w-64 cursor-pointer truncate text-caption text-action hover:underline"
+                          className="flex max-w-64 cursor-pointer items-center gap-1 text-caption text-action hover:underline"
                           title="Visualizar documento"
                         >
-                          📄 {link.documentName}
+                          <FileText aria-hidden className="size-3.5 shrink-0" />
+                          <span className="min-w-0 truncate">{link.documentName}</span>
                         </button>
                         {link.adherence ? (
                           <span className="inline-flex items-center gap-1 text-caption text-muted">

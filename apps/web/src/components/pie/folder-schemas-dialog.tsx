@@ -5,6 +5,7 @@ import type { FolderSchemaNodeInput } from '@easynr10/shared';
 import { trpc } from '@/lib/trpc';
 import { Button } from '@/components/ui/button';
 import { Dialog } from '@/components/ui/dialog';
+import { AlertStrip } from '@/components/ui/alert-strip';
 import { Field } from '@/components/ui/field';
 import { SelectField } from '@/components/ui/select';
 import { FolderIcon } from '@/components/ui/icons';
@@ -226,9 +227,59 @@ export function FolderSchemasDialog({
       open={open}
       onClose={onClose}
       title={mode === 'select' ? 'Estruturas de pastas' : mode === 'create' ? 'Nova estrutura' : 'Editar estrutura'}
+      footer={
+        mode === 'select' ? (
+          <>
+            <Button type="button" variant="ghost" className="mr-auto" onClick={startCreate}>
+              <Plus aria-hidden className="size-4" /> Nova estrutura
+            </Button>
+            {selected && (
+              <>
+                <Button
+                  type="button"
+                  variant="danger"
+                  disabled={removeSchema.isPending}
+                  onClick={() => removeSchema.mutate({ unitId, schemaId: selected.id })}
+                >
+                  Excluir estrutura
+                </Button>
+                <Button type="button" variant="secondary" onClick={startEdit}>
+                  Editar
+                </Button>
+                <Button
+                  type="button"
+                  disabled={applySchema.isPending}
+                  onClick={() =>
+                    applySchema.mutate({
+                      unitId,
+                      schemaId: selected.id,
+                      parentId: currentFolderId,
+                    })
+                  }
+                >
+                  {applySchema.isPending ? 'Gerando…' : `Gerar em "${currentFolderName}"`}
+                </Button>
+              </>
+            )}
+          </>
+        ) : (
+          <>
+            <Button type="button" variant="secondary" onClick={() => setMode('select')}>
+              Cancelar
+            </Button>
+            <Button
+              type="submit"
+              form="folder-schema-form"
+              disabled={createSchema.isPending || updateSchema.isPending}
+            >
+              {mode === 'create' ? 'Criar estrutura' : 'Salvar alterações'}
+            </Button>
+          </>
+        )
+      }
     >
       {mode === 'select' ? (
-        <div className="flex max-h-[70vh] flex-col gap-4 overflow-y-auto pr-1">
+        <div className="flex flex-col gap-4">
           {schemas.data?.length === 0 ? (
             <p className="text-sm text-muted">Nenhuma estrutura cadastrada nesta unidade.</p>
           ) : (
@@ -260,49 +311,11 @@ export function FolderSchemasDialog({
 
           {feedback && <p className="text-sm text-ok">{feedback}</p>}
           {(applySchema.error || removeSchema.error) && (
-            <p role="alert" className="text-sm text-bad">
-              {applySchema.error?.message ?? removeSchema.error?.message}
-            </p>
+            <AlertStrip>{applySchema.error?.message ?? removeSchema.error?.message}</AlertStrip>
           )}
-
-          <div className="flex flex-wrap justify-between gap-2">
-            <Button type="button" variant="ghost" onClick={startCreate}>
-              <Plus aria-hidden className="size-4" /> Nova estrutura
-            </Button>
-            <div className="flex gap-2">
-              {selected && (
-                <>
-                  <Button
-                    type="button"
-                    variant="danger"
-                    disabled={removeSchema.isPending}
-                    onClick={() => removeSchema.mutate({ unitId, schemaId: selected.id })}
-                  >
-                    Excluir
-                  </Button>
-                  <Button type="button" variant="secondary" onClick={startEdit}>
-                    Editar
-                  </Button>
-                  <Button
-                    type="button"
-                    disabled={applySchema.isPending}
-                    onClick={() =>
-                      applySchema.mutate({
-                        unitId,
-                        schemaId: selected.id,
-                        parentId: currentFolderId,
-                      })
-                    }
-                  >
-                    {applySchema.isPending ? 'Gerando…' : `Gerar em "${currentFolderName}"`}
-                  </Button>
-                </>
-              )}
-            </div>
-          </div>
         </div>
       ) : (
-        <form onSubmit={saveDraft} className="flex max-h-[70vh] flex-col gap-4 overflow-y-auto pr-1">
+        <form id="folder-schema-form" onSubmit={saveDraft} className="flex flex-col gap-4">
           <Field
             label="Nome da estrutura"
             value={draftName}
@@ -322,17 +335,6 @@ export function FolderSchemasDialog({
               }
             >
               <Plus aria-hidden className="size-4" /> Adicionar pasta na raiz
-            </Button>
-          </div>
-          <div className="flex justify-end gap-2">
-            <Button type="button" variant="secondary" onClick={() => setMode('select')}>
-              Cancelar
-            </Button>
-            <Button
-              type="submit"
-              disabled={createSchema.isPending || updateSchema.isPending}
-            >
-              {mode === 'create' ? 'Criar estrutura' : 'Salvar alterações'}
             </Button>
           </div>
         </form>

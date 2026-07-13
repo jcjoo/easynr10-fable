@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { ChevronRight } from 'lucide-react';
+import { ChevronRight, FileText } from 'lucide-react';
 import {
   diagnosticAdherenceScore,
   documentGroupLabels,
@@ -15,6 +15,7 @@ import { useUnitPermissions } from '@/lib/use-unit-permissions';
 import { formatDate } from '@/lib/format';
 import { Button } from '@/components/ui/button';
 import { Dialog } from '@/components/ui/dialog';
+import { AlertStrip } from '@/components/ui/alert-strip';
 import { Field } from '@/components/ui/field';
 import { AdherencePicker } from '@/components/ui/adherence-picker';
 import { StatusPill, adherenceDots, statusPillLabel } from '@/components/ui/status-pill';
@@ -199,10 +200,15 @@ export function AssessmentDialog({
         queryClient.invalidateQueries({
           queryKey: trpc.adequacy.history.queryKey({ unitId, adequacyItemId: target.id }),
         });
-        // As notas voltaram para os módulos de origem — refaz os vínculos do cadastro.
+        // As notas voltaram para os módulos de origem — refaz os vínculos do
+        // cadastro e as listas de documentos (a evidência de documento propaga
+        // a nota para o P.I.E; sem invalidar, o picker e o P.I.E mostravam a
+        // aderência antiga).
         queryClient.invalidateQueries({
           queryKey: trpc.registers.documentLinks.queryKey({ unitId }),
         });
+        queryClient.invalidateQueries({ queryKey: trpc.documents.listBySubtree.queryKey() });
+        queryClient.invalidateQueries({ queryKey: trpc.documents.listByFolder.queryKey() });
         onSaved();
         onClose();
       },
@@ -220,9 +226,26 @@ export function AssessmentDialog({
             NR-10 §{target.normCode}
           </span>
         }
+        description="A média das notas das evidências define a aderência do item"
         size="lg"
+        footer={
+          canAssess ? (
+            <>
+              <span className="mr-auto text-label text-muted">
+                Aderência calculada:{' '}
+                <strong className="font-mono font-semibold text-ink">{previewScore}%</strong>
+              </span>
+              <Button type="button" variant="secondary" onClick={onClose}>
+                Cancelar
+              </Button>
+              <Button type="submit" form="diagnostico-form" disabled={diagnose.isPending}>
+                {diagnose.isPending ? 'Registrando…' : 'Registrar diagnóstico'}
+              </Button>
+            </>
+          ) : undefined
+        }
       >
-        <div className="flex max-h-[70vh] flex-col gap-5 overflow-y-auto pr-1">
+        <div className="flex flex-col gap-5">
           <div className="space-y-2 text-sm">
             <p>{target.normDescription}</p>
             <p className="rounded-card border-l-2 border-hazard bg-paper px-3 py-2 text-ink-soft">
@@ -240,6 +263,7 @@ export function AssessmentDialog({
 
           {canAssess && (
             <form
+              id="diagnostico-form"
               onSubmit={(e) => {
                 e.preventDefault();
                 diagnose.mutate({
@@ -445,14 +469,7 @@ export function AssessmentDialog({
                   />
                 </div>
               </div>
-              <div className="flex justify-end gap-2">
-                <Button type="button" variant="secondary" onClick={onClose}>
-                  Cancelar
-                </Button>
-                <Button type="submit" disabled={diagnose.isPending}>
-                  {diagnose.isPending ? 'Registrando…' : 'Registrar diagnóstico'}
-                </Button>
-              </div>
+              {diagnose.error && <AlertStrip>{diagnose.error.message}</AlertStrip>}
             </form>
           )}
 
@@ -524,7 +541,14 @@ export function AssessmentDialog({
                                   {item.label}
                                   {item.answer ? ` — ${item.answer}` : ''}
                                   {item.documentName ? (
-                                    <span className="text-action"> 📄 {item.documentName}</span>
+                                    <span className="text-action">
+                                      {' '}
+                                      <FileText
+                                        aria-hidden
+                                        className="inline size-3.5 align-[-2px]"
+                                      />{' '}
+                                      {item.documentName}
+                                    </span>
                                   ) : ev.type !== 'opinion' ? (
                                     <span className="text-muted"> (sem documento)</span>
                                   ) : null}

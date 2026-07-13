@@ -29,6 +29,8 @@ import { useUnitPermissions } from '@/lib/use-unit-permissions';
 import { useDialogMutation, useDialogTarget } from '@/lib/use-dialog-mutation';
 import { Button } from '@/components/ui/button';
 import { Dialog } from '@/components/ui/dialog';
+import { ConfirmDialog } from '@/components/ui/confirm-dialog';
+import { AlertStrip } from '@/components/ui/alert-strip';
 import { Field } from '@/components/ui/field';
 import { Page, PageTitle } from '@/components/ui/page';
 import { Pill } from '@/components/ui/pill';
@@ -422,8 +424,22 @@ export function AutorizacoesPage() {
       </div>
 
       {/* — Nova autorização — */}
-      <Dialog open={createOpen} onClose={() => setCreateOpen(false)} title={`Nova ${typeLabel}`}>
-        <form onSubmit={saveCreate} className="flex max-h-[70vh] flex-col gap-4 overflow-y-auto pr-1">
+      <Dialog
+        open={createOpen}
+        onClose={() => setCreateOpen(false)}
+        title={`Nova ${typeLabel}`}
+        footer={
+          <>
+            <Button type="button" variant="secondary" onClick={() => setCreateOpen(false)}>
+              Cancelar
+            </Button>
+            <Button type="submit" form="autorizacao-form" disabled={!createValid || create.isPending}>
+              {create.isPending ? 'Gerando…' : 'Gerar para assinatura'}
+            </Button>
+          </>
+        }
+      >
+        <form id="autorizacao-form" onSubmit={saveCreate} className="flex flex-col gap-4">
           <SelectField
             label="Colaborador"
             value={employeeId}
@@ -476,7 +492,7 @@ export function AutorizacoesPage() {
                               return next;
                             })
                           }
-                          className="size-4 accent-[var(--color-action)]"
+                          className="size-4 accent-action"
                         />
                         <span className="flex-1">{atividade.name}</span>
                       </label>
@@ -519,7 +535,7 @@ export function AutorizacoesPage() {
                             return next;
                           })
                         }
-                        className="size-4 accent-[var(--color-action)]"
+                        className="size-4 accent-action"
                       />
                       <span className="flex-1">{epi.name}</span>
                       {epi.metadata?.ca && (
@@ -532,19 +548,7 @@ export function AutorizacoesPage() {
             </div>
           )}
 
-          {create.error && (
-            <p role="alert" className="text-sm text-bad">
-              {create.error.message}
-            </p>
-          )}
-          <div className="flex justify-end gap-2">
-            <Button type="button" variant="secondary" onClick={() => setCreateOpen(false)}>
-              Cancelar
-            </Button>
-            <Button type="submit" disabled={!createValid || create.isPending}>
-              {create.isPending ? 'Gerando…' : 'Gerar para assinatura'}
-            </Button>
-          </div>
+          {create.error && <AlertStrip>{create.error.message}</AlertStrip>}
         </form>
       </Dialog>
 
@@ -568,11 +572,7 @@ export function AutorizacoesPage() {
             signerName={signDialog.target?.employeeName ?? ''}
             onChange={setSignature}
           />
-          {sign.error && (
-            <p role="alert" className="text-sm text-bad">
-              {sign.error.message}
-            </p>
-          )}
+          {sign.error && <AlertStrip>{sign.error.message}</AlertStrip>}
           <div className="flex justify-end gap-2">
             <Button type="button" variant="secondary" onClick={signDialog.close}>
               Cancelar
@@ -646,73 +646,43 @@ export function AutorizacoesPage() {
       </Dialog>
 
       {/* — Excluir definitivamente — */}
-      <Dialog
+      <ConfirmDialog
         open={purgeDialog.isOpen}
         onClose={purgeDialog.close}
         title="Excluir definitivamente"
+        actionLabel="Excluir definitivamente"
+        pendingLabel="Excluindo…"
+        pending={purge.isPending}
+        error={purge.error?.message}
+        cancelLabel="Voltar"
+        onConfirm={() =>
+          purgeDialog.target && purge.mutate({ unitId, authorizationId: purgeDialog.target.id })
+        }
       >
-        <div className="flex flex-col gap-4">
-          <p className="text-sm">
-            Excluir definitivamente a {typeLabel.toLowerCase()} de{' '}
-            <strong>{purgeDialog.target?.employeeName}</strong>? O registro, a trilha de auditoria
-            {purgeDialog.target?.documentId ? ' e o PDF assinado no P.I.E' : ''} são apagados do
-            sistema — <strong>sem recuperação</strong>.
-          </p>
-          {purge.error && (
-            <p role="alert" className="text-sm text-bad">
-              {purge.error.message}
-            </p>
-          )}
-          <div className="flex justify-end gap-2">
-            <Button type="button" variant="secondary" onClick={purgeDialog.close}>
-              Voltar
-            </Button>
-            <Button
-              type="button"
-              variant="danger"
-              disabled={purge.isPending}
-              onClick={() =>
-                purgeDialog.target &&
-                purge.mutate({ unitId, authorizationId: purgeDialog.target.id })
-              }
-            >
-              {purge.isPending ? 'Excluindo…' : 'Excluir definitivamente'}
-            </Button>
-          </div>
-        </div>
-      </Dialog>
+        O registro da {typeLabel.toLowerCase()} de{' '}
+        <strong>{purgeDialog.target?.employeeName}</strong>, a trilha de auditoria
+        {purgeDialog.target?.documentId ? ' e o PDF assinado no P.I.E' : ''} são apagados do
+        sistema — <strong>sem recuperação</strong>.
+      </ConfirmDialog>
 
       {/* — Cancelar — */}
-      <Dialog open={cancelDialog.isOpen} onClose={cancelDialog.close} title="Cancelar autorização">
-        <div className="flex flex-col gap-4">
-          <p className="text-sm">
-            Cancelar a {typeLabel.toLowerCase()} de{' '}
-            <strong>{cancelDialog.target?.employeeName}</strong>? O link de assinatura deixa de
-            funcionar e a autorização fica registrada como cancelada.
-          </p>
-          {cancel.error && (
-            <p role="alert" className="text-sm text-bad">
-              {cancel.error.message}
-            </p>
-          )}
-          <div className="flex justify-end gap-2">
-            <Button type="button" variant="secondary" onClick={cancelDialog.close}>
-              Voltar
-            </Button>
-            <Button
-              type="button"
-              variant="danger"
-              disabled={cancel.isPending}
-              onClick={() =>
-                cancelDialog.target &&
-                cancel.mutate({ unitId, authorizationId: cancelDialog.target.id })
-              }
-            >
-              {cancel.isPending ? 'Cancelando…' : 'Cancelar autorização'}
-            </Button>
-          </div>
-        </div>
-      </Dialog>
+      <ConfirmDialog
+        open={cancelDialog.isOpen}
+        onClose={cancelDialog.close}
+        title="Cancelar autorização"
+        actionLabel="Cancelar autorização"
+        pendingLabel="Cancelando…"
+        pending={cancel.isPending}
+        error={cancel.error?.message}
+        cancelLabel="Voltar"
+        onConfirm={() =>
+          cancelDialog.target && cancel.mutate({ unitId, authorizationId: cancelDialog.target.id })
+        }
+      >
+        Ao cancelar a {typeLabel.toLowerCase()} de{' '}
+        <strong>{cancelDialog.target?.employeeName}</strong>, o link de assinatura deixa de
+        funcionar e a autorização fica registrada como cancelada.
+      </ConfirmDialog>
     </Page>
   );
 }

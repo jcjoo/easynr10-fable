@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { trpc } from '@/lib/trpc';
 import { Button } from '@/components/ui/button';
 import { Dialog } from '@/components/ui/dialog';
+import { AlertStrip } from '@/components/ui/alert-strip';
 import { Field } from '@/components/ui/field';
 import { SelectField } from '@/components/ui/select';
 
@@ -68,8 +69,23 @@ export function CompanyUserCreateDialog({
     selectedUnits.size > 0;
 
   return (
-    <Dialog open={open} onClose={onClose} title="Novo usuário da empresa">
+    <Dialog
+      open={open}
+      onClose={onClose}
+      title="Novo usuário da empresa"
+      footer={
+        <>
+          <Button type="button" variant="secondary" onClick={onClose}>
+            Cancelar
+          </Button>
+          <Button type="submit" form="company-user-form" disabled={!canSubmit || create.isPending}>
+            {create.isPending ? 'Criando…' : 'Criar usuário'}
+          </Button>
+        </>
+      }
+    >
       <form
+        id="company-user-form"
         onSubmit={(e) => {
           e.preventDefault();
           if (!canSubmit) return;
@@ -82,7 +98,7 @@ export function CompanyUserCreateDialog({
             unitIds: [...selectedUnits],
           });
         }}
-        className="flex max-h-[70vh] flex-col gap-4 overflow-y-auto pr-1"
+        className="flex flex-col gap-4"
       >
         <Field label="Nome" value={name} onChange={(e) => setName(e.target.value)} autoFocus />
         <Field
@@ -128,7 +144,7 @@ export function CompanyUserCreateDialog({
                   type="checkbox"
                   checked={selectedUnits.has(unit.id)}
                   onChange={() => toggleUnit(unit.id)}
-                  className="size-4 accent-[var(--color-action)]"
+                  className="size-4 accent-action"
                 />
                 {unit.name}
               </label>
@@ -139,19 +155,7 @@ export function CompanyUserCreateDialog({
           </div>
         </div>
 
-        {create.error && (
-          <p role="alert" className="text-sm text-bad">
-            {create.error.message}
-          </p>
-        )}
-        <div className="flex justify-end gap-2">
-          <Button type="button" variant="secondary" onClick={onClose}>
-            Cancelar
-          </Button>
-          <Button type="submit" disabled={!canSubmit || create.isPending}>
-            {create.isPending ? 'Criando…' : 'Criar usuário'}
-          </Button>
-        </div>
+        {create.error && <AlertStrip>{create.error.message}</AlertStrip>}
       </form>
     </Dialog>
   );

@@ -41,6 +41,8 @@ import { useUnitPermissions } from '@/lib/use-unit-permissions';
 import { useDialogMutation, useDialogTarget } from '@/lib/use-dialog-mutation';
 import { Button } from '@/components/ui/button';
 import { Dialog } from '@/components/ui/dialog';
+import { ConfirmDialog } from '@/components/ui/confirm-dialog';
+import { AlertStrip } from '@/components/ui/alert-strip';
 import { Field } from '@/components/ui/field';
 import { FolderIcon } from '@/components/ui/icons';
 import { Page, PageTitle } from '@/components/ui/page';
@@ -904,8 +906,18 @@ export function RegisterPage({
         open={editor.isOpen}
         onClose={editor.close}
         title={editing === 'new' ? `Novo ${itemLabel}` : `Editar ${itemLabel}`}
+        footer={
+          <>
+            <Button type="button" variant="secondary" onClick={editor.close}>
+              Cancelar
+            </Button>
+            <Button type="submit" form="registro-form" disabled={!name.trim() || saving}>
+              {saving ? 'Salvando…' : 'Salvar'}
+            </Button>
+          </>
+        }
       >
-        <form onSubmit={save} className="flex max-h-[70vh] flex-col gap-4 overflow-y-auto pr-1">
+        <form id="registro-form" onSubmit={save} className="flex flex-col gap-4">
           {!isEmployees && (
             <SelectField
               label="Tipo de equipamento"
@@ -1027,19 +1039,7 @@ export function RegisterPage({
               </SelectField>
             </div>
           )}
-          {saveError && (
-            <p role="alert" className="text-sm text-bad">
-              {saveError}
-            </p>
-          )}
-          <div className="flex justify-end gap-2">
-            <Button type="button" variant="secondary" onClick={editor.close}>
-              Cancelar
-            </Button>
-            <Button type="submit" disabled={!name.trim() || saving}>
-              {saving ? 'Salvando…' : 'Salvar'}
-            </Button>
-          </div>
+          {saveError && <AlertStrip>{saveError}</AlertStrip>}
         </form>
       </Dialog>
 
@@ -1047,9 +1047,42 @@ export function RegisterPage({
       <Dialog
         open={linkDialog.isOpen}
         onClose={linkDialog.close}
-        title={`Vincular ${linkDialog.target?.field.label ?? ''} — ${registerTargetLabels[target]}`}
+        title="Vincular documento"
+        description={`${linkDialog.target?.field.label ?? ''} — ${registerTargetLabels[target]}`}
+        footer={
+          <>
+            <Button type="button" variant="secondary" onClick={linkDialog.close}>
+              Cancelar
+            </Button>
+            <Button
+              type="button"
+              disabled={!linkDocumentId || linkSelection.size === 0 || linkDocument.isPending}
+              onClick={() =>
+                linkDialog.target &&
+                linkDocument.mutate({
+                  unitId,
+                  fieldKey: linkDialog.target.field.key,
+                  documentId: linkDocumentId,
+                  employeeIds: isEmployees ? [...linkSelection] : [],
+                  equipmentIds: isEmployees ? [] : [...linkSelection],
+                  // Nota por item: a escolhida ou o default do documento.
+                  adherences: Object.fromEntries(
+                    [...linkSelection].map((id) => [
+                      id,
+                      id in linkNotas ? (linkNotas[id] as DiagnosticStatus | null) : linkDocAdherence,
+                    ]),
+                  ),
+                })
+              }
+            >
+              {linkDocument.isPending
+                ? 'Vinculando…'
+                : `Vincular ${linkSelection.size} item(ns)`}
+            </Button>
+          </>
+        }
       >
-        <div className="flex max-h-[70vh] flex-col gap-4 overflow-y-auto pr-1">
+        <div className="flex flex-col gap-4">
           <p className="text-sm text-muted">
             Escolha o documento do P.I.E e marque os itens cobertos por ele — o vencimento do
             documento passa a valer para todos (alertas e diagnóstico de vencidos).
@@ -1122,7 +1155,7 @@ export function RegisterPage({
                             return next;
                           })
                         }
-                        className="size-4 accent-[var(--color-action)]"
+                        className="size-4 accent-action"
                       />
                       <span className="truncate">{row.name}</span>
                       {current && (
@@ -1151,41 +1184,7 @@ export function RegisterPage({
             </ul>
           </div>
 
-          {linkDocument.error && (
-            <p role="alert" className="text-sm text-bad">
-              {linkDocument.error.message}
-            </p>
-          )}
-          <div className="flex justify-end gap-2">
-            <Button type="button" variant="secondary" onClick={linkDialog.close}>
-              Cancelar
-            </Button>
-            <Button
-              type="button"
-              disabled={!linkDocumentId || linkSelection.size === 0 || linkDocument.isPending}
-              onClick={() =>
-                linkDialog.target &&
-                linkDocument.mutate({
-                  unitId,
-                  fieldKey: linkDialog.target.field.key,
-                  documentId: linkDocumentId,
-                  employeeIds: isEmployees ? [...linkSelection] : [],
-                  equipmentIds: isEmployees ? [] : [...linkSelection],
-                  // Nota por item: a escolhida ou o default do documento.
-                  adherences: Object.fromEntries(
-                    [...linkSelection].map((id) => [
-                      id,
-                      id in linkNotas ? (linkNotas[id] as DiagnosticStatus | null) : linkDocAdherence,
-                    ]),
-                  ),
-                })
-              }
-            >
-              {linkDocument.isPending
-                ? 'Vinculando…'
-                : `Vincular ${linkSelection.size} item(ns)`}
-            </Button>
-          </div>
+          {linkDocument.error && <AlertStrip>{linkDocument.error.message}</AlertStrip>}
         </div>
       </Dialog>
 
@@ -1246,41 +1245,35 @@ export function RegisterPage({
       />
 
       {/* — Excluir — */}
-      <Dialog
+      <ConfirmDialog
         open={deleteDialog.isOpen}
         onClose={deleteDialog.close}
         title={`Excluir ${itemLabel}`}
+        actionLabel={`Excluir ${itemLabel}`}
+        pendingLabel="Excluindo…"
+        pending={removeEmployee.isPending || removeEquipment.isPending}
+        error={removeEmployee.error?.message ?? removeEquipment.error?.message}
+        onConfirm={() => {
+          if (!deleteDialog.target) return;
+          if (isEmployees) removeEmployee.mutate({ unitId, employeeId: deleteDialog.target.id });
+          else removeEquipment.mutate({ unitId, equipmentId: deleteDialog.target.id });
+        }}
       >
-        <div className="flex flex-col gap-4">
-          <p className="text-sm">
-            Excluir <strong>{deleteDialog.target?.name}</strong>? A pasta do item no P.I.E e os
-            documentos dentro dela também são excluídos.
-          </p>
-          <div className="flex justify-end gap-2">
-            <Button type="button" variant="secondary" onClick={deleteDialog.close}>
-              Cancelar
-            </Button>
-            <Button
-              type="button"
-              variant="danger"
-              disabled={removeEmployee.isPending || removeEquipment.isPending}
-              onClick={() => {
-                if (!deleteDialog.target) return;
-                if (isEmployees) removeEmployee.mutate({ unitId, employeeId: deleteDialog.target.id });
-                else removeEquipment.mutate({ unitId, equipmentId: deleteDialog.target.id });
-              }}
-            >
-              Excluir
-            </Button>
-          </div>
-        </div>
-      </Dialog>
+        Ao excluir <strong>{deleteDialog.target?.name}</strong>, a pasta do item no P.I.E e os
+        documentos dentro dela também são excluídos.
+      </ConfirmDialog>
 
       {/* — Configuração do grupo: campos personalizados + estrutura padrão — */}
       <Dialog
         open={fieldsOpen}
         onClose={() => setFieldsOpen(false)}
-        title={`Configurar grupo — ${registerTargetLabels[target]}`}
+        title="Configurar grupo"
+        description={registerTargetLabels[target]}
+        footer={
+          <Button type="button" variant="secondary" onClick={() => setFieldsOpen(false)}>
+            Fechar
+          </Button>
+        }
       >
         <div className="flex flex-col gap-4">
           <SelectField
@@ -1350,98 +1343,55 @@ export function RegisterPage({
               <Plus aria-hidden className="size-4" /> Adicionar
             </Button>
           </form>
-          {addField.error && (
-            <p role="alert" className="text-sm text-bad">
-              {addField.error.message}
-            </p>
-          )}
-          <div className="flex justify-end">
-            <Button type="button" variant="secondary" onClick={() => setFieldsOpen(false)}>
-              Fechar
-            </Button>
-          </div>
+          {addField.error && <AlertStrip>{addField.error.message}</AlertStrip>}
         </div>
       </Dialog>
 
       {/* Confirmação da remoção de campo personalizado (abre sobre o dialog
           de configuração — irmão depois no DOM fica por cima). */}
       {removeFieldConfirm.target && (
-        <Dialog
+        <ConfirmDialog
           open={removeFieldConfirm.isOpen}
           onClose={removeFieldConfirm.close}
           title="Remover campo personalizado"
+          actionLabel="Remover campo"
+          pendingLabel="Removendo…"
+          pending={removeField.isPending}
+          error={removeField.error?.message}
+          onConfirm={() =>
+            removeField.mutate({ unitId, customFieldId: removeFieldConfirm.target!.id })
+          }
         >
-          <div className="flex flex-col gap-4">
-            <p className="text-sm">
-              Remover a coluna <strong>{removeFieldConfirm.target.name}</strong> de{' '}
-              {registerTargetLabels[target].toLowerCase()}? Ela deixa de aparecer na tabela, no
-              editor e na importação. Os valores já preenchidos ficam guardados e voltam se um
-              campo com o mesmo nome for criado novamente.
-            </p>
-            {removeField.error && (
-              <p role="alert" className="text-sm text-bad">
-                {removeField.error.message}
-              </p>
-            )}
-            <div className="flex justify-end gap-2">
-              <Button type="button" variant="secondary" onClick={removeFieldConfirm.close}>
-                Cancelar
-              </Button>
-              <Button
-                type="button"
-                variant="danger"
-                disabled={removeField.isPending}
-                onClick={() =>
-                  removeField.mutate({ unitId, customFieldId: removeFieldConfirm.target!.id })
-                }
-              >
-                {removeField.isPending ? 'Removendo…' : 'Remover campo'}
-              </Button>
-            </div>
-          </div>
-        </Dialog>
+          A coluna <strong>{removeFieldConfirm.target.name}</strong> deixa de aparecer na tabela
+          de {registerTargetLabels[target].toLowerCase()}, no editor e na importação. Os valores
+          já preenchidos ficam guardados e voltam se um campo com o mesmo nome for criado
+          novamente.
+        </ConfirmDialog>
       )}
       {/* — Confirmação de desvínculo de documento — */}
       {unlinkConfirm.target && (
-        <Dialog
+        <ConfirmDialog
           open={unlinkConfirm.isOpen}
           onClose={unlinkConfirm.close}
           title="Desvincular documento"
+          actionLabel="Desvincular documento"
+          pendingLabel="Desvinculando…"
+          pending={unlinkDocument.isPending}
+          error={unlinkDocument.error?.message}
+          onConfirm={() =>
+            unlinkDocument.mutate({
+              unitId,
+              fieldKey: unlinkConfirm.target!.fieldKey,
+              employeeId: unlinkConfirm.target!.employeeId,
+              equipmentId: unlinkConfirm.target!.equipmentId,
+            })
+          }
         >
-          <div className="flex flex-col gap-4">
-            <p className="text-sm">
-              Desvincular <strong>{unlinkConfirm.target.documentName}</strong> de{' '}
-              <strong>{unlinkConfirm.target.fieldLabel}</strong> de{' '}
-              <strong>{unlinkConfirm.target.itemName}</strong>? O documento continua no P.I.E — só
-              o vínculo (e a nota deste item) é removido.
-            </p>
-            {unlinkDocument.error && (
-              <p role="alert" className="text-sm text-bad">
-                {unlinkDocument.error.message}
-              </p>
-            )}
-            <div className="flex justify-end gap-2">
-              <Button type="button" variant="secondary" onClick={unlinkConfirm.close}>
-                Cancelar
-              </Button>
-              <Button
-                type="button"
-                variant="danger"
-                disabled={unlinkDocument.isPending}
-                onClick={() =>
-                  unlinkDocument.mutate({
-                    unitId,
-                    fieldKey: unlinkConfirm.target!.fieldKey,
-                    employeeId: unlinkConfirm.target!.employeeId,
-                    equipmentId: unlinkConfirm.target!.equipmentId,
-                  })
-                }
-              >
-                {unlinkDocument.isPending ? 'Desvinculando…' : 'Desvincular'}
-              </Button>
-            </div>
-          </div>
-        </Dialog>
+          Desvincular <strong>{unlinkConfirm.target.documentName}</strong> de{' '}
+          <strong>{unlinkConfirm.target.fieldLabel}</strong> de{' '}
+          <strong>{unlinkConfirm.target.itemName}</strong>? O documento continua no P.I.E — só o
+          vínculo (e a nota deste item) é removido.
+        </ConfirmDialog>
       )}
     </Page>
   );

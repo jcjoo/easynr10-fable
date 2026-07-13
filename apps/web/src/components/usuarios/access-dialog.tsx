@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { trpc } from '@/lib/trpc';
 import { Button } from '@/components/ui/button';
 import { Dialog } from '@/components/ui/dialog';
+import { AlertStrip } from '@/components/ui/alert-strip';
 
 // Acessos por unidade (membership + papel). Os papéis são POR EMPRESA
 // (padrões do sistema + customizados da empresa), então cada bloco de
@@ -51,7 +52,7 @@ function CompanyAccess({
           }}
           disabled={pending || unitIds.length === 0 || !defaultRoleId}
           onChange={toggleAll}
-          className="size-4 accent-[var(--color-action)]"
+          className="size-4 accent-action"
         />
         {company.name}
         <span className="font-normal text-muted">
@@ -74,7 +75,7 @@ function CompanyAccess({
                     onChange={() =>
                       currentRole ? onRevoke([unit.id]) : onGrant([unit.id], defaultRoleId)
                     }
-                    className="size-4 accent-[var(--color-action)]"
+                    className="size-4 accent-action"
                   />
                   {unit.name}
                 </label>
@@ -135,8 +136,18 @@ export function AccessDialog({
   const pending = grant.isPending || revoke.isPending || memberships.isLoading;
 
   return (
-    <Dialog open onClose={onClose} title={`Acessos de ${user.name}`}>
-      <div className="flex max-h-[70vh] flex-col gap-4 overflow-y-auto pr-1">
+    <Dialog
+      open
+      onClose={onClose}
+      title="Acessos"
+      description={user.name}
+      footer={
+        <Button type="button" variant="secondary" onClick={onClose}>
+          Fechar
+        </Button>
+      }
+    >
+      <div className="flex flex-col gap-4">
         {user.role === 'admin' ? (
           <p className="text-sm text-muted">
             Este usuário é <strong>admin</strong> e já tem acesso a todas as empresas e
@@ -170,18 +181,10 @@ export function AccessDialog({
             ))}
 
             {(grant.error || revoke.error) && (
-              <p role="alert" className="text-sm text-bad">
-                {grant.error?.message ?? revoke.error?.message}
-              </p>
+              <AlertStrip>{grant.error?.message ?? revoke.error?.message}</AlertStrip>
             )}
           </>
         )}
-
-        <div className="flex justify-end">
-          <Button type="button" variant="secondary" onClick={onClose}>
-            Fechar
-          </Button>
-        </div>
       </div>
     </Dialog>
   );
