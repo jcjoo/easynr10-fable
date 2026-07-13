@@ -8,6 +8,7 @@ import {
 } from '@easynr10/shared';
 import { z } from 'zod';
 import { unitAction } from '../../trpc';
+import { propagateEvidenceAdherence } from '../../services/adherence';
 import { findUnitAdequacyItem } from './shared';
 
 const { actionItem, adequacyItem, diagnostic, document, evidence, evidenceItem, user } = schema;
@@ -89,6 +90,11 @@ export const diagnosticProcedures = {
           })),
         );
       }
+
+      // Propaga as notas de volta aos módulos de origem (P.I.E, Cadastros):
+      // as operações — e as validações de escopo — são dos módulos donos, em
+      // services/adherence.ts; aqui só se entrega o lote, na mesma transação.
+      await propagateEvidenceAdherence(tx, input.unitId, evidences);
       return created;
     });
   }),

@@ -69,14 +69,28 @@ Helpers puros em `packages/shared/src/enums.ts` (reusados por API e preview no w
 - [x] **4. Validação** — typecheck (4 workspaces) + lint limpos; 121 testes passam
       (3 falhas Gotenberg/PDF ambientais); stack rebuildada, migration 0020 aplicada no
       boot (schema conferido: diagnostic.score, enum document/opinion/cadastro).
+- [x] **6. Write-back + fronteiras de módulo** (sem migration):
+      - Salvar diagnóstico **propaga as notas** de volta: evidência de documento →
+        `document.adherence` (P.I.E); item de cadastro → `register_document_link.adherence`,
+        com **upsert** na semântica do linkDocument (item sem vínculo explícito ganha o
+        vínculo com o documento escolhido; documento diferente substitui). `fieldKey` entrou
+        no `evidenceInputSchema`.
+      - **`services/adherence.ts`**: operações de fronteira (`setDocumentsAdherence`,
+        `upsertRegisterLinksAdherence`) + `propagateEvidenceAdherence` (mapa de propagadores
+        por tipo de evidência — OCP). Router de um módulo não escreve mais em tabela alheia;
+        `registers.setLinkAdherence` delega ao serviço.
+      - **`services/register-links.ts`**: `resolveRegisterDocumentLinks` — resolvedor único
+        (explícitos + auto-vínculo) usado por `registers.documentLinks` E
+        `expandCadastroRequirement`; corrige a divergência em que o auto-vínculo aparecia
+        no cadastro mas não na expansão da evidência.
+      - Testes: 127 pass (2 novos — auto-vínculo na expansão; criação/troca do vínculo no
+        write-back). Front já invalidava `registers.documentLinks` após o diagnose.
 
 ## Arquivos-chave
 
 - shared: `enums.ts`, `schemas.ts`
 - db: `schema/{pie,registers,norms,diagnostics}.ts` + `migrations/`
 - api: `routers/documents.ts`, `routers/registers.ts`, `routers/adequacy/{requirements,diagnostics}.ts`,
-  `routers/reports.ts`, `services/reports.ts`
+  `routers/reports.ts`, `services/reports.ts`, `services/adherence.ts`, `services/register-links.ts`
 - web: `components/pie/upload-document-dialog.tsx`, `pages/registros.tsx`,
   `pages/diagnostico-item.tsx`, `components/diagnostico/assessment-dialog.tsx`
-</content>
-</invoke>

@@ -161,6 +161,7 @@ export function AssessmentDialog({
         evidences.push({
           type: 'cadastro',
           question: req.question,
+          fieldKey: req.fieldKey,
           items: cadastroDrafts[req.id]!.map((item) => ({
             label: item.label,
             documentId: item.documentId || null,
@@ -197,6 +198,10 @@ export function AssessmentDialog({
       onSuccess: () => {
         queryClient.invalidateQueries({
           queryKey: trpc.adequacy.history.queryKey({ unitId, adequacyItemId: target.id }),
+        });
+        // As notas voltaram para os módulos de origem — refaz os vínculos do cadastro.
+        queryClient.invalidateQueries({
+          queryKey: trpc.registers.documentLinks.queryKey({ unitId }),
         });
         onSaved();
         onClose();

@@ -1,7 +1,7 @@
 // Adequação: geração dos itens pelo catálogo, requisitos (cópia lazy do
 // catálogo + CRUD), diagnóstico com evidências snapshot e plano de ação.
 import { describe, expect, test } from 'bun:test';
-import { eq, isNull } from 'drizzle-orm';
+import { and, eq, isNull } from 'drizzle-orm';
 import { schema } from '@easynr10/db';
 import { db } from '../src/db';
 import {
@@ -242,5 +242,187 @@ describe('adequacy: diagnóstico e plano de ação', () => {
     expect(rowA.adherence).toBe('suficiente');
     expect(rowB.documentId).toBeNull();
     expect(rowB.adherence).toBeNull();
+  });
+
+  test('expandCadastroRequirement enxerga o auto-vínculo (mesma regra da tela de cadastros)', async () => {
+    const { adminCaller, unit } = await setupUnit();
+    const norm = await seedNorm();
+    await adminCaller.adequacy.generate({ unitId: unit.id });
+    const item = (await adminCaller.adequacy.list({ unitId: unit.id })).find(
+      (row) => row.normCode === norm.code,
+    )!;
+
+    // Documento com o nome do documento padrão do campo, NA PASTA do item,
+    // SEM linkDocument: é o auto-vínculo que a tela de cadastros mostra.
+    const luva = (await adminCaller.registers.upsertEquipment({
+      unitId: unit.id,
+      name: 'Luva Auto',
+      type: 'epi',
+      metadata: {},
+    }))!;
+    const equip = await db.query.equipment.findFirst({ where: eq(schema.equipment.id, luva.id) });
+    const doc = await seedDocument(adminCaller, unit.id, equip!.folderId!, {
+      name: 'Certificado de Aprovação (CA) - Luva Auto',
+      adherence: 'suficiente',
+    });
+
+    // Sanidade: a tela de cadastros enxerga o auto-vínculo.
+    const links = await adminCaller.registers.documentLinks({ unitId: unit.id });
+    expect(links.some((l) => l.equipmentId === luva.id && l.auto)).toBe(true);
+
+    const requirement = (await adminCaller.adequacy.addRequirement({
+      unitId: unit.id,
+      adequacyItemId: item.id,
+      type: 'cadastro',
+      question: 'CA válido',
+      targetGroup: 'epi',
+      fieldKey: 'ca',
+    }))!;
+    const expanded = await adminCaller.adequacy.expandCadastroRequirement({
+      unitId: unit.id,
+      requirementId: requirement.id,
+    });
+    const row = expanded.find((r) => r.equipmentId === luva.id)!;
+    expect(row.documentId).toBe(doc.id);
+    expect(row.adherence).toBe('suficiente');
+  });
+
+  test('diagnóstico cria o vínculo quando o item não tinha vínculo explícito e troca o documento quando difere', async () => {
+    const { adminCaller, unit } = await setupUnit();
+    const norm = await seedNorm();
+    await adminCaller.adequacy.generate({ unitId: unit.id });
+    const item = (await adminCaller.adequacy.list({ unitId: unit.id })).find(
+      (row) => row.normCode === norm.code,
+    )!;
+
+    const luva = (await adminCaller.registers.upsertEquipment({
+      unitId: unit.id,
+      name: 'Luva Sem Vinculo',
+      type: 'epi',
+      metadata: {},
+    }))!;
+    const equip = await db.query.equipment.findFirst({ where: eq(schema.equipment.id, luva.id) });
+    const docA = await seedDocument(adminCaller, unit.id, equip!.folderId!, { name: 'CA Doc A' });
+    const docB = await seedDocument(adminCaller, unit.id, equip!.folderId!, { name: 'CA Doc B' });
+
+    const activeLink = () =>
+      db.query.registerDocumentLink.findFirst({
+        where: and(
+          eq(schema.registerDocumentLink.equipmentId, luva.id),
+          eq(schema.registerDocumentLink.fieldKey, 'ca'),
+          isNull(schema.registerDocumentLink.deletedAt),
+        ),
+      });
+
+    // Item sem vínculo: o consultor escolhe documento + nota na avaliação —
+    // o vínculo do cadastro nasce dali (antes a nota se perdia em silêncio).
+    await adminCaller.adequacy.diagnose({
+      unitId: unit.id,
+      adequacyItemId: item.id,
+      evidences: [
+        {
+          type: 'cadastro',
+          question: 'CA',
+          fieldKey: 'ca',
+          items: [
+            { label: 'CA de Luva', equipmentId: luva.id, documentId: docA.id, adherence: 'parcial' },
+          ],
+        },
+      ],
+    });
+    const created = await activeLink();
+    expect(created?.documentId).toBe(docA.id);
+    expect(created?.adherence).toBe('parcial');
+
+    // Nova avaliação com OUTRO documento: substitui o vínculo (máx. 1 por
+    // item+campo, mesma semântica do linkDocument).
+    await adminCaller.adequacy.diagnose({
+      unitId: unit.id,
+      adequacyItemId: item.id,
+      evidences: [
+        {
+          type: 'cadastro',
+          question: 'CA',
+          fieldKey: 'ca',
+          items: [
+            { label: 'CA de Luva', equipmentId: luva.id, documentId: docB.id, adherence: 'plena' },
+          ],
+        },
+      ],
+    });
+    const replaced = await activeLink();
+    expect(replaced?.documentId).toBe(docB.id);
+    expect(replaced?.adherence).toBe('plena');
+  });
+
+  test('salvar diagnóstico propaga as notas para o vínculo do cadastro e para o documento', async () => {
+    const { adminCaller, unit } = await setupUnit();
+    const norm = await seedNorm();
+    await adminCaller.adequacy.generate({ unitId: unit.id });
+    const item = (await adminCaller.adequacy.list({ unitId: unit.id })).find(
+      (row) => row.normCode === norm.code,
+    )!;
+
+    const luva = (await adminCaller.registers.upsertEquipment({
+      unitId: unit.id,
+      name: 'Luva Propaga',
+      type: 'epi',
+      metadata: {},
+    }))!;
+    const equip = await db.query.equipment.findFirst({ where: eq(schema.equipment.id, luva.id) });
+    const doc = await seedDocument(adminCaller, unit.id, equip!.folderId!, {
+      name: 'CA Luva Propaga',
+      adherence: 'plena',
+    });
+    await adminCaller.registers.linkDocument({
+      unitId: unit.id,
+      fieldKey: 'ca',
+      documentId: doc.id,
+      equipmentIds: [luva.id],
+    });
+
+    // Diagnóstico muda a nota do item de cadastro (plena → inadequada) e a nota
+    // do documento (via evidência tipo documento: plena → parcial).
+    await adminCaller.adequacy.diagnose({
+      unitId: unit.id,
+      adequacyItemId: item.id,
+      evidences: [
+        {
+          type: 'cadastro',
+          question: 'CA',
+          fieldKey: 'ca',
+          items: [
+            {
+              label: 'CA de Luva',
+              equipmentId: luva.id,
+              documentId: doc.id,
+              adherence: 'inadequada',
+            },
+          ],
+        },
+        {
+          type: 'document',
+          question: 'Documento',
+          adherence: 'parcial',
+          items: [{ label: 'Documento', documentId: doc.id }],
+        },
+      ],
+    });
+
+    // O vínculo do cadastro recebeu a nota do item...
+    const link = await db.query.registerDocumentLink.findFirst({
+      where: and(
+        eq(schema.registerDocumentLink.equipmentId, luva.id),
+        eq(schema.registerDocumentLink.fieldKey, 'ca'),
+        isNull(schema.registerDocumentLink.deletedAt),
+      ),
+    });
+    expect(link?.adherence).toBe('inadequada');
+
+    // ...e o documento recebeu a nota da evidência de documento.
+    const updatedDoc = await db.query.document.findFirst({
+      where: eq(schema.document.id, doc.id),
+    });
+    expect(updatedDoc?.adherence).toBe('parcial');
   });
 });

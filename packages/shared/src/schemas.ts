@@ -137,6 +137,9 @@ export type DocumentVersionConfirmInput = z.infer<
 export const evidenceInputSchema = z.object({
   type: z.enum(requirementTypes),
   question: z.string().trim().min(1),
+  // Coluna do cadastro (só nas evidências tipo cadastro) — permite propagar a
+  // nota de cada item de volta ao vínculo do cadastro ao salvar.
+  fieldKey: z.string().trim().max(120).nullish(),
   // Nota da evidência (document/opinion). Em cadastro a nota vem dos itens.
   adherence: z.enum(diagnosticStatuses).nullish(),
   items: z

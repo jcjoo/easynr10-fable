@@ -4,16 +4,10 @@ import { notDeleted, schema } from '@easynr10/db';
 import { requirementCreateSchema } from '@easynr10/shared';
 import { z } from 'zod';
 import { unitAction } from '../../trpc';
+import { resolveRegisterDocumentLinks } from '../../services/register-links';
 import { ensureItemRequirements, findUnitAdequacyItem } from './shared';
 
-const {
-  adequacyItem,
-  adequacyItemRequirement,
-  document,
-  employee,
-  equipment,
-  registerDocumentLink,
-} = schema;
+const { adequacyItem, adequacyItemRequirement, employee, equipment } = schema;
 
 // Requisitos de evidência do item (§7.6, RF13): CRUD + expansão de cadastro.
 
@@ -148,24 +142,10 @@ export const requirementProcedures = {
                 .orderBy(asc(equipment.name))
             ).map((row) => ({ ...row, kind: 'equipment' as const }));
 
-      // Vínculos ativos daquela coluna, por item, com o documento e a nota.
-      const links = await ctx.db
-        .select({
-          employeeId: registerDocumentLink.employeeId,
-          equipmentId: registerDocumentLink.equipmentId,
-          documentId: registerDocumentLink.documentId,
-          documentName: document.name,
-          adherence: registerDocumentLink.adherence,
-        })
-        .from(registerDocumentLink)
-        .innerJoin(document, eq(registerDocumentLink.documentId, document.id))
-        .where(
-          and(
-            eq(registerDocumentLink.fieldKey, fieldKey),
-            notDeleted(registerDocumentLink),
-            notDeleted(document),
-          ),
-        );
+      // Vínculos daquela coluna, por item — MESMO resolvedor da tela de
+      // cadastros (explícitos + auto-vínculo por nome na pasta do item), para
+      // a avaliação enxergar exatamente o que o cadastro mostra.
+      const links = await resolveRegisterDocumentLinks(ctx.db, input.unitId, { fieldKey });
       const linkByItem = new Map(
         links.map((link) => [link.employeeId ?? link.equipmentId, link]),
       );

@@ -3,7 +3,6 @@ import { and, asc, eq, inArray } from 'drizzle-orm';
 import { notDeleted, schema, type Db } from '@easynr10/db';
 import {
   customFieldCreateSchema,
-  defaultRegisterFields,
   documentLinkAdherenceSchema,
   documentLinkSchema,
   documentUnlinkSchema,
@@ -11,10 +10,7 @@ import {
   employeeUpsertSchema,
   equipmentImportSchema,
   equipmentUpsertSchema,
-  normalizeText,
   registerTargets,
-  type RegisterField,
-  type RegisterTarget,
 } from '@easynr10/shared';
 import { z } from 'zod';
 import { router, unitAction } from '../trpc';
@@ -25,8 +21,10 @@ import {
   presignPreview,
   presignUpload,
 } from '../s3';
+import { upsertRegisterLinksAdherence } from '../services/adherence';
 import { findUnitSchemaOrThrow, removeFolderSubtree } from '../services/folders';
 import { ensureRegisterSkeleton } from '../services/register-folders';
+import { resolveRegisterDocumentLinks } from '../services/register-links';
 import {
   detailToMetadata,
   employeeStore,
@@ -59,20 +57,6 @@ const equipmentDetailTables = {
 // Cadastros da unidade: Colaboradores e Equipamentos (RF18). Os fluxos
 // compartilhados (upsert com pasta do item, importação) vivem em
 // services/registers.ts — aqui só o contrato tRPC e as queries de leitura.
-
-// Um documento casa com o documento padrão de um campo quando tem o mesmo nome
-// (sem acento/caixa), tolerando o sufixo por item da convenção do catálogo
-// ("Nome - <item>", RF11). Casa contra o label exibido E o defaultDocName (nome
-// do catálogo, quando difere). Exato ou prefixo "<nome> - " evita que "NR10
-// Básico" case com "NR10 Básico Reciclagem" (que é o padrão de outro campo).
-function docMatchesField(docName: string, field: RegisterField) {
-  const doc = normalizeText(docName).trim();
-  const names = [field.label, field.defaultDocName].filter((name): name is string => Boolean(name));
-  return names.some((name) => {
-    const n = normalizeText(name).trim();
-    return doc === n || doc.startsWith(`${n} - `);
-  });
-}
 
 // Isolamento de tenant nos vínculos: os itens a (des)vincular precisam ser da
 // unidade da procedure. Sem isso, um membro de uma unidade conseguiria criar/
@@ -333,149 +317,11 @@ export const registersRouter = router({
 
   // — Vínculo campo→documento (campos kind=document, ex.: CA do EPI) —
 
-  documentLinks: unitAction('cadastros.ler').query(async ({ ctx, input }) => {
-    const explicit = await ctx.db
-      .select({
-        id: registerDocumentLink.id,
-        employeeId: registerDocumentLink.employeeId,
-        equipmentId: registerDocumentLink.equipmentId,
-        fieldKey: registerDocumentLink.fieldKey,
-        documentId: registerDocumentLink.documentId,
-        documentName: document.name,
-        documentFolderId: document.folderId,
-        adherence: registerDocumentLink.adherence,
-        expiresAt: document.expiresAt,
-        warnDaysBefore: document.warnDaysBefore,
-      })
-      .from(registerDocumentLink)
-      .innerJoin(document, eq(registerDocumentLink.documentId, document.id))
-      .innerJoin(folder, eq(document.folderId, folder.id))
-      .where(
-        and(
-          eq(folder.unitId, input.unitId),
-          notDeleted(registerDocumentLink),
-          // Documento excluído (ex.: cascata do delete de pasta) não pode
-          // seguir aparecendo como evidência vinculada.
-          notDeleted(document),
-        ),
-      );
-
-    // Auto-vínculo: um documento com o nome do documento padrão do campo, na
-    // pasta do item ou abaixo dela, é vinculado automaticamente. Não persiste —
-    // reflete o estado atual da pasta; o vínculo manual sempre tem precedência.
-    const [employees, equipments, folders, documents] = await Promise.all([
-      ctx.db
-        .select({
-          id: employee.id,
-          folderId: employee.folderId,
-          nivelAutorizacao: employee.nivelAutorizacao,
-          metadata: employee.metadata,
-        })
-        .from(employee)
-        .where(and(eq(employee.unitId, input.unitId), notDeleted(employee))),
-      ctx.db
-        .select({
-          id: equipment.id,
-          type: equipment.type,
-          folderId: equipment.folderId,
-          metadata: equipment.metadata,
-        })
-        .from(equipment)
-        .where(and(eq(equipment.unitId, input.unitId), notDeleted(equipment))),
-      ctx.db
-        .select({ id: folder.id, parentId: folder.parentId })
-        .from(folder)
-        .where(and(eq(folder.unitId, input.unitId), notDeleted(folder))),
-      ctx.db
-        .select({
-          id: document.id,
-          folderId: document.folderId,
-          name: document.name,
-          adherence: document.adherence,
-          expiresAt: document.expiresAt,
-          warnDaysBefore: document.warnDaysBefore,
-        })
-        .from(document)
-        .innerJoin(folder, eq(document.folderId, folder.id))
-        .where(and(eq(folder.unitId, input.unitId), notDeleted(document))),
-    ]);
-
-    // Subárvore de pastas a partir da pasta do item (RF18.3) + docs por pasta.
-    const byParent = new Map<string, string[]>();
-    for (const node of folders) {
-      if (node.parentId) {
-        byParent.set(node.parentId, [...(byParent.get(node.parentId) ?? []), node.id]);
-      }
-    }
-    const subtree = (rootId: string) => {
-      const ids = [rootId];
-      for (let i = 0; i < ids.length; i++) ids.push(...(byParent.get(ids[i]!) ?? []));
-      return ids;
-    };
-    const docsByFolder = new Map<string, typeof documents>();
-    for (const doc of documents) {
-      docsByFolder.set(doc.folderId, [...(docsByFolder.get(doc.folderId) ?? []), doc]);
-    }
-
-    const covered = new Set(
-      explicit.map((link) => `${link.employeeId ?? link.equipmentId}:${link.fieldKey}`),
-    );
-    const items = [
-      ...employees.map((e) => ({
-        kind: 'employee' as const,
-        id: e.id,
-        folderId: e.folderId,
-        metadata: {
-          ...e.metadata,
-          ...(e.nivelAutorizacao ? { nivel_autorizacao: e.nivelAutorizacao } : {}),
-        } as Record<string, string>,
-        target: 'colaboradores' as RegisterTarget,
-      })),
-      ...equipments.map((q) => ({
-        kind: 'equipment' as const,
-        id: q.id,
-        folderId: q.folderId,
-        metadata: q.metadata,
-        target: q.type as RegisterTarget,
-      })),
-    ];
-
-    const auto = items.flatMap((item) => {
-      if (!item.folderId) return [];
-      const subtreeDocs = subtree(item.folderId).flatMap((fid) => docsByFolder.get(fid) ?? []);
-      return (defaultRegisterFields[item.target] ?? [])
-        .filter(
-          (field) =>
-            field.kind === 'document' &&
-            !covered.has(`${item.id}:${field.key}`) &&
-            // Colunas condicionadas (ex.: SEP) não se auto-vinculam se não se
-            // aplicam ao item.
-            (!field.requires || item.metadata?.[field.requires.fieldKey] === field.requires.value),
-        )
-        .flatMap((field) => {
-          const match = subtreeDocs.find((doc) => docMatchesField(doc.name, field));
-          if (!match) return [];
-          return [
-            {
-              id: `auto:${item.id}:${field.key}`,
-              employeeId: item.kind === 'employee' ? item.id : null,
-              equipmentId: item.kind === 'equipment' ? item.id : null,
-              fieldKey: field.key,
-              documentId: match.id,
-              documentName: match.name,
-              documentFolderId: match.folderId,
-              // Auto-vínculo não persiste nota própria: usa a do documento.
-              adherence: match.adherence,
-              expiresAt: match.expiresAt,
-              warnDaysBefore: match.warnDaysBefore,
-              auto: true,
-            },
-          ];
-        });
-    });
-
-    return [...explicit.map((link) => ({ ...link, auto: false })), ...auto];
-  }),
+  // A resolução (explícitos + auto-vínculo) vive em services/register-links.ts,
+  // compartilhada com a expansão de evidências do diagnóstico.
+  documentLinks: unitAction('cadastros.ler').query(async ({ ctx, input }) =>
+    resolveRegisterDocumentLinks(ctx.db, input.unitId),
+  ),
 
   linkDocument: unitAction('cadastros.vinculos')
     .input(documentLinkSchema)
@@ -571,18 +417,16 @@ export const registersRouter = router({
         input.employeeId ? 'employee' : 'equipment',
         [(input.employeeId ?? input.equipmentId)!],
       );
-      await ctx.db
-        .update(registerDocumentLink)
-        .set({ adherence: input.adherence })
-        .where(
-          and(
-            input.employeeId
-              ? eq(registerDocumentLink.employeeId, input.employeeId)
-              : eq(registerDocumentLink.equipmentId, input.equipmentId!),
-            eq(registerDocumentLink.fieldKey, input.fieldKey),
-            notDeleted(registerDocumentLink),
-          ),
-        );
+      // Sem documentId ⇒ o serviço só atualiza a nota do vínculo ativo.
+      await upsertRegisterLinksAdherence(ctx.db, input.unitId, [
+        {
+          employeeId: input.employeeId ?? null,
+          equipmentId: input.equipmentId ?? null,
+          fieldKey: input.fieldKey,
+          documentId: null,
+          adherence: input.adherence,
+        },
+      ]);
       return { success: true };
     }),
 
