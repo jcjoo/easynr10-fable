@@ -21,7 +21,7 @@ import { Td } from '@/components/ui/table';
 import { trpc } from '@/lib/trpc';
 import { useUnitPermissions } from '@/lib/use-unit-permissions';
 import { useDialogMutation, useDialogTarget } from '@/lib/use-dialog-mutation';
-import { formatDate } from '@/lib/format';
+import { formatDate } from '@easynr10/shared';
 import { Button } from '@/components/ui/button';
 import { Page, PageTitle } from '@/components/ui/page';
 import { Dialog } from '@/components/ui/dialog';

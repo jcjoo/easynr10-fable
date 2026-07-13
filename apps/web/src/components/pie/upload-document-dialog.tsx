@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { FileText, Upload, X } from 'lucide-react';
-import { normalizeText, type DiagnosticStatus } from '@easynr10/shared';
+import { normalizeText, squashText, type DiagnosticStatus } from '@easynr10/shared';
 import { trpc } from '@/lib/trpc';
-import { formatBytes } from '@/lib/format';
+import { formatBytes } from '@easynr10/shared';
 import { Button } from '@/components/ui/button';
 import { Dialog } from '@/components/ui/dialog';
 import { AlertStrip } from '@/components/ui/alert-strip';
@@ -12,9 +12,6 @@ import { AdherencePicker } from '@/components/ui/adherence-picker';
 
 const ACCEPT = '.pdf,.jpg,.jpeg,.png,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.zip,.rar,.dwg';
 const ACCEPT_LIST = ACCEPT.split(',');
-
-// Comparação frouxa para busca/auto-match: sem acento, caixa e pontuação.
-const squash = (value: string) => normalizeText(value).replace(/[^a-z0-9]/g, '');
 
 // A convenção "- *" no nome do documento padrão marca onde entra o
 // complemento (ex.: "ASO - *" → "ASO - João Silva"). Na UI ela nunca
@@ -116,7 +113,7 @@ export function UploadDocumentDialog({
         : (selected?.name ?? '');
 
   const filtered = docQuery
-    ? sorted.filter((doc) => squash(doc.name).includes(squash(docQuery)))
+    ? sorted.filter((doc) => squashText(doc.name).includes(squashText(docQuery)))
     : sorted;
 
   // Complemento sugerido: o que sobra do nome do arquivo depois do nome-base
@@ -136,8 +133,8 @@ export function UploadDocumentDialog({
     const stem = fileName.replace(/\.[^.]+$/, '').trim();
     if (!stem) return;
     const match = sorted.find((doc) => {
-      const base = squash(baseName(doc.name));
-      return base.length > 0 && squash(stem).startsWith(base);
+      const base = squashText(baseName(doc.name));
+      return base.length > 0 && squashText(stem).startsWith(base);
     });
     if (match) {
       setMode('padrao');

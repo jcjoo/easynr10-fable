@@ -1,7 +1,12 @@
 import { useState } from 'react';
 import { useMutation } from '@tanstack/react-query';
 import * as XLSX from 'xlsx';
-import { registerTargetLabels, type EquipmentType, type RegisterField } from '@easynr10/shared';
+import {
+  registerTargetLabels,
+  squashText,
+  type EquipmentType,
+  type RegisterField,
+} from '@easynr10/shared';
 import { trpc } from '@/lib/trpc';
 import { Button } from '@/components/ui/button';
 import { Dialog } from '@/components/ui/dialog';
@@ -12,13 +17,6 @@ import { SelectField } from '@/components/ui/select';
 // SheetJS): de-para de colunas com auto-match por nome normalizado e upsert
 // por nome no servidor. Os campos importáveis vêm da página (default +
 // personalizados, incluindo o código dos kind=document).
-
-const normalize = (value: string) =>
-  value
-    .toLowerCase()
-    .normalize('NFD')
-    .replace(/[̀-ͯ]/g, '')
-    .replace(/[^a-z0-9]/g, '');
 
 export function ImportDialog({
   open,
@@ -63,9 +61,9 @@ export function ImportDialog({
     // De-para automático por nome normalizado.
     const auto: Record<string, number> = {};
     for (const field of mappableFields) {
-      const wanted = normalize(field.label);
+      const wanted = squashText(field.label);
       const index = headers.findIndex(
-        (header) => normalize(header) === wanted || normalize(header).includes(wanted),
+        (header) => squashText(header) === wanted || squashText(header).includes(wanted),
       );
       if (index >= 0) auto[field.key] = index;
     }

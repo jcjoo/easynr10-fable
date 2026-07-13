@@ -1,8 +1,9 @@
-import { and, eq, inArray } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import { notDeleted, schema, type DbOrTx } from '@easynr10/db';
 import type { DiagnosticStatus, EvidenceInput, RequirementType } from '@easynr10/shared';
+import { unitDocumentIds, unitRegisterItemIds } from './scope';
 
-const { document, employee, equipment, folder, registerDocumentLink } = schema;
+const { document, registerDocumentLink } = schema;
 
 // Notas de aderência atravessando fronteiras de módulo. Cada função é a
 // operação do módulo DONO da tabela — quem está do outro lado da fronteira
@@ -24,15 +25,10 @@ export async function setDocumentsAdherence(
   writes: DocumentAdherenceWrite[],
 ): Promise<void> {
   if (writes.length === 0) return;
-  const ids = [...new Set(writes.map((w) => w.documentId))];
-  const valid = new Set(
-    (
-      await db
-        .select({ id: document.id })
-        .from(document)
-        .innerJoin(folder, eq(document.folderId, folder.id))
-        .where(and(inArray(document.id, ids), eq(folder.unitId, unitId), notDeleted(document)))
-    ).map((row) => row.id),
+  const valid = await unitDocumentIds(
+    db,
+    unitId,
+    writes.map((w) => w.documentId),
   );
   for (const write of writes) {
     if (!valid.has(write.documentId)) continue;
@@ -67,37 +63,14 @@ export async function upsertRegisterLinksAdherence(
   const targeted = writes.filter((w) => w.employeeId || w.equipmentId);
   if (targeted.length === 0) return;
 
-  // Validação de tenant em lote: itens e documentos precisam ser da unidade.
-  const collect = (pick: (w: RegisterLinkWrite) => string | null) => [
-    ...new Set(targeted.flatMap((w) => (pick(w) ? [pick(w)!] : []))),
-  ];
-  const empIds = collect((w) => w.employeeId);
-  const eqpIds = collect((w) => w.equipmentId);
-  const docIds = collect((w) => w.documentId);
-  const toIdSet = (rows: { id: string }[]) => new Set(rows.map((row) => row.id));
+  // Validação de tenant em lote: itens e documentos precisam ser da unidade
+  // (regra única em services/scope.ts).
+  const collect = (pick: (w: RegisterLinkWrite) => string | null) =>
+    targeted.flatMap((w) => (pick(w) ? [pick(w)!] : []));
   const [validEmp, validEqp, validDoc] = await Promise.all([
-    empIds.length
-      ? db
-          .select({ id: employee.id })
-          .from(employee)
-          .where(and(inArray(employee.id, empIds), eq(employee.unitId, unitId), notDeleted(employee)))
-          .then(toIdSet)
-      : new Set<string>(),
-    eqpIds.length
-      ? db
-          .select({ id: equipment.id })
-          .from(equipment)
-          .where(and(inArray(equipment.id, eqpIds), eq(equipment.unitId, unitId), notDeleted(equipment)))
-          .then(toIdSet)
-      : new Set<string>(),
-    docIds.length
-      ? db
-          .select({ id: document.id })
-          .from(document)
-          .innerJoin(folder, eq(document.folderId, folder.id))
-          .where(and(inArray(document.id, docIds), eq(folder.unitId, unitId), notDeleted(document)))
-          .then(toIdSet)
-      : new Set<string>(),
+    unitRegisterItemIds(db, unitId, 'employee', collect((w) => w.employeeId)),
+    unitRegisterItemIds(db, unitId, 'equipment', collect((w) => w.equipmentId)),
+    unitDocumentIds(db, unitId, collect((w) => w.documentId)),
   ]);
 
   for (const write of targeted) {

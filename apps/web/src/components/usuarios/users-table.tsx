@@ -1,6 +1,6 @@
 import { useState, type ReactNode } from 'react';
 import { normalizeText } from '@easynr10/shared';
-import { formatDate } from '@/lib/format';
+import { formatDate } from '@easynr10/shared';
 import { Button } from '@/components/ui/button';
 import { Pill } from '@/components/ui/pill';
 import { Td } from '@/components/ui/table';

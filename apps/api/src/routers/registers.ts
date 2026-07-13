@@ -1,6 +1,6 @@
 import { TRPCError } from '@trpc/server';
 import { and, asc, eq, inArray } from 'drizzle-orm';
-import { notDeleted, schema, type Db } from '@easynr10/db';
+import { notDeleted, schema } from '@easynr10/db';
 import {
   customFieldCreateSchema,
   documentLinkAdherenceSchema,
@@ -25,6 +25,10 @@ import { upsertRegisterLinksAdherence } from '../services/adherence';
 import { findUnitSchemaOrThrow, removeFolderSubtree } from '../services/folders';
 import { ensureRegisterSkeleton } from '../services/register-folders';
 import { resolveRegisterDocumentLinks } from '../services/register-links';
+// Isolamento de tenant nos vínculos: os itens a (des)vincular e o documento
+// precisam ser da unidade da procedure. Sem isso, um membro de uma unidade
+// conseguiria criar/remover vínculos apontando para dados de outra.
+import { assertItemsInUnit, findUnitDocument } from '../services/scope';
 import {
   detailToMetadata,
   employeeStore,
@@ -35,7 +39,6 @@ import {
 
 const {
   customField,
-  document,
   employee,
   equipment,
   equipmentEletrico,
@@ -57,27 +60,6 @@ const equipmentDetailTables = {
 // Cadastros da unidade: Colaboradores e Equipamentos (RF18). Os fluxos
 // compartilhados (upsert com pasta do item, importação) vivem em
 // services/registers.ts — aqui só o contrato tRPC e as queries de leitura.
-
-// Isolamento de tenant nos vínculos: os itens a (des)vincular precisam ser da
-// unidade da procedure. Sem isso, um membro de uma unidade conseguiria criar/
-// remover vínculos apontando para colaboradores/equipamentos de outra.
-async function assertItemsInUnit(
-  db: Db,
-  unitId: string,
-  kind: 'employee' | 'equipment',
-  ids: string[],
-) {
-  if (ids.length === 0) return;
-  const table = kind === 'employee' ? employee : equipment;
-  const label = kind === 'employee' ? 'Colaborador' : 'Equipamento';
-  const found = await db
-    .select({ id: table.id })
-    .from(table)
-    .where(and(eq(table.unitId, unitId), inArray(table.id, ids), notDeleted(table)));
-  if (found.length !== new Set(ids).size) {
-    throw new TRPCError({ code: 'NOT_FOUND', message: `${label} não encontrado nesta unidade` });
-  }
-}
 
 export const registersRouter = router({
 
@@ -327,20 +309,7 @@ export const registersRouter = router({
     .input(documentLinkSchema)
     .mutation(async ({ ctx, input }) => {
       // Documento precisa ser da unidade.
-      const [doc] = await ctx.db
-        .select({ id: document.id, adherence: document.adherence })
-        .from(document)
-        .innerJoin(folder, eq(document.folderId, folder.id))
-        .where(
-          and(
-            eq(document.id, input.documentId),
-            eq(folder.unitId, input.unitId),
-            notDeleted(document),
-          ),
-        );
-      if (!doc) {
-        throw new TRPCError({ code: 'NOT_FOUND', message: 'Documento não encontrado' });
-      }
+      const doc = await findUnitDocument(ctx.db, input.unitId, input.documentId);
 
       // Nota por item: a informada para o item ou, por padrão, a do documento.
       const adherenceFor = (id: string) =>

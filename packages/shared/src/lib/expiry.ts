@@ -1,4 +1,4 @@
-import type { DocumentSituation } from './enums';
+import type { DocumentSituation } from '../enums';
 
 // Regra ÚNICA de vencimento de documentos, compartilhada por web e api —
 // antes cada tela calculava "dias para vencer" à sua maneira (fuso local +

@@ -13,7 +13,7 @@ import {
 } from '@easynr10/shared';
 import { trpc } from '@/lib/trpc';
 import { useUnitPermissions } from '@/lib/use-unit-permissions';
-import { formatDate } from '@/lib/format';
+import { formatDate } from '@easynr10/shared';
 import { Button } from '@/components/ui/button';
 import { Page, PageTitle } from '@/components/ui/page';
 import { StatusFilter, type DiagnosticFilter } from '@/components/ui/status-filter';

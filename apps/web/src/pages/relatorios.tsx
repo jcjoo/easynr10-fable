@@ -16,7 +16,7 @@ import {
   type DocumentGroup,
 } from '@easynr10/shared';
 import { trpc } from '@/lib/trpc';
-import { formatDate } from '@/lib/format';
+import { formatDate } from '@easynr10/shared';
 import { Page, PageTitle } from '@/components/ui/page';
 import { FilterChips, type FilterChipOption } from '@/components/ui/filter-chips';
 import {

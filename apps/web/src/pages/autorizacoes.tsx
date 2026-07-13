@@ -24,7 +24,7 @@ import {
   type WorkPermitDetails,
 } from '@easynr10/shared';
 import { trpc } from '@/lib/trpc';
-import { formatDate, formatDateTime } from '@/lib/format';
+import { formatDate, formatDateTime } from '@easynr10/shared';
 import { useUnitPermissions } from '@/lib/use-unit-permissions';
 import { useDialogMutation, useDialogTarget } from '@/lib/use-dialog-mutation';
 import { Button } from '@/components/ui/button';

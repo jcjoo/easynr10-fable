@@ -319,33 +319,6 @@ export const documentSituationLabels: Record<DocumentSituation, string> = {
 export const timelineIntervals = ['daily', 'weekly', 'monthly'] as const;
 export type TimelineInterval = (typeof timelineIntervals)[number];
 
-// Busca textual insensível a caixa e acentos (filtros de relatórios).
-export function normalizeText(value: string | null | undefined) {
-  return (value ?? '')
-    .toLowerCase()
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '');
-}
-
-// Ordenação natural de códigos de norma: 10.2.4a < 10.2.4b < 10.11.7
-// (ordenar como texto colocaria 10.11 antes de 10.2). Usada na API e nas
-// tabelas ordenáveis do web.
-export function compareNormCodes(a: string, b: string) {
-  const segmentsA = a.split('.');
-  const segmentsB = b.split('.');
-  const length = Math.max(segmentsA.length, segmentsB.length);
-  for (let index = 0; index < length; index += 1) {
-    const rawA = segmentsA[index] ?? '';
-    const rawB = segmentsB[index] ?? '';
-    const numberA = parseInt(rawA, 10) || 0;
-    const numberB = parseInt(rawB, 10) || 0;
-    if (numberA !== numberB) return numberA - numberB;
-    const suffixA = rawA.replace(/^\d+/, '');
-    const suffixB = rawB.replace(/^\d+/, '');
-    if (suffixA !== suffixB) return suffixA.localeCompare(suffixB);
-  }
-  return 0;
-}
 
 export const requirementTypes = ['document', 'opinion', 'cadastro'] as const;
 export type RequirementType = (typeof requirementTypes)[number];

@@ -1,6 +1,6 @@
 import { TRPCError } from '@trpc/server';
 import { and, desc, eq, inArray, max } from 'drizzle-orm';
-import { notDeleted, schema, type Db } from '@easynr10/db';
+import { notDeleted, schema } from '@easynr10/db';
 import {
   documentConfirmSchema,
   documentUpdateSchema,
@@ -17,24 +17,9 @@ import {
   purgeObjects,
 } from '../s3';
 import { purgeDocuments } from '../services/purge';
+import { findUnitDocument } from '../services/scope';
 
 const { document, documentVersion, folder, user } = schema;
-
-// Documento da unidade (via pasta) ou 404 — garante o isolamento de tenant
-// mesmo com um documentId de outra unidade.
-async function findUnitDocument(db: Db, unitId: string, documentId: string) {
-  const [row] = await db
-    .select({ document })
-    .from(document)
-    .innerJoin(folder, eq(document.folderId, folder.id))
-    .where(
-      and(eq(document.id, documentId), eq(folder.unitId, unitId), notDeleted(document)),
-    );
-  if (!row) {
-    throw new TRPCError({ code: 'NOT_FOUND', message: 'Documento não encontrado' });
-  }
-  return row.document;
-}
 
 export const documentsRouter = router({
   listByFolder: unitAction('pie.ler')

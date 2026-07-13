@@ -3,7 +3,7 @@ import { useNavigate, useParams, useSearch } from '@tanstack/react-router';
 import { actionPriorities, compareNormCodes, normalizeText } from '@easynr10/shared';
 import { trpc } from '@/lib/trpc';
 import { useUnitPermissions } from '@/lib/use-unit-permissions';
-import { formatDate } from '@/lib/format';
+import { formatDate } from '@easynr10/shared';
 import { Page, PageTitle } from '@/components/ui/page';
 import { RowMenu } from '@/components/ui/row-menu';
 import { ActionStatusPill, PriorityPill } from '@/components/ui/status-pill';

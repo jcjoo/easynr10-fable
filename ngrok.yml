@@ -1,0 +1,13 @@
+# Túneis da stack completa (ngrok start --all --config ~/.config/ngrok/ngrok.yml --config ./ngrok.yml):
+#   web   → app+api atrás do nginx (WEB_PORT)
+#   minio → S3 público das presigned URLs (MINIO_PORT)
+# Depois de subir, atualize no .env: EXTRA_TRUSTED_ORIGINS (URL do web) e
+# S3_PUBLIC_ENDPOINT (URL do minio) e recrie a api (docker compose up -d api).
+version: "3"
+tunnels:
+  web:
+    proto: http
+    addr: 8081
+  minio:
+    proto: http
+    addr: 9100

@@ -4,7 +4,7 @@ import { Link, useNavigate, useParams, useSearch } from '@tanstack/react-router'
 import { ArrowLeft, Pencil, Plus, Trash2 } from 'lucide-react';
 import { normalizeText } from '@easynr10/shared';
 import { trpc } from '@/lib/trpc';
-import { formatDate } from '@/lib/format';
+import { formatDate } from '@easynr10/shared';
 import { useUnitPermissions } from '@/lib/use-unit-permissions';
 import { useDialogMutation, useDialogTarget } from '@/lib/use-dialog-mutation';
 import { Button } from '@/components/ui/button';

@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Upload } from 'lucide-react';
 import { trpc } from '@/lib/trpc';
-import { formatBytes, formatDateTime } from '@/lib/format';
+import { formatBytes, formatDateTime } from '@easynr10/shared';
 import { Dialog } from '@/components/ui/dialog';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { useDialogTarget } from '@/lib/use-dialog-mutation';

@@ -12,7 +12,7 @@ import {
 } from '@easynr10/shared';
 import { trpc } from '@/lib/trpc';
 import { useUnitPermissions } from '@/lib/use-unit-permissions';
-import { formatDate } from '@/lib/format';
+import { formatDate } from '@easynr10/shared';
 import { Button } from '@/components/ui/button';
 import { Dialog } from '@/components/ui/dialog';
 import { AlertStrip } from '@/components/ui/alert-strip';

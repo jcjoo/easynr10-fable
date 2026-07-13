@@ -8,7 +8,7 @@ import {
   type WorkPermitDetails,
 } from '@easynr10/shared';
 import { trpc } from '@/lib/trpc';
-import { formatDate } from '@/lib/format';
+import { formatDate } from '@easynr10/shared';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { SignaturePad } from '@/components/autorizacoes/signature-pad';

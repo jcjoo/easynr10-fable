@@ -2,11 +2,10 @@ import { describe, expect, test } from 'bun:test';
 import {
   actionPriority,
   adherenceBand,
-  compareNormCodes,
-  normalizeText,
   unitActionCatalog,
   unitActions,
 } from '../src/enums';
+import { compareNormCodes, normalizeText } from '../src/lib/text';
 
 describe('normalizeText', () => {
   test('remove acentos e caixa', () => {

@@ -1,7 +1,8 @@
-// Formatação pt-BR compartilhada pelas páginas (antes cada uma tinha cópia).
+// Formatação pt-BR compartilhada por web e api (antes cada tela — e o PDF de
+// autorizações — tinha cópia própria).
+
 // Datas puras (YYYY-MM-DD) formatam por split — evita o shift de fuso de
 // passar por Date; timestamps (Date/ISO com hora) usam o fuso local.
-
 export function formatDate(value: string | Date | null | undefined): string {
   if (!value) return '—';
   if (value instanceof Date) return value.toLocaleDateString('pt-BR');
@@ -12,8 +13,18 @@ export function formatDate(value: string | Date | null | undefined): string {
   return new Date(value).toLocaleDateString('pt-BR');
 }
 
-export function formatDateTime(value: string | Date): string {
-  return new Date(value).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' });
+// `options` sobrepõe os defaults — o PDF de autorizações usa
+// { timeZone: 'America/Sao_Paulo', timeStyle: 'medium' } (carimbo auditável
+// independente do fuso do servidor).
+export function formatDateTime(
+  value: string | Date,
+  options?: Intl.DateTimeFormatOptions,
+): string {
+  return new Date(value).toLocaleString('pt-BR', {
+    dateStyle: 'short',
+    timeStyle: 'short',
+    ...options,
+  });
 }
 
 export function formatBytes(bytes: number | null): string {

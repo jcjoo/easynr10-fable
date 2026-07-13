@@ -14,7 +14,7 @@ import {
   type Nr10GroupSummary,
 } from '@easynr10/shared';
 import { trpc } from '@/lib/trpc';
-import { formatDate } from '@/lib/format';
+import { formatDate } from '@easynr10/shared';
 import { Page, PageTitle } from '@/components/ui/page';
 import { StatusFilter, type DiagnosticFilter } from '@/components/ui/status-filter';
 import { StatusPill } from '@/components/ui/status-pill';

@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import { daysUntilExpiry, documentSituation, localDateString } from '../src/expiry';
+import { daysUntilExpiry, documentSituation, localDateString } from '../src/lib/expiry';
 
 describe('daysUntilExpiry', () => {
   test('conta dias de calendário (negativo = vencido; 0 = hoje)', () => {
