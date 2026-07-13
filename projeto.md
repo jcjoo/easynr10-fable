@@ -151,6 +151,7 @@ Prioridade MoSCoW: **M** (must) · **S** (should) · **C** (could). ✅ = entreg
 | RNF10 | Manutenibilidade | Identificadores em inglês / UI em pt-BR; componentes de UI únicos (pills, chips, tabs, dialogs); lint (oxlint) + typecheck em CI |
 
 ## 4. Arquitetura
+comentario
 
 ### 4.1 Stack
 
