@@ -58,12 +58,32 @@ async function buildTree() {
 
   const norm = await seedNorm({ requirements: [{ type: 'opinion', question: 'Parecer?' }] });
   const item = await seedAdequacyItem(unit.id, norm.id);
-  await adminCaller.adequacy.requirements({ unitId: unit.id, adequacyItemId: item.id });
+  const requirement = (
+    await adminCaller.adequacy.requirements({ unitId: unit.id, adequacyItemId: item.id })
+  )[0]!;
+  // NC marcada (Inexistente) ⇒ abaixo de Plena com prazo ⇒ gera a ação que o
+  // cascade precisa cobrir.
+  const nc = (await adminCaller.adequacy.addNc({
+    unitId: unit.id,
+    adequacyItemId: item.id,
+    code: 'NC01',
+    description: 'Ausência de parecer',
+    recommendedAction: 'Emitir parecer',
+    requirementId: requirement.id,
+  }))!;
   await adminCaller.adequacy.diagnose({
     unitId: unit.id,
     adequacyItemId: item.id,
     deadline: isoDaysFromNow(10),
-    evidences: [{ type: 'opinion', question: 'Parecer?', items: [{ label: 'P', answer: 'ok' }] }],
+    evidences: [
+      {
+        type: 'opinion',
+        question: 'Parecer?',
+        requirementId: requirement.id,
+        ncId: nc.id,
+        items: [{ label: 'P', answer: 'ok' }],
+      },
+    ],
   });
 
   const { user: member } = await memberCaller(adminCaller, unit.id, 'Leitor');

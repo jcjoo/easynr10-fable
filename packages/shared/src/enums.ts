@@ -368,6 +368,12 @@ export function scoreToStatus(percent: number): DiagnosticStatus {
   return adherenceBand(percent).status;
 }
 
+// A pior (menor) nota entre duas — resolução quando mais de uma NC atinge o
+// mesmo requisito (ex.: NC marcada + NC automática de documento vencido).
+export function worstStatus(a: DiagnosticStatus, b: DiagnosticStatus): DiagnosticStatus {
+  return diagnosticStatusScore[a] <= diagnosticStatusScore[b] ? a : b;
+}
+
 export const equipmentTypes = ['eletrico', 'ferramenta', 'epi', 'epc'] as const;
 export type EquipmentType = (typeof equipmentTypes)[number];
 

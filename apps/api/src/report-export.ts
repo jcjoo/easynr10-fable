@@ -45,18 +45,20 @@ const reportDefs = {
     fetch: (unitId: string) => nonConformityRows(db, unitId),
     columns: [
       { label: 'Norma', value: text('normCode') },
-      { label: 'Exigência', value: text('normDescription') },
+      { label: 'Código', value: text('code') },
+      { label: 'Não conformidade', value: text('description') },
       {
-        label: 'Aderência',
+        label: 'Requisito',
         value: (row) =>
-          row.status
-            ? diagnosticStatusLabels[row.status as keyof typeof diagnosticStatusLabels]
-            : 'Sem avaliação',
+          `${row.requirementQuestion}${row.itemLabel ? ` — ${row.itemLabel}` : ''}`,
       },
-      { label: 'Prazo', value: date('deadline') },
-      { label: 'Responsável', value: text('responsible') },
+      {
+        label: 'Nota',
+        value: (row) =>
+          diagnosticStatusLabels[row.adherence as keyof typeof diagnosticStatusLabels],
+      },
       { label: 'Ação recomendada', value: text('recommendedAction') },
-      { label: 'Última avaliação', value: date('lastDiagnosticAt') },
+      { label: 'Diagnóstico', value: date('diagnosticAt') },
     ] satisfies Column[],
   },
   'situacao-documental': {
@@ -130,7 +132,8 @@ function applyFilters(
 
     if (statusTokens.length > 0) {
       if (type === 'nao-conformidades') {
-        if (!statusTokens.includes(String(row.status ?? 'sem_avaliacao'))) return false;
+        // O chip filtra pela nota que disparou a NC.
+        if (!statusTokens.includes(String(row.adherence))) return false;
       } else if (type === 'situacao-documental') {
         if (!statusTokens.includes(String(row.situation))) return false;
       } else {
@@ -152,7 +155,9 @@ function applyFilters(
       const haystack =
         type === 'situacao-documental'
           ? `${row.name} ${row.path}`
-          : `${row.normCode} ${row.normDescription} ${row.responsible ?? ''}`;
+          : type === 'nao-conformidades'
+            ? `${row.normCode} ${row.code} ${row.description} ${row.requirementQuestion} ${row.itemLabel ?? ''}`
+            : `${row.normCode} ${row.normDescription} ${row.responsible ?? ''}`;
       if (!normalizeText(haystack).includes(q)) return false;
     }
     return true;

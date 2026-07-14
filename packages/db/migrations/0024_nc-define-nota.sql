@@ -1,0 +1,1 @@
+ALTER TABLE "adequacy_item_nc" ADD COLUMN "adherence" "diagnostic_status" DEFAULT 'inexistente' NOT NULL;

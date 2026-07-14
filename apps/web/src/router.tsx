@@ -27,6 +27,7 @@ import { AdmPage } from '@/pages/configuracoes/adm';
 import { EmpresaPage, empresaTabs, type EmpresaTab } from '@/pages/configuracoes/empresa';
 import { UnidadePage } from '@/pages/configuracoes/unidade';
 import { DiagnosticoItemPage } from '@/pages/diagnostico-item';
+import { DiagnosticoHistoricoPage } from '@/pages/diagnostico-historico';
 import { DiagnosticosPage } from '@/pages/diagnosticos';
 import { VisaoGeralPage } from '@/pages/visao-geral';
 import { PlanoDeAcaoPage } from '@/pages/plano-de-acao';
@@ -442,6 +443,14 @@ const diagnosticoItemRoute = createRoute({
   beforeLoad: ({ params }) => requireUuidParams(params),
   component: DiagnosticoItemPage,
 });
+// Histórico de diagnósticos do item: linha do tempo + snapshot (NCs marcadas,
+// evidências e parecer de cada diagnóstico).
+const diagnosticoHistoricoRoute = createRoute({
+  getParentRoute: () => authedRoute,
+  path: '/$companyId/$unitId/diagnosticos/$adequacyItemId/historico',
+  beforeLoad: ({ params }) => requireUuidParams(params),
+  component: DiagnosticoHistoricoPage,
+});
 const planoDeAcaoRoute = unitSection('plano-de-acao', PlanoDeAcaoPage);
 // Relatório ativo, filtros e ordenação na URL (?tipo=&status=&grupo=&q=&ord=&dir=).
 // O tipo tem default no parse — os filhos "Relatórios" da sidebar acendem
@@ -539,6 +548,7 @@ const routeTree = rootRoute.addChildren([
     visaoGeralRoute,
     diagnosticosRoute,
     diagnosticoItemRoute,
+    diagnosticoHistoricoRoute,
     planoDeAcaoRoute,
     relatoriosRoute,
     equipamentosRoute,

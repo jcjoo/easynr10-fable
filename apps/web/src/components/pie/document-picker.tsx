@@ -14,6 +14,8 @@ import { FileTypeIcon, FolderIcon } from '@/components/ui/icons';
 // próximo. A busca filtra os documentos da subárvore atual.
 
 export interface PickedDocument {
+  /** Vencimento — a avaliação usa para a NC automática de documento vencido. */
+  expiresAt: string | null;
   id: string;
   name: string;
   adherence: DiagnosticStatus | null;
@@ -204,7 +206,12 @@ export function DocumentPickerDialog({
               key={doc.id}
               type="button"
               onClick={() => {
-                onSelect({ id: doc.id, name: doc.name, adherence: doc.adherence ?? null });
+                onSelect({
+                  id: doc.id,
+                  name: doc.name,
+                  adherence: doc.adherence ?? null,
+                  expiresAt: doc.expiresAt ?? null,
+                });
                 onClose();
               }}
               className={itemClass}

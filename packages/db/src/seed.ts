@@ -8,11 +8,12 @@ import {
   defaultDocument,
   folderSchema,
   norm,
+  normNc,
   normRequirement,
   unit,
   type FolderSchemaNode,
 } from './schema';
-import { eq } from 'drizzle-orm';
+import { and, eq, isNull } from 'drizzle-orm';
 import type { DocumentGroup, RequirementType } from '@easynr10/shared';
 import defaultDocuments from './seeds/default-documents.json';
 import defaultFolderSchema from './seeds/default-folder-schema.json';
@@ -72,15 +73,37 @@ if (!existingSchema) {
   console.log('Seed: esquema de pastas padrão já existente.');
 }
 
-// Catálogo de normas NR-10 + requisitos de evidência (portado do legado)
+// Catálogo de normas NR-10 + requisitos de evidência (portado do legado).
+// Cada linha da planilha é um REQUISITO do item, com as próprias NCs — por
+// isso as NCs vêm aninhadas no requisito (itens como 10.2.4b têm 2 requisitos,
+// cada um com sua lista).
+type NcSeed = { code: string; description: string; recommendedAction: string };
 type NormSeed = {
   code: string;
   description: string;
   orientation: string;
   documentGroup: DocumentGroup;
   importanceWeight: number;
-  requirements: { type: RequirementType; question: string }[];
+  requirements: { type: RequirementType; question: string; ncs: NcSeed[] }[];
 };
+
+async function insertRequirementNcs(
+  normId: string,
+  normRequirementId: string | null,
+  ncs: NcSeed[],
+) {
+  if (ncs.length === 0) return;
+  await db.insert(normNc).values(
+    ncs.map((nc) => ({
+      normId,
+      normRequirementId,
+      code: nc.code,
+      description: nc.description,
+      recommendedAction: nc.recommendedAction,
+    })),
+  );
+}
+
 let normCount = 0;
 for (const item of norms as NormSeed[]) {
   const exists = await db.query.norm.findFirst({ where: eq(norm.code, item.code) });
@@ -95,17 +118,45 @@ for (const item of norms as NormSeed[]) {
       importanceWeight: item.importanceWeight,
     })
     .returning();
-  if (item.requirements.length > 0) {
-    await db.insert(normRequirement).values(
-      item.requirements.map((req) => ({
-        normId: created!.id,
-        type: req.type,
-        question: req.question,
-      })),
-    );
+  for (const req of item.requirements) {
+    const [createdReq] = await db
+      .insert(normRequirement)
+      .values({ normId: created!.id, type: req.type, question: req.question })
+      .returning();
+    await insertRequirementNcs(created!.id, createdReq!.id, req.ncs);
   }
   normCount += 1;
 }
 console.log(`Seed: ${normCount} normas NR-10 inseridas.`);
+
+// NCs do catálogo em bancos que já tinham as normas: passada idempotente —
+// quando o conjunto ativo difere do catálogo (norma sem NC, seed antigo que
+// perdia as NCs dos itens multi-requisito, ou NC ainda sem vínculo com o
+// requisito), recria as NCs da norma ligadas ao requisito de origem.
+let ncCount = 0;
+for (const item of norms as NormSeed[]) {
+  const wanted = item.requirements.reduce((total, req) => total + req.ncs.length, 0);
+  if (wanted === 0) continue;
+  const existing = await db.query.norm.findFirst({ where: eq(norm.code, item.code) });
+  if (!existing) continue;
+  const current = await db
+    .select({ id: normNc.id, normRequirementId: normNc.normRequirementId })
+    .from(normNc)
+    .where(and(eq(normNc.normId, existing.id), isNull(normNc.deletedAt)));
+  const upToDate = current.length === wanted && current.every((nc) => nc.normRequirementId);
+  if (upToDate) continue;
+
+  await db.update(normNc).set({ deletedAt: new Date() }).where(eq(normNc.normId, existing.id));
+  const reqRows = await db
+    .select({ id: normRequirement.id, question: normRequirement.question })
+    .from(normRequirement)
+    .where(and(eq(normRequirement.normId, existing.id), isNull(normRequirement.deletedAt)));
+  const reqByQuestion = new Map(reqRows.map((row) => [row.question, row.id]));
+  for (const req of item.requirements) {
+    await insertRequirementNcs(existing.id, reqByQuestion.get(req.question) ?? null, req.ncs);
+  }
+  ncCount += wanted;
+}
+if (ncCount > 0) console.log(`Seed: ${ncCount} não conformidades do catálogo (re)inseridas.`);
 
 process.exit(0);

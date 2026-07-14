@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useNavigate, useParams, useSearch } from '@tanstack/react-router';
-import { Settings2 } from 'lucide-react';
+import { Settings2, History } from 'lucide-react';
 import { Td } from '@/components/ui/table';
 import {
   compareNormCodes,
@@ -219,12 +219,24 @@ export function DiagnosticosPage() {
                   )}
                 </Td>
                 <Td>
-                  <div className="flex justify-end">
+                  <div className="flex justify-end gap-0.5">
+                    {row.lastDiagnosticAt && (
+                      <Link
+                        to="/$companyId/$unitId/diagnosticos/$adequacyItemId/historico"
+                        params={{ companyId, unitId, adequacyItemId: row.id }}
+                        title="Histórico de diagnósticos"
+                        aria-label={`Histórico do item ${row.normCode}`}
+                        onClick={(e) => e.stopPropagation()}
+                        className="cursor-pointer rounded-ctl p-1 text-muted opacity-0 transition-opacity hover:bg-line/60 hover:text-ink focus-visible:opacity-100 group-hover:opacity-100"
+                      >
+                        <History aria-hidden className="size-4" />
+                      </Link>
+                    )}
                     {canConfigure && (
                       <Link
                         to="/$companyId/$unitId/diagnosticos/$adequacyItemId"
                         params={{ companyId, unitId, adequacyItemId: row.id }}
-                        title="Configurar item (requisitos de evidência)"
+                        title="Configurar item (requisitos e NCs)"
                         aria-label={`Configurar item ${row.normCode}`}
                         onClick={(e) => e.stopPropagation()}
                         className="cursor-pointer rounded-ctl p-1 text-muted opacity-0 transition-opacity hover:bg-line/60 hover:text-ink focus-visible:opacity-100 group-hover:opacity-100"

@@ -59,13 +59,13 @@ const tabLabels: Record<ReportTab, string> = {
 
 const tabDescriptions: Record<ReportTab, string> = {
   'nao-conformidades':
-    'Itens de adequação ativos com aderência abaixo de Plena, incluindo os ainda sem avaliação.',
+    'Não conformidades geradas pelo último diagnóstico de cada item ativo, com a ação recomendada correspondente.',
   'situacao-documental': 'Todos os documentos do P.I.E com local, validade e situação.',
   'plano-de-acao': 'Ações geradas pelos diagnósticos, com prazo e responsável.',
 };
 
-// Chips de status das não conformidades (Plena não aparece — está fora do relatório).
-const ncStatuses = ['sem_avaliacao', 'inexistente', 'inadequada', 'parcial', 'suficiente'] as const;
+// Chips de nota das NCs (Plena não gera NC — está fora do relatório).
+const ncStatuses = ['inexistente', 'inadequada', 'parcial', 'suficiente'] as const;
 
 
 export function RelatoriosPage() {
@@ -115,24 +115,26 @@ export function RelatoriosPage() {
 
   const matchesQ = (haystack: string) => !qNorm || normalizeText(haystack).includes(qNorm);
 
-  // Não Conformidades
+  // Não Conformidades (geradas pelo último diagnóstico de cada item)
   const ncBase = (nonConformities.data ?? []).filter(
     (row) =>
       (!search.grupo || row.documentGroup === search.grupo) &&
-      matchesQ(`${row.normCode} ${row.normDescription} ${row.responsible ?? ''}`),
+      matchesQ(
+        `${row.normCode} ${row.code} ${row.description} ${row.requirementQuestion} ${row.itemLabel ?? ''}`,
+      ),
   );
   const ncFiltered = ncBase.filter(
-    (row) => statusTokens.length === 0 || hasStatus(row.status ?? 'sem_avaliacao'),
+    (row) => statusTokens.length === 0 || hasStatus(row.adherence),
   );
   const ncOrd = search.ord ?? 'norma';
   type NcRow = (typeof ncFiltered)[number];
   const ncAccessors: Record<string, (r: NcRow) => SortValue> = {
     norma: (r) => r.normCode,
-    exigencia: (r) => normalizeText(r.normDescription),
-    aderencia: (r) => (r.status ? diagnosticStatusScore[r.status] : -1),
-    prazo: (r) => r.deadline,
-    responsavel: (r) => (r.responsible ? normalizeText(r.responsible) : null),
-    avaliacao: (r) => (r.lastDiagnosticAt ? new Date(r.lastDiagnosticAt).getTime() : null),
+    codigo: (r) => r.code,
+    descricao: (r) => normalizeText(r.description),
+    nota: (r) => diagnosticStatusScore[r.adherence],
+    acao: (r) => normalizeText(r.recommendedAction),
+    diagnostico: (r) => new Date(r.diagnosticAt).getTime(),
   };
   const ncSorted = sortRows(
     ncFiltered,
@@ -228,11 +230,8 @@ export function RelatoriosPage() {
       { value: null, label: 'Todas', count: ncBase.length, dot: 'bg-line-strong' },
       ...ncStatuses.map((value) => ({
         value: value as string,
-        label:
-          value === 'sem_avaliacao'
-            ? 'Sem avaliação'
-            : diagnosticStatusLabels[value as DiagnosticStatus],
-        count: ncBase.filter((row) => (row.status ?? 'sem_avaliacao') === value).length,
+        label: diagnosticStatusLabels[value as DiagnosticStatus],
+        count: ncBase.filter((row) => row.adherence === value).length,
         dot: adherenceDots[value],
       })),
     ];
@@ -382,11 +381,11 @@ export function RelatoriosPage() {
                 {(
                   [
                     ['norma', 'Norma'],
-                    ['exigencia', 'Exigência'],
-                    ['aderencia', 'Aderência'],
-                    ['prazo', 'Prazo'],
-                    ['responsavel', 'Responsável'],
-                    ['avaliacao', 'Última avaliação'],
+                    ['codigo', 'Código'],
+                    ['descricao', 'Não conformidade'],
+                    ['nota', 'Nota'],
+                    ['acao', 'Ação recomendada'],
+                    ['diagnostico', 'Diagnóstico'],
                   ] as const
                 ).map(([key, label]) => (
                   <SortableTh
@@ -405,8 +404,8 @@ export function RelatoriosPage() {
                 <tr>
                   <td colSpan={6} className="px-3.5 py-10 text-center text-muted">
                     {ncBase.length === 0 && !qNorm && !search.grupo
-                      ? 'Nenhuma não conformidade — todos os itens ativos estão com aderência Plena. 🎉'
-                      : 'Nenhum item com esses filtros.'}
+                      ? 'Nenhuma não conformidade gerada — faça os diagnósticos ou comemore a aderência Plena. 🎉'
+                      : 'Nenhuma NC com esses filtros.'}
                   </td>
                 </tr>
               )}
@@ -417,16 +416,26 @@ export function RelatoriosPage() {
                       {row.normCode}
                     </span>
                   </Td>
+                  <Td className="align-top">
+                    <span className="rounded-ctl bg-idle-soft px-1.5 py-0.5 font-mono text-label text-ink-soft">
+                      {row.code}
+                    </span>
+                  </Td>
                   <Td className="align-top w-full">
-                    <span className="line-clamp-2">{row.normDescription}</span>
+                    <span className="line-clamp-3">{row.description}</span>
+                    <span className="mt-0.5 block text-label text-muted">
+                      Requisito: {row.requirementQuestion}
+                      {row.itemLabel ? ` — ${row.itemLabel}` : ''}
+                    </span>
                   </Td>
                   <Td className="align-top">
-                    <StatusPill status={row.status ?? 'sem_avaliacao'} />
+                    <StatusPill status={row.adherence} />
                   </Td>
-                  <Td className="align-top tabular font-mono text-caption">{formatDate(row.deadline)}</Td>
-                  <Td className="align-top">{row.responsible ?? '—'}</Td>
+                  <Td className="align-top min-w-64">
+                    <span className="line-clamp-3">{row.recommendedAction || '—'}</span>
+                  </Td>
                   <Td className="align-top tabular font-mono text-caption">
-                    {row.lastDiagnosticAt ? formatDate(new Date(row.lastDiagnosticAt)) : '—'}
+                    {formatDate(new Date(row.diagnosticAt))}
                   </Td>
                 </tr>
               ))}

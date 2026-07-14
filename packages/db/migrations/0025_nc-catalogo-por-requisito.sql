@@ -1,0 +1,2 @@
+ALTER TABLE "norm_nc" ADD COLUMN "norm_requirement_id" uuid;--> statement-breakpoint
+ALTER TABLE "norm_nc" ADD CONSTRAINT "norm_nc_norm_requirement_id_norm_requirement_id_fk" FOREIGN KEY ("norm_requirement_id") REFERENCES "public"."norm_requirement"("id") ON DELETE no action ON UPDATE no action;

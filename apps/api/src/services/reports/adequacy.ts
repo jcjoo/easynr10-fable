@@ -1,8 +1,8 @@
-import { and, desc, eq, inArray } from 'drizzle-orm';
+import { and, asc, desc, eq, inArray } from 'drizzle-orm';
 import { notDeleted, schema, type Db } from '@easynr10/db';
 import { compareNormCodes, weightedAdherencePercent } from '@easynr10/shared';
 
-const { adequacyItem, diagnostic, norm } = schema;
+const { adequacyItem, diagnostic, diagnosticNc, norm } = schema;
 
 // Itens de adequação ATIVOS da unidade com a norma e o último diagnóstico —
 // base do dashboard, do relatório de não conformidades e da aderência geral.
@@ -73,12 +73,91 @@ export async function adequacySnapshot(db: Db, unitId: string) {
 // shared (weightedAdherencePercent), compartilhada com a Visão Geral do front.
 export const weightedPercent = weightedAdherencePercent;
 
-// Relatório de Não Conformidades (RF21): itens ativos abaixo de Plena,
-// incluindo os sem avaliação (não conformidade presumida até avaliar).
-// O peso da norma fica no servidor (só alimenta as médias ponderadas).
+// Relatório de Não Conformidades (RF21): as NCs GERADAS pelo último
+// diagnóstico de cada item ativo (snapshot em diagnostic_nc) — o estado atual
+// da unidade, orientado às NCs tabeladas em vez de aos itens da norma.
 export async function nonConformityRows(db: Db, unitId: string) {
-  const snapshot = await adequacySnapshot(db, unitId);
-  return snapshot
-    .filter((row) => row.status !== 'plena')
-    .map(({ importanceWeight: _importanceWeight, ...row }) => row);
+  const items = await db
+    .select({
+      id: adequacyItem.id,
+      normCode: norm.code,
+      normDescription: norm.description,
+      documentGroup: norm.documentGroup,
+    })
+    .from(adequacyItem)
+    .innerJoin(norm, eq(adequacyItem.normId, norm.id))
+    .where(
+      and(
+        eq(adequacyItem.unitId, unitId),
+        eq(adequacyItem.isActive, true),
+        notDeleted(adequacyItem),
+      ),
+    );
+  if (items.length === 0) return [];
+
+  // Último diagnóstico por item (mesma varredura do adequacySnapshot).
+  const diags = await db
+    .select({
+      id: diagnostic.id,
+      adequacyItemId: diagnostic.adequacyItemId,
+      createdAt: diagnostic.createdAt,
+    })
+    .from(diagnostic)
+    .where(
+      and(
+        inArray(
+          diagnostic.adequacyItemId,
+          items.map((item) => item.id),
+        ),
+        notDeleted(diagnostic),
+      ),
+    )
+    .orderBy(desc(diagnostic.createdAt));
+  const latestByItem = new Map<string, (typeof diags)[number]>();
+  for (const diag of diags) {
+    if (!latestByItem.has(diag.adequacyItemId)) latestByItem.set(diag.adequacyItemId, diag);
+  }
+  if (latestByItem.size === 0) return [];
+
+  const ncs = await db
+    .select()
+    .from(diagnosticNc)
+    .where(
+      and(
+        inArray(
+          diagnosticNc.diagnosticId,
+          [...latestByItem.values()].map((diag) => diag.id),
+        ),
+        notDeleted(diagnosticNc),
+      ),
+    )
+    .orderBy(asc(diagnosticNc.code));
+
+  const byDiagnostic = new Map<string, typeof ncs>();
+  for (const nc of ncs) {
+    byDiagnostic.set(nc.diagnosticId, [...(byDiagnostic.get(nc.diagnosticId) ?? []), nc]);
+  }
+
+  const rows = items.flatMap((item) => {
+    const latest = latestByItem.get(item.id);
+    if (!latest) return [];
+    return (byDiagnostic.get(latest.id) ?? []).map((nc) => ({
+      id: nc.id,
+      normCode: item.normCode,
+      normDescription: item.normDescription,
+      documentGroup: item.documentGroup,
+      code: nc.code,
+      description: nc.description,
+      recommendedAction: nc.recommendedAction,
+      requirementQuestion: nc.requirementQuestion,
+      // Em requisitos de cadastro, a NC é por item (colaborador/equipamento).
+      itemLabel: nc.itemLabel,
+      adherence: nc.adherence,
+      diagnosticAt: latest.createdAt,
+    }));
+  });
+  rows.sort(
+    (a, b) => compareNormCodes(a.normCode, b.normCode) || a.code.localeCompare(b.code),
+  );
+  return rows;
 }

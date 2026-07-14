@@ -6,10 +6,12 @@ import { purgeUnitObjects } from './s3';
 const {
   actionItem,
   adequacyItem,
+  adequacyItemNc,
   adequacyItemRequirement,
   authorization,
   customField,
   diagnostic,
+  diagnosticNc,
   document,
   evidence,
   evidenceItem,
@@ -54,11 +56,13 @@ const cascadeSteps: {
   { table: evidenceItem, where: (c) => byIds(evidenceItem.evidenceId, c.evidenceIds) },
   { table: evidence, where: (c) => byIds(evidence.id, c.evidenceIds) },
   { table: actionItem, where: (c) => byIds(actionItem.diagnosticId, c.diagnosticIds) },
+  { table: diagnosticNc, where: (c) => byIds(diagnosticNc.diagnosticId, c.diagnosticIds) },
   { table: diagnostic, where: (c) => byIds(diagnostic.id, c.diagnosticIds) },
   {
     table: adequacyItemRequirement,
     where: (c) => byIds(adequacyItemRequirement.adequacyItemId, c.adequacyItemIds),
   },
+  { table: adequacyItemNc, where: (c) => byIds(adequacyItemNc.adequacyItemId, c.adequacyItemIds) },
   { table: adequacyItem, where: (c) => byIds(adequacyItem.id, c.adequacyItemIds) },
   {
     table: registerDocumentLink,

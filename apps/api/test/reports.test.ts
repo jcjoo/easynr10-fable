@@ -22,16 +22,39 @@ async function buildFixture() {
   const itemHeavy = await seedAdequacyItem(unit.id, heavy.id);
   const itemLight = await seedAdequacyItem(unit.id, light.id);
 
-  // Aderência calculada: parecer Parcial ⇒ score 50 (peso 4); Plena ⇒ 100 (peso 1).
+  // A nota vem da NC marcada: NC Parcial no item pesado ⇒ score 50 (peso 4);
+  // item leve sem NC configurada usa nota manual Plena ⇒ 100 (peso 1).
+  const heavyReq = (await adminCaller.adequacy.addRequirement({
+    unitId: unit.id,
+    adequacyItemId: itemHeavy.id,
+    type: 'opinion',
+    question: 'Parecer?',
+  }))!;
+  const heavyNc = (await adminCaller.adequacy.addNc({
+    unitId: unit.id,
+    adequacyItemId: itemHeavy.id,
+    code: 'NC01',
+    description: 'Medidas de controle parciais',
+    recommendedAction: 'Completar as medidas',
+    requirementId: heavyReq.id,
+    adherence: 'parcial',
+  }))!;
   await adminCaller.adequacy.diagnose({
     unitId: unit.id,
     adequacyItemId: itemHeavy.id,
     deadline: isoDaysFromNow(-1), // ação já vencida
     responsible: 'Fulano',
     evidences: [
-      { type: 'opinion', question: 'Parecer?', adherence: 'parcial', items: [{ label: 'P' }] },
+      {
+        type: 'opinion',
+        question: 'Parecer?',
+        requirementId: heavyReq.id,
+        ncId: heavyNc.id,
+        items: [{ label: 'P' }],
+      },
     ],
   });
+  // Item leve sem NC configurada = modo manual (nota Plena direta).
   await adminCaller.adequacy.diagnose({
     unitId: unit.id,
     adequacyItemId: itemLight.id,
@@ -80,12 +103,14 @@ describe('reports', () => {
     expect(instalacoes?.percent).toBe(50); // só o item parcial (peso 4)
   });
 
-  test('não conformidades excluem plena e não vazam o peso da norma', async () => {
+  test('não conformidades listam as NCs marcadas no último diagnóstico', async () => {
     const { adminCaller, unit, heavy } = await buildFixture();
     const rows = await adminCaller.reports.nonConformities({ unitId: unit.id });
     expect(rows).toHaveLength(1);
     expect(rows[0]?.normCode).toBe(heavy.code);
-    expect('importanceWeight' in rows[0]!).toBe(false);
+    expect(rows[0]?.code).toBe('NC01');
+    expect(rows[0]?.adherence).toBe('parcial');
+    expect(rows[0]?.recommendedAction).toBe('Completar as medidas');
   });
 
   test('situação documental traz caminho da pasta e dias para vencer', async () => {

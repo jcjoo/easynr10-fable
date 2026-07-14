@@ -73,6 +73,29 @@ export const evidenceItem = pgTable(
   ],
 );
 
+// NC marcada no diagnóstico (snapshot, como as evidências): código, descrição,
+// ação e nota copiados da configuração no momento — reconfigurar as NCs não
+// reescreve diagnósticos. Em requisitos de cadastro, uma linha por item
+// marcado (item_label identifica o colaborador/equipamento).
+export const diagnosticNc = pgTable(
+  'diagnostic_nc',
+  {
+    id: id(),
+    diagnosticId: uuid('diagnostic_id')
+      .notNull()
+      .references(() => diagnostic.id),
+    code: varchar('code', { length: 30 }).notNull(),
+    description: text('description').notNull(),
+    recommendedAction: text('recommended_action').notNull(),
+    requirementQuestion: text('requirement_question').notNull(),
+    itemLabel: varchar('item_label', { length: 512 }),
+    adherence: diagnosticStatus('adherence').notNull(),
+    ...audit,
+  },
+  // "NCs do último diagnóstico" (relatório) busca por diagnostic_id.
+  (t) => [index('idx_diagnostic_nc_diagnostic').on(t.diagnosticId)],
+);
+
 export const actionItem = pgTable(
   'action_item',
   {

@@ -1,6 +1,6 @@
 import { boolean, index, integer, pgTable, text, uniqueIndex, uuid, varchar } from 'drizzle-orm/pg-core';
 import { audit, id, whereActive } from './helpers';
-import { documentGroup, registerTarget, requirementType } from './enums';
+import { diagnosticStatus, documentGroup, registerTarget, requirementType } from './enums';
 import { unit } from './org';
 
 export const norm = pgTable(
@@ -31,6 +31,26 @@ export const normRequirement = pgTable(
   },
   // Requisitos do catálogo copiados por norma ao configurar o item.
   (t) => [index('idx_norm_requirement_norm').on(t.normId)],
+);
+
+// Não conformidade do catálogo (planilha do checklist: cada linha é um
+// requisito do item, com sua lista de NÃO CONFORMIDADES pareada com AÇÕES
+// RECOMENDADAS) — modelo copiado para o item, preservando o vínculo com o
+// requisito de origem.
+export const normNc = pgTable(
+  'norm_nc',
+  {
+    id: id(),
+    normId: uuid('norm_id')
+      .notNull()
+      .references(() => norm.id),
+    normRequirementId: uuid('norm_requirement_id').references(() => normRequirement.id),
+    code: varchar('code', { length: 30 }).notNull(),
+    description: text('description').notNull(),
+    recommendedAction: text('recommended_action').notNull(),
+    ...audit,
+  },
+  (t) => [index('idx_norm_nc_norm').on(t.normId)],
 );
 
 export const adequacyItem = pgTable(
@@ -71,4 +91,26 @@ export const adequacyItemRequirement = pgTable(
   },
   // Requisitos por item de adequação (leitura da tela + cascata).
   (t) => [index('idx_adequacy_item_requirement_item').on(t.adequacyItemId)],
+);
+
+// NC configurada no item: vinculada a um requisito (sem vínculo não aparece
+// na avaliação). Na avaliação o usuário marca a NC — não a nota: a nota do
+// requisito É a da NC marcada (`adherence`); sem NC marcada, Plena. Um mesmo
+// requisito pode ter NCs de notas diferentes (Inexistente numa, Suficiente
+// noutra) — ou uma só, e então o requisito só pode ser Pleno ou aquela nota.
+export const adequacyItemNc = pgTable(
+  'adequacy_item_nc',
+  {
+    id: id(),
+    adequacyItemId: uuid('adequacy_item_id')
+      .notNull()
+      .references(() => adequacyItem.id),
+    requirementId: uuid('requirement_id').references(() => adequacyItemRequirement.id),
+    code: varchar('code', { length: 30 }).notNull(),
+    description: text('description').notNull(),
+    recommendedAction: text('recommended_action').notNull(),
+    adherence: diagnosticStatus('adherence').notNull().default('inexistente'),
+    ...audit,
+  },
+  (t) => [index('idx_adequacy_item_nc_item').on(t.adequacyItemId)],
 );

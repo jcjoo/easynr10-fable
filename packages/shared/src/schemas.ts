@@ -137,10 +137,17 @@ export type DocumentVersionConfirmInput = z.infer<
 export const evidenceInputSchema = z.object({
   type: z.enum(requirementTypes),
   question: z.string().trim().min(1),
+  // Requisito de origem — liga a evidência às NCs configuradas nele.
+  requirementId: z.uuid().nullish(),
   // Coluna do cadastro (só nas evidências tipo cadastro) — permite propagar a
   // nota de cada item de volta ao vínculo do cadastro ao salvar.
   fieldKey: z.string().trim().max(120).nullish(),
-  // Nota da evidência (document/opinion). Em cadastro a nota vem dos itens.
+  // NC marcada no requisito (document/opinion) — a NOTA é derivada dela no
+  // servidor (sem NC = Plena). Requisito SEM NCs configuradas volta ao modo
+  // manual: a `adherence` enviada vale.
+  ncId: z.uuid().nullish(),
+  // Nota: derivada da NC (requisito com NCs; valor do cliente ignorado) ou
+  // manual (requisito sem NCs).
   adherence: z.enum(diagnosticStatuses).nullish(),
   items: z
     .array(
@@ -150,7 +157,9 @@ export const evidenceInputSchema = z.object({
         documentId: z.uuid().nullish(),
         employeeId: z.uuid().nullish(),
         equipmentId: z.uuid().nullish(),
-        // Nota do item (usada nos itens de cadastro).
+        // NC marcada no item (evidências tipo cadastro) — nota derivada dela;
+        // requisito sem NCs usa a nota manual do item.
+        ncId: z.uuid().nullish(),
         adherence: z.enum(diagnosticStatuses).nullish(),
       }),
     )
@@ -206,6 +215,31 @@ export const actionItemStatusSchema = z.object({
   status: z.enum(actionStatuses),
 });
 export type ActionItemStatusInput = z.infer<typeof actionItemStatusSchema>;
+
+// — Não conformidades do item (configuradas junto dos requisitos) —
+// Cada NC pertence a um requisito (sem vínculo não aparece na avaliação) e
+// carrega a NOTA que ela implica: na avaliação marca-se a NC, não a nota —
+// sem NC o requisito é Pleno.
+const ncFields = {
+  code: z.string().trim().min(1).max(30),
+  description: z.string().trim().min(1),
+  recommendedAction: z.string().trim(),
+  requirementId: z.uuid().nullish(),
+  adherence: z.enum(diagnosticStatuses).default('inexistente'),
+};
+export const ncCreateSchema = z.object({
+  unitId: z.uuid(),
+  adequacyItemId: z.uuid(),
+  ...ncFields,
+});
+export type NcCreateInput = z.infer<typeof ncCreateSchema>;
+
+export const ncUpdateSchema = z.object({
+  unitId: z.uuid(),
+  ncId: z.uuid(),
+  ...ncFields,
+});
+export type NcUpdateInput = z.infer<typeof ncUpdateSchema>;
 
 // — Cadastros (Colaboradores/Equipamentos) —
 // metadata carrega os valores dos campos default do sistema + campos

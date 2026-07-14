@@ -155,6 +155,34 @@
       "when": 1783693500239,
       "tag": "0021_foto_cadastro",
       "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "7",
+      "when": 1783972386980,
+      "tag": "0022_nao-conformidades",
+      "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1783974157297,
+      "tag": "0023_nc-drop-adherences",
+      "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1783974191079,
+      "tag": "0024_nc-define-nota",
+      "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1783975818039,
+      "tag": "0025_nc-catalogo-por-requisito",
+      "breakpoints": true
     }
   ]
 }

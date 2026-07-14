@@ -51,6 +51,33 @@ export const requirementProcedures = {
     return created;
   }),
 
+  // Renomear a pergunta do requisito (✎ da árvore de configuração). Tipo e
+  // alvo de cadastro não mudam — para isso, remove e recria.
+  updateRequirement: unitAction('diagnostico.requisitos')
+    .input(z.object({ requirementId: z.uuid(), question: z.string().trim().min(1) }))
+    .mutation(async ({ ctx, input }) => {
+      const [row] = await ctx.db
+        .select({ id: adequacyItemRequirement.id })
+        .from(adequacyItemRequirement)
+        .innerJoin(adequacyItem, eq(adequacyItemRequirement.adequacyItemId, adequacyItem.id))
+        .where(
+          and(
+            eq(adequacyItemRequirement.id, input.requirementId),
+            eq(adequacyItem.unitId, input.unitId),
+            notDeleted(adequacyItemRequirement),
+          ),
+        );
+      if (!row) {
+        throw new TRPCError({ code: 'NOT_FOUND', message: 'Requisito não encontrado' });
+      }
+      const [updated] = await ctx.db
+        .update(adequacyItemRequirement)
+        .set({ question: input.question })
+        .where(eq(adequacyItemRequirement.id, row.id))
+        .returning();
+      return updated;
+    }),
+
   removeRequirement: unitAction('diagnostico.requisitos')
     .input(z.object({ requirementId: z.uuid() }))
     .mutation(async ({ ctx, input }) => {
@@ -158,6 +185,9 @@ export const requirementProcedures = {
           label: `${requirement.question} de ${member.name}`,
           documentId: link?.documentId ?? null,
           documentName: link?.documentName ?? null,
+          // Vencimento do documento vinculado — documento vencido gera a NC
+          // automática (Parcial) na avaliação.
+          expiresAt: link?.expiresAt ?? null,
           // Nota default = a do vínculo (que nasceu da aderência do documento).
           adherence: link?.adherence ?? null,
         };
