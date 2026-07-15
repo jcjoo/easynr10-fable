@@ -17,7 +17,9 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    # runner da org registrado com o rótulo "docker" (ver Settings → Actions
+    # → Runners). O job precisa de CLI do Docker + socket do host pra buildar.
+    runs-on: docker
     strategy:
       matrix:
         include:
