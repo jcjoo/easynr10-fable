@@ -1,5 +1,9 @@
 # Build e push das imagens (api e web) para o registry do próprio Forgejo a
-# cada push na main (pacotes ficam na org, não no ghcr).
+# cada push em main OU homolog (pacotes ficam na org, não no ghcr). A tag =
+# nome da branch (metadata-action type=ref,event=branch): main também ganha
+# "latest" (usada pelo docker-compose.prod.yml); homolog gera a tag "homolog"
+# (usada pelo docker-compose.homolog.yml). O owner é minusculado pelo
+# metadata-action → as imagens saem como pso/easynr10-{api,web}.
 # REGISTRY_HOST é variável de org no Forgejo (host do registry, visto pelo
 # daemon docker do runner — ex.: localhost:3300 no teste local).
 # Sem setup-buildx: o builder padrão (driver docker) builda e publica pelo
@@ -8,7 +12,7 @@ name: docker-images
 
 on:
   push:
-    branches: [main]
+    branches: [main, homolog]
   workflow_dispatch:
 
 jobs:
@@ -38,6 +42,7 @@ jobs:
           images: ${{ vars.REGISTRY_HOST }}/${{ github.repository_owner }}/${{ matrix.image }}
           tags: |
             type=raw,value=latest,enable={{is_default_branch}}
+            type=ref,event=branch
             type=sha
 
       - uses: docker/build-push-action@v6

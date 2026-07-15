@@ -28,6 +28,38 @@ Na primeira subida (banco vazio), o container da API roda o seed (catálogos + e
 
 Para expor via túnel (ngrok etc.), adicione a URL pública em `EXTRA_TRUSTED_ORIGINS` no `.env` e recrie os containers — sem isso o better-auth rejeita o login vindo dessa origem.
 
+## Fluxo de branches e deploy
+
+```
+feature/*  ──PR (1 aprovação)──▶  homolog  ──PR (1 aprovação)──▶  main
+                                     │                              │
+                                     ▼                              ▼
+                    homolog.psoengenharia.com.br        sistema.psoengenharia.com.br
+```
+
+`main` e `homolog` bloqueiam push direto e exigem 1 aprovação (inclusive de
+admins). O CI (`.forgejo/workflows/docker-images.yml`) builda e publica as
+imagens no registry do Forgejo a cada push nessas branches: `main` gera a tag
+`latest`; `homolog` gera a tag `homolog` (ambas também recebem uma tag `sha`
+para auditoria). Imagens: `${REGISTRY_HOST}/pso/easynr10-{api,web}`.
+
+Os composes de deploy sobem **só `web` + `api`** (as imagens buildadas).
+Postgres, MinIO, Gotenberg e mail são serviços **compartilhados** do servidor
+(comuns a vários sistemas): não sobem aqui — a api os alcança pela rede Docker
+externa `shared` e pelos endpoints do `.env`.
+
+```bash
+# Pré-requisito no servidor: docker network create pso-shared
+
+# produção (imagem da main → latest)
+docker compose -f docker-compose.prod.yml pull
+docker compose -f docker-compose.prod.yml up -d
+
+# homologação (imagem da branch homolog → homolog)
+docker compose -f docker-compose.homolog.yml pull
+docker compose -f docker-compose.homolog.yml up -d
+```
+
 ## Desenvolvimento
 
 Pré-requisitos: [Bun](https://bun.sh), Docker.

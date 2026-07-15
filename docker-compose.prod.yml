@@ -1,0 +1,57 @@
+# Produção: sobe SÓ as imagens buildadas (web + api) publicadas no registry
+# do Forgejo pela branch main (workflow tageia main → "latest"). Postgres,
+# MinIO, Gotenberg e mail são serviços COMPARTILHADOS no servidor (comuns a
+# vários sistemas) e NÃO sobem aqui — a api aponta para eles via .env, através
+# da rede Docker externa compartilhada (SHARED_NETWORK).
+# Deploy: docker compose -f docker-compose.prod.yml pull && \
+#         docker compose -f docker-compose.prod.yml up -d
+# (pull automático a cada push: ver Watchtower — não incluído por padrão.)
+name: easynr10-prod
+
+services:
+  web:
+    image: ${REGISTRY_HOST:?defina REGISTRY_HOST}/pso/easynr10-web:${IMAGE_TAG:-latest}
+    restart: unless-stopped
+    ports:
+      - "${WEB_PORT:-8081}:80"
+    depends_on:
+      - api
+    networks:
+      - default
+      - shared
+
+  api:
+    image: ${REGISTRY_HOST:?defina REGISTRY_HOST}/pso/easynr10-api:${IMAGE_TAG:-latest}
+    restart: unless-stopped
+    environment:
+      PORT: "3000"
+      # ── Serviços compartilhados do servidor (via rede "shared") ──────────
+      DATABASE_URL: ${DATABASE_URL:?defina a URL do Postgres compartilhado}
+      S3_ENDPOINT: ${S3_ENDPOINT:?endpoint interno do MinIO compartilhado}
+      S3_PUBLIC_ENDPOINT: ${S3_PUBLIC_ENDPOINT:?endpoint público do MinIO (presigned URLs)}
+      GOTENBERG_URL: ${GOTENBERG_URL:?URL do Gotenberg compartilhado}
+      MAIL_HOST: ${MAIL_HOST:?host de e-mail compartilhado}
+      MAIL_PORT: ${MAIL_PORT:-1025}
+      MAIL_FROM: ${MAIL_FROM:-easynr10@localhost}
+      # ── App ──────────────────────────────────────────────────────────────
+      FRONTEND_URL: ${FRONTEND_URL:?defina a URL pública}
+      BETTER_AUTH_URL: ${FRONTEND_URL:?defina a URL pública}
+      BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET:?defina um segredo forte}
+      EXTRA_TRUSTED_ORIGINS: ${EXTRA_TRUSTED_ORIGINS:-}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
+      ADMIN_EMAIL: ${ADMIN_EMAIL:?}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:?}
+      S3_REGION: ${S3_REGION:-us-east-1}
+      S3_ACCESS_KEY: ${S3_ACCESS_KEY:?}
+      S3_SECRET_KEY: ${S3_SECRET_KEY:?}
+      S3_BUCKET: ${S3_BUCKET:-easynr10}
+      S3_FORCE_PATH_STYLE: "true"
+    networks:
+      - default
+      - shared
+
+networks:
+  shared:
+    external: true
+    name: ${SHARED_NETWORK:-pso-shared}
