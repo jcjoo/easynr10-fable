@@ -17,9 +17,10 @@ on:
 
 jobs:
   build:
-    # runner da org registrado com o rótulo "docker" (ver Settings → Actions
-    # → Runners). O job precisa de CLI do Docker + socket do host pra buildar.
-    runs-on: docker
+    # runner da org registrado com o rótulo "ubuntu-22.04" (ver Settings →
+    # Actions → Runners). O job precisa de CLI do Docker + socket do host pra
+    # buildar.
+    runs-on: ubuntu-22.04
     strategy:
       matrix:
         include:
