@@ -31,24 +31,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # DEBUG TEMPORÁRIO: descobrir com qual daemon o job fala e se ele tem o
-      # insecure-registries. Remover assim que o login passar.
-      - name: debug docker daemon
-        run: |
-          echo "DOCKER_HOST=${DOCKER_HOST:-<vazio>}"
-          echo "REGISTRY_HOST=${{ vars.REGISTRY_HOST }}"
-          echo "--- which docker ---"
-          which docker || echo "docker CLI AUSENTE"
-          echo "--- docker version (cru) ---"
-          docker version 2>&1 | head -30 || true
-          echo "--- docker info (cru) ---"
-          docker info 2>&1 | head -40 || true
-          echo "--- sockets ---"
-          ls -l /var/run/docker.sock 2>&1 || true
-          echo "--- alcance do registry via HTTP ---"
-          curl -s -o /dev/null -w "http  /v2/ -> %{http_code}\n" \
-            "http://${{ vars.REGISTRY_HOST }}/v2/" || echo "curl http falhou"
-
       # REGISTRY_TOKEN: secret de org com um token write:package — o token
       # automático do job (GITHUB_TOKEN) não tem acesso ao registry de pacotes.
       - uses: docker/login-action@v3
