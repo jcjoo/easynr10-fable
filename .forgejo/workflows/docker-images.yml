@@ -17,10 +17,10 @@ on:
 
 jobs:
   build:
-    # runner da org registrado com o rótulo "ubuntu-22.04" (ver Settings →
-    # Actions → Runners). O job precisa de CLI do Docker + socket do host pra
-    # buildar.
-    runs-on: ubuntu-22.04
+    # runner da org registrado com o rótulo "ubuntu-latest" (ver Settings →
+    # Actions → Runners), mapeado para as imagens do catthehacker. O job
+    # precisa de CLI do Docker + socket do host pra buildar.
+    runs-on: ubuntu-latest
     strategy:
       matrix:
         include:
